@@ -1,6 +1,6 @@
 "use client"
 
-import { Users, TrendingUp, TrendingDown, Search } from "lucide-react"
+import { Users, TrendingUp, TrendingDown, Search, ArrowDownCircle, ArrowUpCircle } from "lucide-react"
 import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
@@ -87,10 +87,13 @@ export default function InsiderTrades() {
   }
 
   // Statistiken für Buy/Sell
-  const buyCount = trades.filter(t => /buy|purchase/i.test(t.transaction)).length;
-  const sellCount = trades.filter(t => /sell|sale/i.test(t.transaction)).length;
-  const buyVolume = trades.filter(t => /buy|purchase/i.test(t.transaction)).reduce((sum, t) => sum + t.value, 0);
-  const sellVolume = trades.filter(t => /sell|sale/i.test(t.transaction)).reduce((sum, t) => sum + t.value, 0);
+  // Erweiterte Erkennung für Buy-Transaktionen
+  const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
+  const sellRegex = /sell|sale|dispose|disposition/i;
+  const buyCount = trades.filter(t => buyRegex.test(t.transaction)).length;
+  const sellCount = trades.filter(t => sellRegex.test(t.transaction)).length;
+  const buyVolume = trades.filter(t => buyRegex.test(t.transaction)).reduce((sum, t) => sum + t.value, 0);
+  const sellVolume = trades.filter(t => sellRegex.test(t.transaction)).reduce((sum, t) => sum + t.value, 0);
 
   function formatCompactNumber(num: number) {
     if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + 'B';
@@ -201,14 +204,24 @@ export default function InsiderTrades() {
             >
               <CardContent className="flex flex-col p-0 h-full">
                 {/* Top Row: Titel und Sale-Badge nebeneinander */}
-                <div className="flex items-start justify-between w-full mb-1">
-                  <div className="text-xs font-extrabold text-card-foreground uppercase tracking-tight leading-tight max-w-[70%] break-words">{trade.position}</div>
-                  {(/sell|sale/i.test(trade.transaction)) && (
-                    <span className="bg-muted text-red-400 text-[10px] font-bold px-2 py-0.5 rounded shadow ml-2" style={{letterSpacing: 1}}>Sale</span>
-                  )}
+                <div className="flex items-start w-full mb-6 relative">
+                  <div className="absolute left-0 -top-1 text-xs font-extrabold text-card-foreground uppercase tracking-tight leading-tight max-w-[70%] break-words">{trade.position}</div>
+                  {/* Badges absolut oben rechts platzieren */}
+                  <div className="absolute -right-4 -top-2 flex gap-1">
+                    {sellRegex.test(trade.transaction) && (
+                      <span className="text-red-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
+                        <ArrowDownCircle className="w-3 h-3 mr-0.5" /> Sale
+                      </span>
+                    )}
+                    {buyRegex.test(trade.transaction) && (
+                      <span className="text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
+                        <ArrowUpCircle className="w-3 h-3 mr-0.5" /> Buy
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {/* Datum und Name */}
-                <div className="text-[10px] font-bold text-card-foreground text-center mb-0.5">{trade.date}</div>
+                <div className="text-[10px] font-bold text-card-foreground flex justify-center mt-2 mb-0.5">{trade.date}</div>
                 <div className="text-[10px] text-muted-foreground text-center mb-2">{trade.insider}</div>
                 {/* Werte */}
                 <div className="flex flex-row items-end justify-between w-full mt-auto gap-2">
