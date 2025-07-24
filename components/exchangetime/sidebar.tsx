@@ -2,6 +2,7 @@
 
 import type React from "react"
 
+
 import {
   BarChart2,
   Receipt,
@@ -15,6 +16,8 @@ import {
   Settings,
   HelpCircle,
   Menu,
+  Globe,
+  X,
 } from "lucide-react"
 
 import { Home } from "lucide-react"
@@ -401,6 +404,7 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
         type="button"
         className="lg:hidden fixed top-4 left-4 z-[70] p-2 rounded-lg bg-white dark:bg-[#0F0F12] shadow-md"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        aria-label="Open sidebar"
       >
         <Menu className="h-5 w-5 text-gray-600 dark:text-gray-300" />
       </button>
@@ -412,16 +416,30 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
           lg:translate-x-0 lg:static lg:w-64 border-r
           ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
         `}
+        aria-label="Sidebar navigation"
       >
+        {/* Close button only on mobile and only when sidebar is open */}
+        {isMobileMenuOpen && (
+          <button
+            type="button"
+            className="absolute top-[0.875rem] right-4 z-[80] p-2 rounded-lg shadow-md lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-label="Close sidebar"
+            style={{ background: 'transparent' }}
+          >
+            <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+          </button>
+        )}
         <div className="h-full flex flex-col">
           <Link
-            href="https://exchangetime.com/"
+            href="https://exchangetime.de/"
             target="_blank"
             rel="noopener noreferrer"
             className="h-16 px-6 flex items-center border-b border-gray-200 dark:border-[#1F1F23]"
           >
             <div className="flex items-center gap-3">
-              <span className="text-lg font-semibold hover:cursor-pointer text-gray-900 dark:text-white">
+              <Globe className="w-7 h-7 text-white align-middle" style={{ marginTop: '-2px' }} />
+              <span className="text-lg font-semibold hover:cursor-pointer text-gray-900 dark:text-white align-middle" style={{ lineHeight: '28px' }}>
                 Exchange Time
               </span>
             </div>

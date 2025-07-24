@@ -48,8 +48,9 @@ export default function HolidayCalendar() {
   }
 
   const holidayDates = holidays.map(h => h.date);
-  // Wir speichern das ausgewählte Datum als String
-  const [selected, setSelected] = useState<string | undefined>(undefined);
+  // Wir speichern das ausgewählte Datum als String, initial auf heute
+  const todayISO = toISODateString(new Date());
+  const [selected, setSelected] = useState<string | undefined>(todayISO);
 
   // Finde alle Holidays für ein bestimmtes Datum
   const getHolidayForDate = (dateString: string) => {
@@ -98,9 +99,9 @@ export default function HolidayCalendar() {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center flex-1 text-sm text-gray-500 dark:text-gray-400 -mt-10">
+              <div className="flex flex-col items-center justify-center flex-1 min-h-[60px] text-sm text-gray-500 dark:text-gray-400">
                 <CalendarX className="w-5 h-5 mb-1" />
-                <span>No holidays for this date.</span>
+                <span className="block text-center">No holidays for this date.</span>
               </div>
             )
           )}
