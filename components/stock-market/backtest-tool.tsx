@@ -241,7 +241,7 @@ export default function BacktestTool() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Symbol</label>
-                <Input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="e.g., SPY" />
+                <Input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="Enter ticker (e.g. AAPL)" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Initial Amount</label>

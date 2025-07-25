@@ -1,7 +1,7 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Bell, ChevronRight, RotateCw } from "lucide-react"
+import { Bell, ChevronRight, RotateCw, Trash2, Pencil } from "lucide-react"
 import { fetchStockData as fetchStockDataPortfolio } from "../stock-market/portfolio-tracker"
 import Profile01 from "./profile-01"
 import Link from "next/link"
@@ -37,7 +37,16 @@ export default function TopNav() {
   });
   const [showAdd, setShowAdd] = useState(false)
   const [newTicker, setNewTicker] = useState("")
+  const [watchlistTitle, setWatchlistTitle] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('et_watchlist_title');
+      if (stored && typeof stored === 'string') return stored;
+    }
+    return 'Watchlist';
+  });
+  const [editingTitle, setEditingTitle] = useState(false);
   const [prices, setPrices] = useState<{ [ticker: string]: string }>({})
+  const [changes, setChanges] = useState<{ [ticker: string]: number | null }>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,6 +55,7 @@ export default function TopNav() {
     setLoading(true)
     setError(null)
     const results: { [ticker: string]: string } = {}
+    const changesResult: { [ticker: string]: number | null } = {}
     await Promise.all(
       watchlist.map(async (stock) => {
         try {
@@ -53,17 +63,32 @@ export default function TopNav() {
           if (Array.isArray(data) && data.length > 0) {
             const last = data[data.length - 1]
             results[stock.ticker] = last && last.close !== null && last.close !== undefined ? `$${last.close.toFixed(2)}` : "N/A"
+            // Tagesveränderung berechnen
+            if (data.length > 1 && last && last.close !== null && last.close !== undefined) {
+              const prev = data[data.length - 2]
+              if (prev && prev.close !== null && prev.close !== undefined && prev.close !== 0) {
+                const change = ((last.close - prev.close) / prev.close) * 100
+                changesResult[stock.ticker] = change
+              } else {
+                changesResult[stock.ticker] = null
+              }
+            } else {
+              changesResult[stock.ticker] = null
+            }
           } else {
             results[stock.ticker] = "N/A"
+            changesResult[stock.ticker] = null
           }
         } catch (err) {
           results[stock.ticker] = "N/A"
+          changesResult[stock.ticker] = null
           setError('Could not fetch stock prices. Please try again later.')
           if (typeof window !== 'undefined') console.error('Price fetch error', stock.ticker, err)
         }
       })
     )
     setPrices(results)
+    setChanges(changesResult)
     setLoading(false)
   }
 
@@ -78,6 +103,13 @@ export default function TopNav() {
       window.localStorage.setItem('et_watchlist', JSON.stringify(watchlist));
     } catch {}
   }, [watchlist]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('et_watchlist_title', watchlistTitle);
+    } catch {}
+  }, [watchlistTitle]);
 
   useEffect(() => {
     if (watchlist.length === 0) return;
@@ -117,7 +149,37 @@ export default function TopNav() {
             <div className="flex flex-col gap-2 p-2">
               {/* Watchlist-Titel und Reload nebeneinander */}
               <div className="flex items-center justify-between mb-2">
-                <span className="text-base font-bold text-gray-800 dark:text-gray-100">Watchlist</span>
+                <div className="flex items-center gap-1">
+                  {editingTitle ? (
+                    <input
+                      type="text"
+                      className="text-base font-bold text-gray-800 dark:text-gray-100 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none px-1 py-0.5 min-w-[80px]"
+                      value={watchlistTitle}
+                      onChange={e => setWatchlistTitle(e.target.value)}
+                      onBlur={() => setEditingTitle(false)}
+                      onKeyDown={e => { if (e.key === 'Enter') setEditingTitle(false); }}
+                      autoFocus
+                    />
+                  ) : (
+                    <>
+                      <span
+                        className="text-base font-bold text-gray-800 dark:text-gray-100"
+                        title="Watchlist-Titel"
+                      >
+                        {watchlistTitle}
+                      </span>
+                      <button
+                        type="button"
+                        className="ml-1 text-gray-400 hover:text-blue-600 p-1 rounded focus:outline-none"
+                        title="Titel bearbeiten"
+                        aria-label="Edit Watchlist Title"
+                        onClick={() => setEditingTitle(true)}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    </>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => { fetchPrices().catch((err) => { if (typeof window !== 'undefined') console.error('fetchPrices error', err); }); }}
@@ -147,15 +209,25 @@ export default function TopNav() {
                           setWatchlist(watchlist.filter((_, i) => i !== idx))
                         }}
                       >
-                        &#10005;
+                        <Trash2 size={14} />
                       </button>
                       <span className="font-semibold">{stock.ticker}</span>
                       <div className="flex-1" />
-                      <span className="text-xs font-mono text-black dark:text-gray-200 min-w-[60px] text-right">
+                      <span className="text-xs font-mono text-black dark:text-gray-200 min-w-[60px] text-right flex flex-col items-end">
                         {loading
                           ? <span className="text-gray-400">...</span>
                           : prices[stock.ticker] !== undefined
-                            ? prices[stock.ticker]
+                            ? <>
+                                {prices[stock.ticker]}
+                                {changes[stock.ticker] !== undefined && changes[stock.ticker] !== null && !isNaN(changes[stock.ticker] as number) ? (
+                                  <span className={
+                                    'ml-1 ' +
+                                    (changes[stock.ticker]! > 0 ? 'text-green-600' : changes[stock.ticker]! < 0 ? 'text-red-600' : 'text-gray-400')
+                                  }>
+                                    {changes[stock.ticker]! > 0 ? '+' : ''}{changes[stock.ticker]!.toFixed(2)}%
+                                  </span>
+                                ) : null}
+                              </>
                             : <span className="text-gray-400">...</span>
                         }
                       </span>
@@ -169,10 +241,11 @@ export default function TopNav() {
                 <div className="flex flex-col gap-1 mt-2">
                   <input
                     type="text"
-                    placeholder="Ticker (e.g. NVDA)"
-                    className="px-2 py-1 rounded border text-xs bg-white dark:bg-[#18181b] border-gray-200 dark:border-[#23232a] focus:outline-none uppercase"
+                    placeholder="Ticker"
+                    className="px-2 py-1 rounded border text-xs bg-white dark:bg-[#18181b] border-gray-200 dark:border-[#23232a] focus:outline-none"
                     value={newTicker.toUpperCase()}
                     onChange={e => setNewTicker(e.target.value.toUpperCase())}
+                    // style entfernt, damit Placeholder nicht uppercase ist
                     autoFocus
                   />
                   <div className="flex gap-1 mt-1">

@@ -27,6 +27,20 @@ export default function InsiderTrades() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [companyName, setCompanyName] = useState<string>("")
+  // Auswahl-Logik für Karten
+  const [selectedIndexes, setSelectedIndexes] = useState<number[]>([])
+
+  function toggleSelect(index: number) {
+    setSelectedIndexes(prev =>
+      prev.includes(index)
+        ? prev.filter(i => i !== index)
+        : [...prev, index]
+    )
+  }
+
+  const selectedSum = selectedIndexes
+    .map(i => trades[i]?.value || 0)
+    .reduce((a, b) => a + b, 0)
 
   const fetchInsiderTrades = async () => {
     setLoading(true)
@@ -207,52 +221,69 @@ export default function InsiderTrades() {
         </div>
       )}
       {trades.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[420px] h-[420px] overflow-y-auto pr-2">
-          {trades.map((trade, index) => (
-            <Card
-              key={index}
-              className="flex flex-col px-6 py-5 min-h-[160px] relative"
-            >
-              <CardContent className="flex flex-col p-0 h-full">
-                {/* Top Row: Titel und Sale-Badge nebeneinander */}
-                <div className="flex items-start w-full mb-6 relative">
-                  <div className="absolute left-0 -top-1 text-xs font-extrabold text-card-foreground uppercase tracking-tight leading-tight max-w-[70%] break-words">{trade.position}</div>
-                  {/* Badges absolut oben rechts platzieren */}
-                  <div className="absolute -right-4 -top-2 flex gap-1">
-                    {sellRegex.test(trade.transaction) && (
-                      <span className="text-red-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
-                        <ArrowDownCircle className="w-3 h-3 mr-0.5" /> Sale
-                      </span>
-                    )}
-                    {buyRegex.test(trade.transaction) && (
-                      <span className="text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
-                        <ArrowUpCircle className="w-3 h-3 mr-0.5" /> Buy
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {/* Datum und Name */}
-                <div className="text-[10px] font-bold text-card-foreground flex justify-center mt-2 mb-0.5">{trade.date}</div>
-                <div className="text-[10px] text-muted-foreground text-center mb-2">{trade.insider}</div>
-                {/* Werte */}
-                <div className="flex flex-row items-end justify-between w-full mt-auto gap-2">
-                  <div className="flex flex-col items-center flex-1">
-                    <span className="text-[9px] text-muted-foreground font-semibold mb-0.5">PRICE</span>
-                    <span className="text-xs font-bold text-card-foreground">${trade.price.toFixed(2)}</span>
-                  </div>
-                  <div className="flex flex-col items-center flex-1">
-                    <span className="text-[9px] text-muted-foreground font-semibold mb-0.5">SHARES</span>
-                    <span className="text-xs font-bold text-card-foreground">{formatCompactNumber(trade.shares)}</span>
-                  </div>
-                  <div className="flex flex-col items-center flex-1">
-                    <span className="text-[9px] text-muted-foreground font-semibold mb-0.5">VALUE</span>
-                    <span className="text-xs font-bold text-card-foreground">${formatCompactNumber(trade.value)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[420px] h-[420px] overflow-y-auto pr-2">
+            {trades.map((trade, index) => {
+              const selected = selectedIndexes.includes(index)
+              return (
+                <Card
+                  key={index}
+                  className={`flex flex-col px-6 py-5 min-h-[160px] relative cursor-pointer transition-all duration-150 border-2 ${selected ? 'border-white dark:border-white shadow-lg' : 'border-transparent'}`}
+                  onClick={() => toggleSelect(index)}
+                  tabIndex={0}
+                  aria-pressed={selected}
+                  aria-label={`Insider Trade ${index + 1} auswählen`}
+                >
+                  <CardContent className="flex flex-col p-0 h-full">
+                    {/* Top Row: Titel und Sale-Badge nebeneinander */}
+                    <div className="flex items-start w-full mb-6 relative">
+                      <div className="absolute left-0 -top-1 text-xs font-extrabold text-card-foreground uppercase tracking-tight leading-tight max-w-[70%] break-words">{trade.position}</div>
+                      {/* Badges absolut oben rechts platzieren */}
+                      <div className="absolute -right-4 -top-2 flex gap-1">
+                        {sellRegex.test(trade.transaction) && (
+                          <span className="text-red-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
+                            <ArrowDownCircle className="w-3 h-3 mr-0.5" /> Sale
+                          </span>
+                        )}
+                        {buyRegex.test(trade.transaction) && (
+                          <span className="text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
+                            <ArrowUpCircle className="w-3 h-3 mr-0.5" /> Buy
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Datum und Name */}
+                    <div className="text-[10px] font-bold text-card-foreground flex justify-center mt-2 mb-0.5">{trade.date}</div>
+                    <div className="text-[10px] text-muted-foreground text-center mb-2">{trade.insider}</div>
+                    {/* Werte */}
+                    <div className="flex flex-row items-end justify-between w-full mt-auto gap-2">
+                      <div className="flex flex-col items-center flex-1">
+                        <span className="text-[9px] text-muted-foreground font-semibold mb-0.5">PRICE</span>
+                        <span className="text-xs font-bold text-card-foreground">${trade.price.toFixed(2)}</span>
+                      </div>
+                      <div className="flex flex-col items-center flex-1">
+                        <span className="text-[9px] text-muted-foreground font-semibold mb-0.5">SHARES</span>
+                        <span className="text-xs font-bold text-card-foreground">{formatCompactNumber(trade.shares)}</span>
+                      </div>
+                      <div className="flex flex-col items-center flex-1">
+                        <span className="text-[9px] text-muted-foreground font-semibold mb-0.5">VALUE</span>
+                        <span className="text-xs font-bold text-card-foreground">${formatCompactNumber(trade.value)}</span>
+                      </div>
+                    </div>
+                    {/* Auswahl-Badge entfernt */}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+          {selectedIndexes.length > 0 && (
+            <div className="mt-4 mb-2 flex items-center justify-center">
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-900 bg-white dark:bg-white px-4 py-2 rounded-lg shadow border border-blue-100 dark:border-blue-900">
+                Total value of selected trades: ${formatCompactNumber(selectedSum)}
+              </span>
+            </div>
+          )}
+        </>
       )}
       <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
         <p className="text-xs text-blue-600 dark:text-blue-400">

@@ -366,7 +366,7 @@ export default function PortfolioTracker() {
           <Input
             type="text"
             className="w-full sm:w-44"
-            placeholder="Symbol (e.g. AAPL)"
+            placeholder="Enter ticker (e.g. AAPL)"
             value={search}
             onChange={(e) => setSearch(e.target.value.toUpperCase())}
             disabled={loading}

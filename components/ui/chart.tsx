@@ -179,40 +179,16 @@ const ChartTooltipContent = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "min-w-[5rem] max-w-[8rem] rounded-lg bg-white dark:bg-[#18181b] border border-blue-400/60 shadow-md px-2.5 py-1.5 text-xs flex flex-col gap-1 transition-all duration-150",
-          "backdrop-blur-sm",
+          "min-w-[3.5rem] max-w-[7rem] rounded bg-white/95 dark:bg-[#18181b]/95 border border-gray-200 dark:border-[#23232a] px-2 py-0.5 text-[13px] flex flex-col gap-0.5 transition-all duration-150",
           className
         )}
       >
-        {!nestLabel ? (
-          <div className="font-semibold text-blue-700 dark:text-blue-200 mb-1 text-xs tracking-wide">{tooltipLabel}</div>
-        ) : null}
-        <div className="flex flex-col gap-1">
-          {payload.map((item, index) => {
-            const key = `${nameKey || item.name || item.dataKey || "value"}`
-            const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
-            return (
-              <div
-                key={item.dataKey}
-                className="flex items-center justify-between gap-2"
-              >
-                <span className="flex items-center gap-1.5">
-                  {!hideIndicator && (
-                    <span
-                      className="inline-block h-3 w-3 rounded-full border border-blue-400 dark:border-blue-800 shadow"
-                      style={{ backgroundColor: indicatorColor }}
-                    />
-                  )}
-                </span>
-                {item.value !== undefined && (
-                  <span className="font-mono font-bold text-blue-700 dark:text-blue-200 text-sm">
-                    {item.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </span>
-                )}
-              </div>
-            )
-          })}
+        <div className="flex items-center gap-1.5">
+          {payload[0]?.value !== undefined && (
+            <span className="font-mono font-semibold text-gray-900 dark:text-gray-100 text-[15px]">
+              {payload[0].value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </span>
+          )}
         </div>
       </div>
     )
