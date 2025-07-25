@@ -3,7 +3,7 @@
 
 import { AlertCircle, CalendarX } from "lucide-react"
 import marketHours from "@/lib/exchangeinfo.js"
-import { Calendar } from "@/components/ui/calendar"
+import { CustomCalendar as Calendar } from "@/components/ui/calendar"
 import { useState } from "react"
 
 
@@ -67,17 +67,16 @@ export default function HolidayCalendar() {
       <div className="flex flex-col gap-4 sm:gap-6 sm:flex-row">
         <div className="w-full sm:w-auto flex justify-center">
           <Calendar
-            mode="single"
-            selected={selected ? new Date(selected) : undefined}
-            onSelect={(date: Date | undefined) => {
-              setSelected(date ? toISODateString(date) : undefined);
+            value={selected ? new Date(selected) : undefined}
+            onChange={(value) => {
+              if (Array.isArray(value)) return;
+              setSelected(value ? toISODateString(value) : undefined);
             }}
-            modifiers={{
-              holiday: (date: Date) => holidayDates.includes(toISODateString(date)),
-            }}
-            modifiersClassNames={{
-              holiday: "bg-red-200 dark:bg-red-900/40 text-red-900 dark:text-red-200 border-red-400 border-2",
-            }}
+            tileClassName={({ date }) =>
+              holidayDates.includes(toISODateString(date))
+                ? "bg-red-200 border-red-400 border-2 text-red-700 dark:text-red-400 font-bold"
+                : undefined
+            }
           />
         </div>
         <div className="flex-1 min-w-0 sm:min-w-[220px] pr-0 sm:pr-4 max-h-60 sm:max-h-80 overflow-y-auto flex flex-col">

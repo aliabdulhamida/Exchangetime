@@ -1,3 +1,27 @@
+/* Dark Mode für react-calendar */
+.dark .react-calendar {
+  background-color: transparent;
+  color: #f4f4f5;
+  border-color: #27272a;
+}
+.dark .react-calendar__tile {
+  background: none;
+  color: #f4f4f5;
+}
+.dark .react-calendar__tile--active,
+.dark .react-calendar__tile--now {
+  background: #27272a;
+  color: #f4f4f5;
+}
+.dark .react-calendar__tile--hover {
+  background: #27272a;
+}
+.dark .react-calendar__month-view__days__day--weekend {
+  color: #fca5a5;
+}
+.dark .react-calendar__navigation button {
+  color: #f4f4f5;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
