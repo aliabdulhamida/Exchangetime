@@ -237,7 +237,7 @@ export default function BacktestTool() {
       {!result ? (
         <>
           <div className="space-y-4 mb-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Symbol</label>
                 <Input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="e.g., SPY" />
@@ -251,8 +251,6 @@ export default function BacktestTool() {
                   placeholder="10000"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Monthly Amount</label>
                 <Input
@@ -262,7 +260,7 @@ export default function BacktestTool() {
                   placeholder="0"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
                   <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
