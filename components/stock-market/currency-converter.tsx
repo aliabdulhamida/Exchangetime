@@ -1,10 +1,11 @@
 "use client"
 
-import { DollarSign, ArrowLeftRight } from "lucide-react"
+import { DollarSign, ArrowLeftRight, AlertTriangle } from "lucide-react"
 // import { SiConvertio } from "react-icons/si"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Alert } from "@/components/ui/alert"
 
 const currencies = [
 	"USD",
@@ -196,7 +197,15 @@ export default function CurrencyConverter() {
 					{loading ? "Loading..." : "Convert"}
 				</Button>
 			</form>
-			{error && <div className="text-red-500 mt-4">{error}</div>}
+			{error && (
+			  <Alert
+				variant="destructive"
+				className="mt-4 border-red-400 bg-red-100/60 dark:bg-red-900/30 text-red-700 dark:text-red-300 border flex flex-col items-center justify-center text-center relative py-8 px-4"
+			  >
+				<AlertTriangle className="w-8 h-8 mb-2 text-red-600 dark:text-red-200" />
+				<div className="text-lg mb-1 mx-auto max-w-xs break-words">{error}</div>
+			  </Alert>
+			)}
 			{result && rate !== null && (
 				<div className="p-4 rounded-lg bg-gray-50 dark:bg-[#1F1F23] text-center mt-4">
 					<p className="text-sm text-gray-600 dark:text-gray-400">Result</p>

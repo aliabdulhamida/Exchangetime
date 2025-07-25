@@ -1,12 +1,13 @@
 "use client"
 
-import { TrendingUp, TrendingDown, Search } from "lucide-react"
+import { TrendingUp, TrendingDown, Search, AlertTriangle } from "lucide-react"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import { useState, useMemo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Alert } from "@/components/ui/alert"
 
 interface StockData {
   symbol: string
@@ -289,7 +290,7 @@ export default function StockAnalysis() {
       const yahooUrl = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
       const yahooRes = await fetch(yahooUrl);
       if (!yahooRes.ok) {
-        setError(`Yahoo Finance Chart-API Fehler: ${yahooRes.status}`);
+        setError(`Error fetching data: ${yahooRes.status}`);
         setSelectedStock(null);
         setDcfValue(null);
         setChartData([]);
@@ -346,7 +347,7 @@ export default function StockAnalysis() {
           freeCashFlow: typeof metrics?.freeCashFlow === "number" ? `$${(metrics.freeCashFlow/1e9).toFixed(2)}B` : undefined,
         });
       } else {
-        setError('Kein Ergebnis von Yahoo Finance Chart-API.');
+        setError('Error fetching data.');
         setSelectedStock(null);
         setChartData([]);
       }
@@ -386,7 +387,15 @@ export default function StockAnalysis() {
       </div>
 
       {error && (
-        <div className="text-center text-red-500 dark:text-red-400 mb-2">{error}</div>
+        <Alert
+          variant="destructive"
+          className="mb-4 flex flex-col items-center border border-red-400 dark:border-red-500 bg-red-50/60 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg p-4"
+        >
+          <div className="flex flex-col items-center">
+            <AlertTriangle className="w-8 h-8 mb-2 text-red-500 dark:text-red-400" />
+            <span className="text-center font-normal">{error}</span>
+          </div>
+        </Alert>
       )}
       {loading ? (
         <div className="space-y-4">

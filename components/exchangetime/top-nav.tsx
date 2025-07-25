@@ -11,17 +11,30 @@ import TradingViewWidget from "../stock-market/TradingViewWidget"
 
 const FearGreedIndex = dynamic(() => import("@/components/stock-market/fear-greed-index"), { ssr: false })
 
-interface BreadcrumbItem {
-  label: string
-  href?: string
-}
 
 export default function TopNav() {
-  const [watchlist, setWatchlist] = useState([
-    { ticker: "AAPL" },
-    { ticker: "MSFT" },
-    { ticker: "TSLA" },
-  ])
+  // Watchlist: Lazy Initializer, liest direkt aus localStorage
+  const [watchlist, setWatchlist] = useState<{ ticker: string }[]>(() => {
+    if (typeof window === 'undefined') return [
+      { ticker: "AAPL" },
+      { ticker: "MSFT" },
+      { ticker: "TSLA" },
+    ];
+    try {
+      const raw = window.localStorage.getItem('et_watchlist');
+      if (raw !== null) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.every(item => typeof item === 'object' && typeof item.ticker === 'string')) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return [
+      { ticker: "AAPL" },
+      { ticker: "MSFT" },
+      { ticker: "TSLA" },
+    ];
+  });
   const [showAdd, setShowAdd] = useState(false)
   const [newTicker, setNewTicker] = useState("")
   const [prices, setPrices] = useState<{ [ticker: string]: string }>({})
@@ -54,14 +67,30 @@ export default function TopNav() {
     setLoading(false)
   }
 
+
+  // Lade Watchlist aus localStorage wie im Portfolio Tracker
+  // useEffect zum Persistieren der Watchlist
+
+  // Persistiere Watchlist in localStorage
   useEffect(() => {
-    if (watchlist.length === 0) return
-    let isMounted = true
-    fetchPrices()
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('et_watchlist', JSON.stringify(watchlist));
+    } catch {}
+  }, [watchlist]);
+
+  useEffect(() => {
+    if (watchlist.length === 0) return;
+    let isMounted = true;
+    fetchPrices().catch((err) => {
+      if (typeof window !== 'undefined') console.error('fetchPrices error', err);
+    });
     // Optional: alle 60 Sekunden aktualisieren
-    const interval = setInterval(() => { if (isMounted) fetchPrices() }, 60000)
-    return () => { isMounted = false; clearInterval(interval) }
-  }, [watchlist])
+    const interval = setInterval(() => { if (isMounted) fetchPrices().catch((err) => {
+      if (typeof window !== 'undefined') console.error('fetchPrices error', err);
+    }) }, 60000);
+    return () => { isMounted = false; clearInterval(interval); };
+  }, [watchlist]);
 
   const handleAddStock = () => {
     if (!newTicker.trim()) return
@@ -91,7 +120,7 @@ export default function TopNav() {
                 <span className="text-base font-bold text-gray-800 dark:text-gray-100">Watchlist</span>
                 <button
                   type="button"
-                  onClick={fetchPrices}
+                  onClick={() => { fetchPrices().catch((err) => { if (typeof window !== 'undefined') console.error('fetchPrices error', err); }); }}
                   title="Reload prices"
                   aria-label="Reload prices"
                   disabled={loading}
@@ -104,33 +133,37 @@ export default function TopNav() {
                 <span className="text-xs text-red-500 mb-1">{error}</span>
               )}
               {/* Watchlist-Einträge */}
-              {watchlist.map((stock, idx) => (
-                <div key={stock.ticker + idx}>
-                  <div className="flex items-center px-2 py-1 rounded">
-                    <button
-                      className="mr-2 text-red-500 hover:text-red-700 text-xs p-1 rounded focus:outline-none"
-                      title={`Delete ${stock.ticker}`}
-                      aria-label={`Delete ${stock.ticker}`}
-                      onClick={() => {
-                        setWatchlist(watchlist.filter((_, i) => i !== idx))
-                      }}
-                    >
-                      &#10005;
-                    </button>
-                    <span className="font-semibold">{stock.ticker}</span>
-                    <div className="flex-1" />
-                    <span className="text-xs font-mono text-black dark:text-gray-200 min-w-[60px] text-right">
-                      {loading
-                        ? <span className="text-gray-400">...</span>
-                        : prices[stock.ticker] !== undefined
-                          ? prices[stock.ticker]
-                          : <span className="text-gray-400">...</span>
-                      }
-                    </span>
+              {watchlist.length === 0 ? (
+                <div className="flex items-center justify-center py-4 text-xs text-gray-400">No stocks in watchlist</div>
+              ) : (
+                watchlist.map((stock, idx) => (
+                  <div key={stock.ticker + idx}>
+                    <div className="flex items-center px-2 py-1 rounded">
+                      <button
+                        className="mr-2 text-red-500 hover:text-red-700 text-xs p-1 rounded focus:outline-none"
+                        title={`Delete ${stock.ticker}`}
+                        aria-label={`Delete ${stock.ticker}`}
+                        onClick={() => {
+                          setWatchlist(watchlist.filter((_, i) => i !== idx))
+                        }}
+                      >
+                        &#10005;
+                      </button>
+                      <span className="font-semibold">{stock.ticker}</span>
+                      <div className="flex-1" />
+                      <span className="text-xs font-mono text-black dark:text-gray-200 min-w-[60px] text-right">
+                        {loading
+                          ? <span className="text-gray-400">...</span>
+                          : prices[stock.ticker] !== undefined
+                            ? prices[stock.ticker]
+                            : <span className="text-gray-400">...</span>
+                        }
+                      </span>
+                    </div>
+                    <div className="border-b border-gray-200 dark:border-[#23232a] mx-2" />
                   </div>
-                  <div className="border-b border-gray-200 dark:border-[#23232a] mx-2" />
-                </div>
-              ))}
+                ))
+              )}
               {/* Add-Button und Eingabefeld */}
               {showAdd ? (
                 <div className="flex flex-col gap-1 mt-2">
