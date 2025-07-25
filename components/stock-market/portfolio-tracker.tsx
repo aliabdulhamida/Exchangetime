@@ -1,7 +1,106 @@
 "use client";
 
-import { BarChart3, Trash, RefreshCw } from "lucide-react";
+import { BarChart3, RefreshCw, Trash } from "lucide-react";
 import React, { useState, useEffect, JSX } from "react";
+
+// Einzelne Card-Komponente mit Swipe-to-Delete
+function SwipeToDeleteCard({
+  symbol,
+  date,
+  shares,
+  price,
+  returnPct,
+  onDelete,
+  animateSwipe = false
+}: {
+  symbol: string;
+  date: string;
+  shares: number;
+  price: number | null;
+  returnPct: string | JSX.Element;
+  onDelete: () => void;
+  animateSwipe?: boolean;
+}) {
+  const [dragX, setDragX] = React.useState(0);
+  const [dragging, setDragging] = React.useState(false);
+  const [startX, setStartX] = React.useState<number | null>(null);
+  const threshold = 80;
+
+  // Animation für neuen Eintrag: Swipe kurz nach links und zurück
+  React.useEffect(() => {
+    if (animateSwipe) {
+      setTimeout(() => setDragX(-60), 250); // nach Mount swipen
+      setTimeout(() => setDragX(0), 1100); // zurück
+    }
+    // eslint-disable-next-line
+  }, [animateSwipe]);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    setDragging(true);
+    setStartX(e.clientX);
+  };
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging || startX === null) return;
+    const delta = e.clientX - startX;
+    if (delta < 0) setDragX(delta);
+  };
+  const handlePointerUp = () => {
+    setDragging(false);
+    if (Math.abs(dragX) > threshold) {
+      onDelete();
+    }
+    setDragX(0);
+    setStartX(null);
+  };
+  const handlePointerLeave = () => {
+    setDragging(false);
+    setDragX(0);
+    setStartX(null);
+  };
+
+  return (
+    <div className="relative" style={{ minWidth: 0 }}>
+      {/* Delete background */}
+      <div
+        className="absolute inset-0 flex items-center justify-end pr-6 bg-red-50 dark:bg-red-900 rounded-lg z-0 transition-colors"
+        style={{ opacity: dragX < -10 ? 1 : 0, pointerEvents: 'none' }}
+      >
+        <Trash className="w-6 h-6 text-red-600" />
+      </div>
+      {/* Card */}
+      <div
+        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#18181b] p-4 flex flex-row items-center gap-4 relative text-sm shadow-sm min-h-[72px] hover:shadow-md transition-shadow z-10 touch-none select-none"
+        style={{ transform: `translateX(${dragX}px)`, transition: dragging ? 'none' : 'transform 0.2s' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerLeave}
+        onPointerLeave={handlePointerLeave}
+      >
+        <div className="flex flex-col flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-mono font-bold text-base text-gray-900 dark:text-white truncate">{symbol}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{date}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-700 dark:text-gray-300">Shares:</span>
+            <span className="font-semibold text-sm">{shares}</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-end min-w-[110px] gap-1">
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] text-gray-700 dark:text-gray-300">Current Price:</span>
+            <span className="font-mono text-sm">{price !== null ? `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : <span className="text-gray-400">-</span>}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] text-gray-700 dark:text-gray-300">Return:</span>
+            {returnPct}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
@@ -314,7 +413,7 @@ export default function PortfolioTracker() {
             <div className="text-gray-400 dark:text-gray-600 text-sm">No purchases yet.</div>
           ) : (
             <div
-              className={`grid gap-2 ${purchases.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'} max-h-64 overflow-y-auto pr-2`}
+              className="grid gap-2 grid-cols-1 max-h-64 overflow-y-auto pr-2"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {purchases.map((p, i) => {
@@ -326,37 +425,19 @@ export default function PortfolioTracker() {
                   const pctStr = pct > 0 ? `+${pct.toFixed(2)}%` : `${pct.toFixed(2)}%`;
                   returnPct = <span className={pct > 0 ? "text-green-600" : pct < 0 ? "text-red-600" : undefined}>{pctStr}</span>;
                 }
-                const handleDelete = () => {
-                  setPurchases((prev) => prev.filter((_, idx) => idx !== i));
-                };
+                // Animation für die zuletzt hinzugefügte Card (auch wenn es die erste ist)
+                const animateSwipe = i === purchases.length - 1;
                 return (
-                  <div key={i} className="rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#18181b] p-2 flex flex-col gap-1 relative text-xs">
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      className="absolute top-1 right-1 text-gray-400 hover:text-red-600 transition-colors"
-                      title="Delete purchase"
-                      aria-label="Delete purchase"
-                    >
-                      <Trash className="w-3 h-3" />
-                    </button>
-                    <div className="flex items-center gap-1">
-                      <span className="font-mono font-bold text-xs text-gray-900 dark:text-white">{p.symbol}</span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400">{p.date}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[11px] text-gray-700 dark:text-gray-300">Shares:</span>
-                      <span className="font-semibold">{p.shares}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[11px] text-gray-700 dark:text-gray-300">Current Price:</span>
-                      <span className="font-mono">{price !== null ? `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : <span className="text-gray-400">-</span>}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[11px] text-gray-700 dark:text-gray-300">Return:</span>
-                      {returnPct}
-                    </div>
-                  </div>
+                  <SwipeToDeleteCard
+                    key={i}
+                    symbol={p.symbol}
+                    date={p.date}
+                    shares={p.shares}
+                    price={price}
+                    returnPct={returnPct}
+                    onDelete={() => setPurchases((prev) => prev.filter((_, idx) => idx !== i))}
+                    animateSwipe={animateSwipe}
+                  />
                 );
               })}
             </div>
@@ -364,7 +445,7 @@ export default function PortfolioTracker() {
         </div>
       </div>
       <div className="flex-1">
-        <div className="mb-2 flex flex-col sm:flex-row gap-2 sm:gap-8">
+        <div className="mb-2 flex flex-col gap-2">
           <div className="flex flex-col">
             <span className="font-semibold text-gray-900 dark:text-white">Portfolio Value:</span>
             <span className="text-blue-700 dark:text-blue-400 font-bold">
