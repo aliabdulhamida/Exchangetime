@@ -309,59 +309,57 @@ export default function PortfolioTracker() {
             <RefreshCw className={`w-4 h-4${reloading ? ' animate-spin' : ''}`} />
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="relative">
           {purchases.length === 0 ? (
             <div className="text-gray-400 dark:text-gray-600 text-sm">No purchases yet.</div>
           ) : (
-            <table className="min-w-[500px] w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-left text-gray-600 dark:text-gray-300">
-                  <th className="py-1">Symbol</th>
-                  <th className="py-1">Shares</th>
-                  <th className="py-1">Buy Date</th>
-                  <th className="py-1">Current Price</th>
-                  <th className="py-1">Return (%)</th>
-                  <th className="py-1"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {purchases.map((p, i) => {
-                  const price = getCurrentPrice(p.symbol);
-                  const buyPrice = getBuyPrice(p.symbol, p.date);
-                  let returnPct: string | JSX.Element = <span className="text-gray-400">-</span>;
-                  if (price !== null && buyPrice !== null && buyPrice !== 0) {
-                    const pct = ((price - buyPrice) / buyPrice) * 100;
-                    const pctStr = pct > 0 ? `+${pct.toFixed(2)}%` : `${pct.toFixed(2)}%`;
-                    returnPct = <span className={pct > 0 ? "text-green-600" : pct < 0 ? "text-red-600" : undefined}>{pctStr}</span>;
-                  }
-                  const handleDelete = () => {
-                    setPurchases((prev) => prev.filter((_, idx) => idx !== i));
-                  };
-                  return (
-                    <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
-                      <td className="py-1 font-mono">{p.symbol}</td>
-                      <td className="py-1">{p.shares}</td>
-                      <td className="py-1">{p.date}</td>
-                      <td className="py-1">
-                        {price !== null ? `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : <span className="text-gray-400">-</span>}
-                      </td>
-                      <td className="py-1">{returnPct}</td>
-                      <td className="py-1">
-                        <button
-                          type="button"
-                          onClick={handleDelete}
-                          className="text-gray-400 hover:text-red-600 transition-colors"
-                          title="Delete purchase"
-                          aria-label="Delete purchase"
-                        >
-                          <Trash className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div
+              className={`grid gap-2 ${purchases.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'} max-h-64 overflow-y-auto pr-2`}
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              {purchases.map((p, i) => {
+                const price = getCurrentPrice(p.symbol);
+                const buyPrice = getBuyPrice(p.symbol, p.date);
+                let returnPct: string | JSX.Element = <span className="text-gray-400">-</span>;
+                if (price !== null && buyPrice !== null && buyPrice !== 0) {
+                  const pct = ((price - buyPrice) / buyPrice) * 100;
+                  const pctStr = pct > 0 ? `+${pct.toFixed(2)}%` : `${pct.toFixed(2)}%`;
+                  returnPct = <span className={pct > 0 ? "text-green-600" : pct < 0 ? "text-red-600" : undefined}>{pctStr}</span>;
+                }
+                const handleDelete = () => {
+                  setPurchases((prev) => prev.filter((_, idx) => idx !== i));
+                };
+                return (
+                  <div key={i} className="rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#18181b] p-2 flex flex-col gap-1 relative text-xs">
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      className="absolute top-1 right-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Delete purchase"
+                      aria-label="Delete purchase"
+                    >
+                      <Trash className="w-3 h-3" />
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <span className="font-mono font-bold text-xs text-gray-900 dark:text-white">{p.symbol}</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">{p.date}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] text-gray-700 dark:text-gray-300">Shares:</span>
+                      <span className="font-semibold">{p.shares}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] text-gray-700 dark:text-gray-300">Current Price:</span>
+                      <span className="font-mono">{price !== null ? `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : <span className="text-gray-400">-</span>}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] text-gray-700 dark:text-gray-300">Return:</span>
+                      {returnPct}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
