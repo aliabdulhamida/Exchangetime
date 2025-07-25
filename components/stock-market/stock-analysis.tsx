@@ -254,7 +254,14 @@ export default function StockAnalysis() {
     if (timestampsFull && closesFull && Array.isArray(timestampsFull) && Array.isArray(closesFull)) {
       fullArr = timestampsFull.map((ts: number, idx: number) => {
         const date = new Date(ts * 1000);
-        const label = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        let label: string;
+        if (['1M', '3M', '6M'].includes(range)) {
+          // z.B. 25. Jul
+          label = date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+        } else {
+          // z.B. Jul 25
+          label = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        }
         return { name: label, price: closesFull[idx], date };
       }).filter(d => typeof d.price === 'number' && !isNaN(d.price));
     }
@@ -371,7 +378,7 @@ export default function StockAnalysis() {
 
       <div className="flex gap-2 mb-5">
         <Input
-          placeholder="Enter stock symbol (e.g., AAPL)"
+          placeholder="Enter ticker (e.g. AAPL)"
           value={searchSymbol}
           onChange={(e) => setSearchSymbol(e.target.value.toUpperCase())}
           onKeyDown={(e) => {
@@ -504,20 +511,10 @@ export default function StockAnalysis() {
                     <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} minTickGap={30} />
                       <YAxis tick={{ fontSize: 12 }} width={80} domain={["auto", "auto"]} />
-                      <ChartTooltipContent
-                        nameKey="price"
-                        labelKey="name"
-                        formatter={(value) => {
-                          if (typeof value === "number") {
-                            return `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-                          }
-                          if (typeof value === "string") {
-                            const num = Number(value);
-                            return isNaN(num) ? value : `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-                          }
-                          return value;
-                        }}
-                        labelFormatter={(label) => `Date: ${label}`}
+                      <ChartTooltip
+                        content={<ChartTooltipContent nameKey="price" labelKey="name" labelFormatter={(label) => label ? `Date: ${label}` : ''} />}
+                        formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                        labelFormatter={(label: string) => label ? `Date: ${label}` : ''}
                       />
                       <Line type="monotone" dataKey="price" stroke="#2563eb" dot={false} strokeWidth={2} name="Price" />
                     </LineChart>
