@@ -466,7 +466,13 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
             className="h-16 px-6 flex items-center border-b border-gray-200 dark:border-[#1F1F23]"
           >
             <div className="flex items-center gap-3">
-              <Globe className="w-7 h-7 text-white align-middle" style={{ marginTop: '-2px' }} />
+              {/* Responsive Globe Icon je nach Theme */}
+              <Globe
+                className={`w-7 h-7 align-middle ${currentTheme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}
+                style={{ marginTop: '-2px' }}
+                stroke={currentTheme === 'dark' ? '#fff' : '#0F172A'}
+                fill="none"
+              />
               <span className="text-lg font-semibold hover:cursor-pointer text-gray-900 dark:text-white align-middle" style={{ lineHeight: '28px' }}>
                 Exchange Time
               </span>
