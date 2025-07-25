@@ -1,35 +1,13 @@
 "use client"
 
-import * as React from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker } from "react-day-picker"
+"use client";
 
-import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
+import React from "react";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>
+export type CalendarProps = React.ComponentProps<typeof Calendar>;
 
-function Calendar({
-  className,
-  classNames,
-  showOutsideDays = true,
-  ...props
-}: CalendarProps) {
-
-  return (
-    <div className={className}>
-      <label>
-        Datum wählen:
-        <input
-          type="date"
-          value={props.value || ""}
-          onChange={e => props.onChange?.(e.target.value)}
-          className="border rounded px-2 py-1 ml-2"
-        />
-      </label>
-    </div>
-  );
-};
-Calendar.displayName = "Calendar";
-
-export { Calendar };
+export function CustomCalendar(props: CalendarProps) {
+  return <Calendar {...props} />;
+}
