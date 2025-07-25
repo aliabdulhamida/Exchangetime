@@ -7,8 +7,7 @@ import Profile01 from "./profile-01"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { ThemeToggle } from "../theme-toggle"
-import TradingViewWidget from "../stock-market/tradingviewwidget"
-import TradingViewHeatmap from "../stock-market/tradingviewheatmap"
+import TradingViewWidget from "../stock-market/TradingViewWidget"
 
 const FearGreedIndex = dynamic(() => import("@/components/stock-market/fear-greed-index"), { ssr: false })
 
@@ -182,22 +181,6 @@ export default function TopNav() {
             <div className="flex flex-col gap-2 p-2">
               <div className="w-full h-[350px] sm:h-[500px] flex items-center justify-center">
                 <TradingViewWidget />
-              </div>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {/* Heatmap Modal */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center px-3 py-1 rounded hover:bg-gray-100 dark:hover:bg-[#18181b] border border-gray-200 dark:border-[#23232a] ml-2">
-              <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 mr-2">Heatmap</span>
-              <ChevronRight size={16} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-[240px] w-full max-w-md sm:max-w-lg md:max-w-2xl">
-            <div className="flex flex-col gap-2 p-2">
-              <div className="w-full h-[350px] sm:h-[700px] flex items-center justify-center">
-                <TradingViewHeatmap />
               </div>
             </div>
           </DropdownMenuContent>
