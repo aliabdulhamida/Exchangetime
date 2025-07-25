@@ -54,25 +54,51 @@ export default function FearGreedIndex() {
     }
   }, [index, lastIndex])
 
+
+  // Farbverlauf von grün (0) zu rot (100)
+  const getGradientColor = (value: number) => {
+    // value: 0 (rot) bis 100 (grün)
+    const r = Math.round(220 - (220 - 34) * (value / 100)); // 220 -> 34
+    const g = Math.round(38 + (197 - 38) * (value / 100)); // 38 -> 197
+    const b = Math.round(38 + (94 - 38) * (value / 100)); // 38 -> 94
+    return `rgb(${r},${g},${b})`;
+  };
+
   const getIndexLabel = (value: number | null) => {
-    if (value === null) return { label: "Loading...", color: "text-gray-400" }
-    if (value <= 25) return { label: "Extreme Fear", color: "text-red-600 dark:text-red-400" }
-    if (value <= 45) return { label: "Fear", color: "text-orange-600 dark:text-orange-400" }
-    if (value <= 55) return { label: "Neutral", color: "text-yellow-600 dark:text-yellow-400" }
-    if (value <= 75) return { label: "Greed", color: "text-green-600 dark:text-green-400" }
-    return { label: "Extreme Greed", color: "text-green-700 dark:text-green-300" }
+    if (value === null) return { label: "Loading...", color: "#9ca3af" }
+    if (value <= 25) return { label: "Extreme Fear", color: getGradientColor(0) }
+    if (value <= 45) return { label: "Fear", color: getGradientColor(25) }
+    if (value <= 55) return { label: "Neutral", color: getGradientColor(50) }
+    if (value <= 75) return { label: "Greed", color: getGradientColor(75) }
+    return { label: "Extreme Greed", color: getGradientColor(100) }
   }
 
   const indexInfo = getIndexLabel(index)
 
-  // Kompakte Anzeige für Header
+  // Animierter Kreis für Fear & Greed Wert
+  const circleValue = index !== null ? Math.max(0, Math.min(100, index)) : 0;
+  const circumference = 2 * Math.PI * 12;
+  const offset = circumference - (circleValue / 100) * circumference;
+
   return (
     <Dialog>
       <div className="flex items-center gap-2 px-2 py-1 rounded">
-        <Activity className="w-4 h-4" />
-        <span className={`font-bold text-xs ${indexInfo.color}`}>{index !== null ? Math.round(index) : "-"}</span>
+        <svg width="18" height="18" viewBox="0 0 18 18" className="animate-spin-slow" style={{ animationDuration: '2s', animationIterationCount: 'infinite', animationTimingFunction: 'linear' }}>
+          <circle
+            cx="9"
+            cy="9"
+            r="7"
+            fill="none"
+            stroke={getGradientColor(circleValue)}
+            strokeWidth="3"
+            strokeDasharray={2 * Math.PI * 7}
+            strokeDashoffset={2 * Math.PI * 7 - (circleValue / 100) * (2 * Math.PI * 7)}
+            style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.4,0,.2,1)' }}
+          />
+        </svg>
+        <span className="font-bold text-xs" style={{ color: indexInfo.color }}>{index !== null ? Math.round(index) : "-"}</span>
         <DialogTrigger asChild>
-          <button className={`text-[10px] font-medium ${indexInfo.color} underline underline-offset-2 bg-transparent p-0 m-0 border-none cursor-pointer hover:text-blue-600 transition`} style={{background: "none"}}>
+          <button className="text-[10px] font-medium underline underline-offset-2 bg-transparent p-0 m-0 border-none cursor-pointer hover:text-blue-600 transition" style={{ color: indexInfo.color, background: "none" }}>
             {indexInfo.label}
           </button>
         </DialogTrigger>

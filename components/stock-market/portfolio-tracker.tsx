@@ -18,7 +18,7 @@ interface Purchase {
   date: string; // yyyy-mm-dd
 }
 
-async function fetchStockData(symbol: string): Promise<StockDataPoint[] | { error: string }> {
+export async function fetchStockData(symbol: string): Promise<StockDataPoint[] | { error: string }> {
   try {
     const end = Math.floor(Date.now() / 1000);
     const start = end - 60 * 60 * 24 * 365; // 1 year
