@@ -258,7 +258,7 @@ export default function PortfolioTracker() {
       </div>
       <div className="mb-6">
         <form
-          className="flex flex-row flex-wrap gap-2 items-end"
+          className="flex flex-col sm:flex-row gap-2 items-end"
           onSubmit={(e) => {
             e.preventDefault();
             handleAddPurchase();
@@ -266,7 +266,7 @@ export default function PortfolioTracker() {
         >
           <Input
             type="text"
-            className="w-44"
+            className="w-full sm:w-44"
             placeholder="Symbol (e.g. AAPL)"
             value={search}
             onChange={(e) => setSearch(e.target.value.toUpperCase())}
@@ -274,7 +274,7 @@ export default function PortfolioTracker() {
           />
           <Input
             type="number"
-            className="w-28"
+            className="w-full sm:w-28"
             placeholder="Shares"
             value={shares}
             onChange={(e) => setShares(e.target.value)}
@@ -284,12 +284,12 @@ export default function PortfolioTracker() {
           />
           <Input
             type="date"
-            className="w-40"
+            className="w-full sm:w-40"
             value={buyDate}
             onChange={(e) => setBuyDate(e.target.value)}
             disabled={loading}
           />
-          <Button type="submit" disabled={loading} className="h-10 px-4 flex items-center whitespace-nowrap">
+          <Button type="submit" disabled={loading} className="h-10 px-4 flex items-center whitespace-nowrap w-full sm:w-auto">
             Buy
           </Button>
         </form>
@@ -309,69 +309,71 @@ export default function PortfolioTracker() {
             <RefreshCw className={`w-4 h-4${reloading ? ' animate-spin' : ''}`} />
           </button>
         </div>
-        {purchases.length === 0 ? (
-          <div className="text-gray-400 dark:text-gray-600 text-sm">No purchases yet.</div>
-        ) : (
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left text-gray-600 dark:text-gray-300">
-                <th className="py-1">Symbol</th>
-                <th className="py-1">Shares</th>
-                <th className="py-1">Buy Date</th>
-                <th className="py-1">Current Price</th>
-                <th className="py-1">Return (%)</th>
-                <th className="py-1"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {purchases.map((p, i) => {
-                const price = getCurrentPrice(p.symbol);
-                const buyPrice = getBuyPrice(p.symbol, p.date);
-                let returnPct: string | JSX.Element = <span className="text-gray-400">-</span>;
-                if (price !== null && buyPrice !== null && buyPrice !== 0) {
-                  const pct = ((price - buyPrice) / buyPrice) * 100;
-                  const pctStr = pct > 0 ? `+${pct.toFixed(2)}%` : `${pct.toFixed(2)}%`;
-                  returnPct = <span className={pct > 0 ? "text-green-600" : pct < 0 ? "text-red-600" : undefined}>{pctStr}</span>;
-                }
-                const handleDelete = () => {
-                  setPurchases((prev) => prev.filter((_, idx) => idx !== i));
-                };
-                return (
-                  <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
-                    <td className="py-1 font-mono">{p.symbol}</td>
-                    <td className="py-1">{p.shares}</td>
-                    <td className="py-1">{p.date}</td>
-                    <td className="py-1">
-                      {price !== null ? `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : <span className="text-gray-400">-</span>}
-                    </td>
-                    <td className="py-1">{returnPct}</td>
-                    <td className="py-1">
-                      <button
-                        type="button"
-                        onClick={handleDelete}
-                        className="text-gray-400 hover:text-red-600 transition-colors"
-                        title="Delete purchase"
-                        aria-label="Delete purchase"
-                      >
-                        <Trash className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+        <div className="overflow-x-auto">
+          {purchases.length === 0 ? (
+            <div className="text-gray-400 dark:text-gray-600 text-sm">No purchases yet.</div>
+          ) : (
+            <table className="min-w-[500px] w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-gray-600 dark:text-gray-300">
+                  <th className="py-1">Symbol</th>
+                  <th className="py-1">Shares</th>
+                  <th className="py-1">Buy Date</th>
+                  <th className="py-1">Current Price</th>
+                  <th className="py-1">Return (%)</th>
+                  <th className="py-1"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {purchases.map((p, i) => {
+                  const price = getCurrentPrice(p.symbol);
+                  const buyPrice = getBuyPrice(p.symbol, p.date);
+                  let returnPct: string | JSX.Element = <span className="text-gray-400">-</span>;
+                  if (price !== null && buyPrice !== null && buyPrice !== 0) {
+                    const pct = ((price - buyPrice) / buyPrice) * 100;
+                    const pctStr = pct > 0 ? `+${pct.toFixed(2)}%` : `${pct.toFixed(2)}%`;
+                    returnPct = <span className={pct > 0 ? "text-green-600" : pct < 0 ? "text-red-600" : undefined}>{pctStr}</span>;
+                  }
+                  const handleDelete = () => {
+                    setPurchases((prev) => prev.filter((_, idx) => idx !== i));
+                  };
+                  return (
+                    <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
+                      <td className="py-1 font-mono">{p.symbol}</td>
+                      <td className="py-1">{p.shares}</td>
+                      <td className="py-1">{p.date}</td>
+                      <td className="py-1">
+                        {price !== null ? `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : <span className="text-gray-400">-</span>}
+                      </td>
+                      <td className="py-1">{returnPct}</td>
+                      <td className="py-1">
+                        <button
+                          type="button"
+                          onClick={handleDelete}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete purchase"
+                          aria-label="Delete purchase"
+                        >
+                          <Trash className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
       <div className="flex-1">
-        <div className="mb-2 flex flex-col gap-2">
-          <div className="flex items-center gap-4">
+        <div className="mb-2 flex flex-col sm:flex-row gap-2 sm:gap-8">
+          <div className="flex flex-col">
             <span className="font-semibold text-gray-900 dark:text-white">Portfolio Value:</span>
             <span className="text-blue-700 dark:text-blue-400 font-bold">
               {getCurrentPortfolioValue().toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 })}
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col">
             <span className="font-semibold text-gray-900 dark:text-white">Total Return:</span>
             {getTotalReturn().formatted}
           </div>
