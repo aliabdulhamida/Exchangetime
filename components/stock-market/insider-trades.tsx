@@ -1,11 +1,12 @@
 "use client"
 
-import { Users, TrendingUp, TrendingDown, Search, ArrowDownCircle, ArrowUpCircle } from "lucide-react"
+import { Users, TrendingUp, TrendingDown, Search, ArrowDownCircle, ArrowUpCircle, AlertTriangle } from "lucide-react"
 import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Alert } from "@/components/ui/alert"
 
 interface InsiderTrade {
   company: string
@@ -118,7 +119,7 @@ export default function InsiderTrades() {
             }
           }}
           placeholder="Enter ticker (e.g. AAPL)"
-          className="w-64"
+          className="flex-1 min-w-[220px]"
         />
         <Button onClick={fetchInsiderTrades} disabled={loading}>
           <Search className="w-4 h-4" />
@@ -157,7 +158,17 @@ export default function InsiderTrades() {
           </div>
         </div>
       )}
-      {error && <div className="text-red-500 mb-2">{error}</div>}
+      {error && (
+        <Alert
+          variant="destructive"
+          className="mb-6 border-red-400 bg-red-100/60 dark:bg-red-900/30 text-red-700 dark:text-red-300 border flex flex-col items-center justify-center text-center relative py-8 px-4"
+        >
+          <div className="flex flex-col items-center w-full">
+            <AlertTriangle className="w-8 h-8 mb-2 text-red-600 dark:text-red-200" />
+            <div className="text-lg mb-1 mx-auto max-w-xs break-words">{error}</div>
+          </div>
+        </Alert>
+      )}
       {companyName && <div className="mb-2 text-blue-700 dark:text-blue-300 font-semibold">{companyName}</div>}
       {trades.length > 0 && (
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
