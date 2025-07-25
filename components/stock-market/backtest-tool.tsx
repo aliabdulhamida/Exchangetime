@@ -262,25 +262,31 @@ export default function BacktestTool() {
                   placeholder="0"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
-                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">End Date</label>
-                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
+                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">End Date</label>
+                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="reinvest"
-                checked={reinvestDividends}
-                onChange={(e) => setReinvestDividends(e.target.checked)}
-                className="rounded"
-              />
-              <label htmlFor="reinvest" className="text-sm text-gray-700 dark:text-gray-300">
-                Reinvest Dividends
+              <label htmlFor="reinvest" className="flex items-center cursor-pointer select-none gap-3">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Reinvest Dividends</span>
+                <span className="relative">
+                  <input
+                    type="checkbox"
+                    id="reinvest"
+                    checked={reinvestDividends}
+                    onChange={(e) => setReinvestDividends(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <span className="block w-10 h-6 bg-gray-200 dark:bg-gray-700 rounded-full peer-checked:bg-white transition-colors duration-200 border border-gray-300 dark:border-gray-600"></span>
+                  <span className="absolute left-0 top-0 w-6 h-6 bg-white dark:bg-[#18181b] border border-gray-300 dark:border-gray-600 rounded-full shadow transform peer-checked:translate-x-4 transition-transform duration-200"></span>
+                </span>
               </label>
             </div>
           </div>
