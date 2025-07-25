@@ -1,5 +1,30 @@
 "use client"
 
+// Custom Icon: Zwei Währungen (z.B. Dollar und Euro)
+function CurrencyPairIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      {/* Dollar Symbol */}
+      <circle cx="7" cy="10" r="4.2" stroke="currentColor" strokeWidth="1.3" fill="#fff" />
+      <path d="M7 7.2V12.8" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M6.1 8.7C6.4 8.3 6.8 8.1 7.3 8.1C7.9 8.1 8.4 8.5 8.4 9.1C8.4 9.7 8 10 7.2 10.2C6.4 10.4 6 10.7 6 11.2C6 11.8 6.6 12.2 7.3 12.2C7.8 12.2 8.2 12 8.5 11.6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      {/* Euro Symbol */}
+      <circle cx="13" cy="10" r="4.2" stroke="currentColor" strokeWidth="1.3" fill="#fff" />
+      <path d="M14.2 8.6C13.9 8.3 13.5 8.1 13 8.1C11.9 8.1 11.2 9.1 11.2 10C11.2 10.9 11.9 11.9 13 11.9C13.5 11.9 13.9 11.7 14.2 11.4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      <path d="M12.1 9.4H13.9" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+      <path d="M12.1 10.6H13.9" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+      {/* Trennlinie */}
+      <line x1="9.2" y1="6.5" x2="10.8" y2="13.5" stroke="currentColor" strokeWidth="0.7" strokeDasharray="2 1" />
+    </svg>
+  );
+}
 import type React from "react"
 
 
@@ -12,12 +37,15 @@ import {
   Wallet,
   Users2,
   Shield,
+  CalendarDays,
   MessagesSquare,
   Settings,
   HelpCircle,
   Menu,
   Globe,
   X,
+  CupSoda,
+  Gauge,
 } from "lucide-react"
 
 import { Home } from "lucide-react"
@@ -466,8 +494,8 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
                 <div className="space-y-1">
                   <ModuleButton module="BacktestTool" icon={Wallet} label="Backtest Tool" />
                   <ModuleButton module="PortfolioTracker" icon={CreditCard} label="Portfolio Tracker" />
-                  <ModuleButton module="CurrencyConverter" icon={Receipt} label="Currency Converter" />
-                  <ModuleButton module="FearGreedIndex" icon={CreditCard} label="Fear & Greed Index" />
+                  <ModuleButton module="CurrencyConverter" icon={CurrencyPairIcon} label="Currency Converter" />
+                  <ModuleButton module="FearGreedIndex" icon={Gauge} label="Fear & Greed Index" />
                 </div>
               </div>
 
@@ -477,8 +505,8 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
                 </div>
                 <div className="space-y-1">
                   <ModuleButton module="InsiderTrades" icon={Users2} label="Insider Trades" />
-                  <ModuleButton module="EarningsCalendar" icon={Shield} label="Earnings Calendar" />
-                  <ModuleButton module="HolidayCalendar" icon={MessagesSquare} label="Holiday Calendar" />
+                  <ModuleButton module="EarningsCalendar" icon={CalendarDays} label="Earnings Calendar" />
+                  <ModuleButton module="HolidayCalendar" icon={CupSoda} label="Holiday Calendar" />
                 </div>
               </div>
             </div>
