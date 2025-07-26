@@ -1,8 +1,8 @@
 "use client"
 
 import { TrendingUp, TrendingDown, Search, AlertTriangle } from "lucide-react"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from "recharts"
+import { ChartContainer } from "@/components/ui/chart"
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { useState, useMemo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
@@ -186,6 +186,10 @@ export default function StockAnalysis() {
   const [chartData, setChartData] = useState<{ name: string; price: number }[]>([])
   const [fullChartData, setFullChartData] = useState<{ name: string; price: number, date: Date }[]>([])
   const [chartRange, setChartRange] = useState<'1M' | '3M' | '6M' | '1Y' | 'YTD' | '52W'>('1M');
+
+  // Chart-Farbe je nach Entwicklung
+  const chartIsPositive = chartData.length > 1 && chartData[chartData.length - 1].price >= chartData[0].price;
+  const chartColor = chartIsPositive ? '#38FFB7' : '#FF3860';
 
   // Hilfsfunktion für Prozentveränderung
   function calcPercentChange(data: { price: number }[]): number | null {
@@ -508,16 +512,28 @@ export default function StockAnalysis() {
               <ChartContainer config={{ price: { label: "Price", color: "#2563eb" } }}>
                 <ResponsiveContainer width="100%" height={300}>
                   {chartData.length > 0 ? (
-                    <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} minTickGap={30} />
-                      <YAxis tick={{ fontSize: 12 }} width={80} domain={["auto", "auto"]} />
-                      <ChartTooltip
-                        content={<ChartTooltipContent nameKey="price" labelKey="name" labelFormatter={(label) => label ? `Date: ${label}` : ''} />}
-                        formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
-                        labelFormatter={(label: string) => label ? `Date: ${label}` : ''}
+                    <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={chartColor} stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor={chartColor} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#a1a1aa' }} minTickGap={30} />
+                      <YAxis tick={{ fontSize: 12, fill: '#a1a1aa' }} width={80} domain={["auto", "auto"]} tickFormatter={(v: number) => v >= 1_000_000 ? (v/1_000_000).toFixed(1)+'M' : v >= 1_000 ? (v/1_000).toFixed(1)+'K' : v.toLocaleString()} />
+                      <Tooltip
+                        content={({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
+                          if (!active || !payload || !payload.length) return null;
+                          return (
+                            <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]" style={{ lineHeight: 1.2 }}>
+                              <div className="mb-0.5" style={{ color: chartColor, fontSize: '11px' }}>{label}</div>
+                              <div><span style={{ color: chartColor, fontSize: '11px' }}>Price:</span> ${payload[0]?.payload?.price?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                            </div>
+                          );
+                        }}
                       />
-                      <Line type="monotone" dataKey="price" stroke="#2563eb" dot={false} strokeWidth={2} name="Price" />
-                    </LineChart>
+                      <Area type="monotone" dataKey="price" stroke={chartColor} fillOpacity={1} fill="url(#colorPrice)" name="Price" />
+                    </AreaChart>
                   ) : (
                     <div className="text-gray-400 dark:text-gray-600 text-sm">No data available.</div>
                   )}

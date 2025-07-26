@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Alert } from "@/components/ui/alert"
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 interface InsiderTrade {
   company: string
@@ -25,42 +26,37 @@ export default function InsiderTrades() {
   // ...existing code...
   const [ticker, setTicker] = useState("")
   const [trades, setTrades] = useState<InsiderTrade[]>([])
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [companyName, setCompanyName] = useState<string>("")
   // Auswahl-Logik für Karten
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([])
-
-  // Tagesänderung für das aktuelle Symbol
   const [dailyChange, setDailyChange] = useState<number | null>(null)
   const [latestPrice, setLatestPrice] = useState<number | null>(null)
-
-  // Hole Tagesänderung und Preis, wenn trades oder ticker sich ändern
-  useEffect(() => {
-    const fetchChange = async () => {
-      if (!ticker) {
-        setDailyChange(null)
-        setLatestPrice(null)
-        return
-      }
-      const data = await fetchStockData(ticker)
-      if (Array.isArray(data) && data.length > 1) {
-        const last = data[data.length - 1]
-        const prev = data[data.length - 2]
-        if (last && prev && last.close !== null && prev.close !== null && prev.close !== 0) {
-          setLatestPrice(last.close)
-          setDailyChange(((last.close - prev.close) / prev.close) * 100)
-        } else {
-          setLatestPrice(null)
-          setDailyChange(null)
-        }
+  const [loading, setLoading] = useState(false)
+  // --- Logik und Hilfsfunktionen ---
+  // Preis und Tagesänderung werden nur nach erfolgreichem Laden der Trades geholt
+  async function fetchChange(symbol: string) {
+    if (!symbol) {
+      setDailyChange(null)
+      setLatestPrice(null)
+      return
+    }
+    const data = await fetchStockData(symbol)
+    if (Array.isArray(data) && data.length > 1) {
+      const last = data[data.length - 1]
+      const prev = data[data.length - 2]
+      if (last && prev && last.close !== null && prev.close !== null && prev.close !== 0) {
+        setLatestPrice(last.close)
+        setDailyChange(((last.close - prev.close) / prev.close) * 100)
       } else {
         setLatestPrice(null)
         setDailyChange(null)
       }
+    } else {
+      setLatestPrice(null)
+      setDailyChange(null)
     }
-    fetchChange()
-  }, [ticker, trades.length])
+  }
 
   function toggleSelect(index: number) {
     setSelectedIndexes(prev =>
@@ -77,7 +73,6 @@ export default function InsiderTrades() {
   const fetchInsiderTrades = async () => {
     setLoading(true)
     setError(null)
-    setTrades([])
     setCompanyName("")
     try {
       const finvizUrl = `https://finviz.com/quote.ashx?t=${ticker}`
@@ -90,7 +85,6 @@ export default function InsiderTrades() {
       const doc = parser.parseFromString(html, 'text/html')
       // Try to extract company name from title
       const title = doc.querySelector('title')?.textContent || ticker
-      // Entferne alles vor 'Stock Price and Quote' und Klammern
       let name = title
       if (name.includes('Stock Price and Quote')) {
         name = name.split('Stock Price and Quote')[0].replace(/^[A-Z]+\s*-\s*/,'').trim()
@@ -111,7 +105,7 @@ export default function InsiderTrades() {
           const cells = row.querySelectorAll('td')
           if (cells.length >= 6) {
             parsedTrades.push({
-              company: companyName,
+              company: name,
               symbol: ticker,
               insider: cells[1]?.textContent?.trim() || "-",
               position: cells[2]?.textContent?.trim() || "-",
@@ -125,16 +119,23 @@ export default function InsiderTrades() {
         })
       }
       setTrades(parsedTrades)
-      if (parsedTrades.length === 0) setError("No insider trades found.")
+      if (parsedTrades.length === 0) {
+        setError("No insider trades found.")
+      } else {
+        // Hole Preis und Tagesänderung nur nach erfolgreichem Laden
+        await fetchChange(ticker)
+      }
     } catch (err: any) {
       setError(err.message || "Unknown error")
+      setLatestPrice(null)
+      setDailyChange(null)
+      setTrades([])
     } finally {
       setLoading(false)
     }
   }
 
   // Statistiken für Buy/Sell
-  // Erweiterte Erkennung für Buy-Transaktionen
   const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
   const sellRegex = /sell|sale|dispose|disposition/i;
   const buyCount = trades.filter(t => buyRegex.test(t.transaction)).length;
@@ -149,6 +150,61 @@ export default function InsiderTrades() {
     return num.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
   }
 
+  // Chart-Komponente im Compound-Interest-Stil für Insider Trades
+  function InsiderTradesChart({ trades }: { trades: InsiderTrade[] }) {
+    function formatCompactNumber(num: number) {
+      if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + 'B';
+      if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
+      if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
+      return num.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    // Aggregiere Buy/Sell-Volumen pro Tag
+    const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
+    const sellRegex = /sell|sale|dispose|disposition/i;
+    // Nach Datum gruppieren
+    const grouped: Record<string, { date: string; buy: number; sell: number }> = {};
+    trades.forEach(t => {
+      if (!grouped[t.date]) grouped[t.date] = { date: t.date, buy: 0, sell: 0 };
+      if (buyRegex.test(t.transaction)) grouped[t.date].buy += t.value;
+      if (sellRegex.test(t.transaction)) grouped[t.date].sell += t.value;
+    });
+    // Sortiere nach Datum (neueste oben)
+    const chartData = Object.values(grouped).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+          <XAxis dataKey="date" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
+          <YAxis tick={{ fill: '#a1a1aa', fontSize: 12 }} tickFormatter={(v: number) => v >= 1_000_000 ? (v/1_000_000).toFixed(1)+'M' : v >= 1_000 ? (v/1_000).toFixed(1)+'K' : v.toLocaleString()} />
+          <Tooltip
+            wrapperStyle={{ background: 'transparent', boxShadow: 'none' }}
+            content={({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
+              if (!active || !payload || !payload.length) return null;
+              // Theme detection: prefers dark if available
+              let isDark = false;
+              if (typeof document !== 'undefined') {
+                isDark = document.documentElement.classList.contains('dark') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+              }
+              const bg = isDark ? '#23232a' : '#f3f4f6';
+              const text = isDark ? '#fff' : '#222';
+              return (
+                <div style={{ background: bg, color: text, borderRadius: 6, padding: '4px 8px', minWidth: 70, boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: '11px', lineHeight: 1.2 }}>
+                  <div style={{ marginBottom: 2, color: isDark ? '#a5b4fc' : '#2563eb', fontWeight: 600, fontSize: '11px' }}>{label}</div>
+                  <div><span style={{ color: '#38FFB7', fontWeight: 600, fontSize: '11px' }}>Buy:</span> {formatCompactNumber(payload[0]?.payload?.buy ?? 0)} $</div>
+                  <div><span style={{ color: '#FF3860', fontWeight: 600, fontSize: '11px' }}>Sell:</span> {formatCompactNumber(payload[0]?.payload?.sell ?? 0)} $</div>
+                </div>
+              );
+            }}
+          />
+          <Bar dataKey="buy" fill="#38FFB7" name="Buy Volume" />
+          <Bar dataKey="sell" fill="#FF3860" name="Sell Volume" />
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  // ...alle useEffect, Handler, Variablen etc. (wie vorher)...
+
+  // --- BEGINN JSX-RETURN ---
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-2xl p-8 border border-gray-200 dark:border-[#1F1F23] max-w-2xl mx-auto">
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -249,42 +305,50 @@ export default function InsiderTrades() {
           )}
         </div>
       )}
+      {/* Statistikkarten und Chart */}
       {trades.length > 0 && (
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-          <Card className="flex flex-col justify-center min-h-[48px] w-full">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between w-full">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Buy Transactions</span>
-                <span className="text-base font-bold text-green-400 dark:text-[#38FFB7] break-words">{buyCount}</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col justify-center min-h-[48px] w-full">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between w-full">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sell Transactions</span>
-                <span className="text-base font-bold text-red-500 dark:text-[#FF3860] break-words">{sellCount}</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col justify-center min-h-[48px] w-full">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between w-full">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Buy Volume</span>
-                <span className="text-base font-bold text-green-400 dark:text-[#38FFB7] break-words">${formatCompactNumber(buyVolume)}</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col justify-center min-h-[48px] w-full">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between w-full">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sell Volume</span>
-                <span className="text-base font-bold text-red-500 dark:text-[#FF3860] break-words">${formatCompactNumber(sellVolume)}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <>
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <Card className="flex flex-col justify-center min-h-[48px] w-full">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Buy Transactions</span>
+                  <span className="text-base font-bold text-green-400 dark:text-[#38FFB7] break-words">{buyCount}</span>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="flex flex-col justify-center min-h-[48px] w-full">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sell Transactions</span>
+                  <span className="text-base font-bold text-red-500 dark:text-[#FF3860] break-words">{sellCount}</span>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="flex flex-col justify-center min-h-[48px] w-full">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Buy Volume</span>
+                  <span className="text-base font-bold text-green-400 dark:text-[#38FFB7] break-words">${formatCompactNumber(buyVolume)}</span>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="flex flex-col justify-center min-h-[48px] w-full">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sell Volume</span>
+                  <span className="text-base font-bold text-red-500 dark:text-[#FF3860] break-words">${formatCompactNumber(sellVolume)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          {/* Chart im Compound-Interest-Stil */}
+          <div className="w-full h-80 mb-8">
+            <InsiderTradesChart trades={trades} />
+          </div>
+        </>
       )}
+      {/* Kartenliste */}
       {trades.length > 0 && (
         <>
           <div className="mb-2 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
@@ -342,7 +406,6 @@ export default function InsiderTrades() {
                         <span className="text-xs font-bold text-card-foreground">${formatCompactNumber(trade.value)}</span>
                       </div>
                     </div>
-                    {/* Auswahl-Badge entfernt */}
                   </CardContent>
                 </Card>
               )
