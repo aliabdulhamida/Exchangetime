@@ -4,6 +4,7 @@ import Layout from "./layout";
 import Sidebar from "./sidebar";
 import { useState } from "react";
 
+
 const MODULES = [
   "ExchangeTimes",
   "StockAnalysis",
@@ -15,9 +16,13 @@ const MODULES = [
   "MarketSummary",
   "EarningsCalendar",
   "HolidayCalendar",
+  "CompoundInterest",
+  "PersonalBudget",
 ];
 
+
 export default function Dashboard() {
+  // Alle Module beim ersten Laden sichtbar
   const [visibleModules, setVisibleModules] = useState<string[]>([...MODULES]);
 
   function showModule(module: string) {
