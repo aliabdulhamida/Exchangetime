@@ -25,11 +25,13 @@ function CurrencyPairIcon(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-import type React from "react"
+
+
 
 
 import {
   BarChart2,
+  DollarSign,
   Receipt,
   Building2,
   CreditCard,
@@ -500,7 +502,7 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
                 <div className="space-y-1">
                   <ModuleButton module="BacktestTool" icon={Wallet} label="Backtest Tool" />
                   <ModuleButton module="PortfolioTracker" icon={CreditCard} label="Portfolio Tracker" />
-                  <ModuleButton module="CurrencyConverter" icon={CurrencyPairIcon} label="Currency Converter" />
+                  <ModuleButton module="CurrencyConverter" icon={DollarSign} label="Currency Converter" />
                   <ModuleButton module="FearGreedIndex" icon={Gauge} label="Fear & Greed Index" />
                 </div>
               </div>
