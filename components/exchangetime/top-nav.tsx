@@ -135,7 +135,7 @@ export default function TopNav() {
   }
 
   return (
-    <nav className="px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-[#0F0F12] border-b border-gray-200 dark:border-[#1F1F23] h-full">
+    <nav className="px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-[#0F0F12] border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64">
       <div className="flex items-center justify-center w-full sm:justify-start ml-8">
         {/* Watchlist Dropdown */}
         <DropdownMenu>
