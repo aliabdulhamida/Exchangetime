@@ -69,7 +69,7 @@ function SwipeToDeleteCard({
   };
 
   return (
-    <div className="relative" style={{ minWidth: 0 }}>
+    <div className="relative w-full" style={{ minWidth: 0 }}>
       {/* Delete background (klickbar) */}
       <div
         className="absolute inset-0 flex items-center justify-end pr-2 bg-red-50 dark:bg-red-900 rounded-lg z-0 transition-colors cursor-pointer"
@@ -82,7 +82,7 @@ function SwipeToDeleteCard({
       </div>
       {/* Card */}
       <div
-        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#18181b] p-4 flex flex-row items-center gap-4 relative text-sm shadow-sm min-h-[72px] hover:shadow-md transition-shadow z-10 touch-none select-none"
+        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#18181b] p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 relative text-xs sm:text-sm shadow-sm min-h-[72px] hover:shadow-md transition-shadow z-10 touch-none select-none w-full"
         style={{ transform: `translateX(${dragX}px)`, transition: dragging ? 'none' : 'transform 0.2s' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -90,24 +90,26 @@ function SwipeToDeleteCard({
         onPointerCancel={handlePointerLeave}
         onPointerLeave={handlePointerLeave}
       >
-        <div className="flex flex-col flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono font-bold text-base text-gray-900 dark:text-white truncate">{symbol}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">{date}</span>
+        <div className="flex flex-row w-full min-w-0 justify-between items-stretch">
+          {/* Linke Spalte: Name, Shares, Datum */}
+          <div className="flex flex-col min-w-0 justify-center">
+            <span className="font-mono font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate max-w-[80px] sm:max-w-none">{symbol}</span>
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Shares:</span>
+              <span className="font-semibold text-xs sm:text-sm">{shares}</span>
+            </div>
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap mt-1">{date}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-700 dark:text-gray-300">Shares:</span>
-            <span className="font-semibold text-sm">{shares}</span>
-          </div>
-        </div>
-        <div className="flex flex-col items-end min-w-[110px] gap-1">
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-gray-700 dark:text-gray-300">Current Price:</span>
-            <span className="font-mono text-sm">{price !== null ? `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : <span className="text-gray-400">-</span>}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-gray-700 dark:text-gray-300">Return:</span>
-            {returnPct}
+          {/* Rechte Spalte: Current Price, Return */}
+          <div className="flex flex-col items-end min-w-[90px] justify-center">
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] sm:text-[11px] text-gray-700 dark:text-gray-300">Current Price:</span>
+              <span className="font-mono text-xs sm:text-sm">{price !== null ? `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : <span className="text-gray-400">-</span>}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] sm:text-[11px] text-gray-700 dark:text-gray-300">Return:</span>
+              {returnPct}
+            </div>
           </div>
         </div>
       </div>
@@ -458,7 +460,7 @@ export default function PortfolioTracker() {
         </div>
       </div>
       <div className="flex-1">
-        <div className="mb-2 flex flex-col gap-2">
+        <div className="mb-2 flex flex-row items-end gap-6 flex-wrap">
           <div className="flex flex-col">
             <span className="font-semibold text-gray-900 dark:text-white">Portfolio Value:</span>
             <span className="text-blue-700 dark:text-blue-400 font-bold">

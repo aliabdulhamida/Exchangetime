@@ -1,7 +1,8 @@
 "use client"
 
 import { Users, TrendingUp, TrendingDown, Search, ArrowDownCircle, ArrowUpCircle, AlertTriangle } from "lucide-react"
-import { useState } from "react"
+import { fetchStockData } from "../stock-market/portfolio-tracker"
+import React, { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,37 @@ export default function InsiderTrades() {
   const [companyName, setCompanyName] = useState<string>("")
   // Auswahl-Logik für Karten
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([])
+
+  // Tagesänderung für das aktuelle Symbol
+  const [dailyChange, setDailyChange] = useState<number | null>(null)
+  const [latestPrice, setLatestPrice] = useState<number | null>(null)
+
+  // Hole Tagesänderung und Preis, wenn trades oder ticker sich ändern
+  useEffect(() => {
+    const fetchChange = async () => {
+      if (!ticker) {
+        setDailyChange(null)
+        setLatestPrice(null)
+        return
+      }
+      const data = await fetchStockData(ticker)
+      if (Array.isArray(data) && data.length > 1) {
+        const last = data[data.length - 1]
+        const prev = data[data.length - 2]
+        if (last && prev && last.close !== null && prev.close !== null && prev.close !== 0) {
+          setLatestPrice(last.close)
+          setDailyChange(((last.close - prev.close) / prev.close) * 100)
+        } else {
+          setLatestPrice(null)
+          setDailyChange(null)
+        }
+      } else {
+        setLatestPrice(null)
+        setDailyChange(null)
+      }
+    }
+    fetchChange()
+  }, [ticker, trades.length])
 
   function toggleSelect(index: number) {
     setSelectedIndexes(prev =>
@@ -183,7 +215,40 @@ export default function InsiderTrades() {
           </div>
         </Alert>
       )}
-      {companyName && <div className="mb-2 text-blue-700 dark:text-blue-300 font-semibold">{companyName}</div>}
+      {companyName && (
+        <div className="mb-4 flex items-center justify-between w-full">
+          <div className="flex flex-col text-left">
+            <span className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight drop-shadow-sm">{companyName}</span>
+            {ticker && (
+              <span className="text-xs font-mono text-gray-500 dark:text-gray-400 mt-0.5">{ticker}</span>
+            )}
+          </div>
+          {ticker && (
+            <div className="flex flex-col items-end min-w-[70px]">
+              <span className="text-lg font-bold text-gray-900 dark:text-white">
+                {latestPrice !== null ? `$${latestPrice.toFixed(2)}` : '-'}
+              </span>
+              <span className={
+                dailyChange !== null
+                  ? dailyChange > 0
+                    ? 'text-green-600 dark:text-green-400 text-xs font-semibold flex items-center gap-1'
+                    : dailyChange < 0
+                    ? 'text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-1'
+                    : 'text-gray-500 text-xs font-semibold flex items-center gap-1'
+                  : 'text-gray-500 text-xs font-semibold flex items-center gap-1'
+              }>
+                {dailyChange !== null && dailyChange > 0 && (
+                  <TrendingUp className="w-3.5 h-3.5 text-green-500 inline-block" />
+                )}
+                {dailyChange !== null && dailyChange < 0 && (
+                  <TrendingDown className="w-3.5 h-3.5 text-red-500 inline-block" />
+                )}
+                {dailyChange !== null ? `${dailyChange > 0 ? '+' : ''}${dailyChange.toFixed(2)}%` : '–'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       {trades.length > 0 && (
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <Card className="flex flex-col justify-center min-h-[48px] w-full">
@@ -222,6 +287,13 @@ export default function InsiderTrades() {
       )}
       {trades.length > 0 && (
         <>
+          <div className="mb-2 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-500 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-4m0-4h.01" />
+            </svg>
+            <span>Select transactions to show the total value.</span>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[420px] h-[420px] overflow-y-auto pr-2">
             {trades.map((trade, index) => {
               const selected = selectedIndexes.includes(index)
@@ -279,7 +351,7 @@ export default function InsiderTrades() {
           {selectedIndexes.length > 0 && (
             <div className="mt-4 mb-2 flex items-center justify-center">
               <span className="text-sm font-semibold text-blue-700 dark:text-blue-900 bg-white dark:bg-white px-4 py-2 rounded-lg shadow border border-blue-100 dark:border-blue-900">
-                Total value of selected trades: ${formatCompactNumber(selectedSum)}
+                <span className="text-black">Total value of selected trades: ${formatCompactNumber(selectedSum)}</span>
               </span>
             </div>
           )}

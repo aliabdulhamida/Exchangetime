@@ -136,11 +136,11 @@ export default function TopNav() {
 
   return (
     <nav className="px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-[#0F0F12] border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64">
-      <div className="flex items-center justify-center w-full sm:justify-start ml-8">
+      <div className="flex flex-nowrap items-center justify-center w-full sm:justify-start ml-8 sm:ml-0 sm:-ml-32 lg:-ml-56 gap-x-2 overflow-x-auto">
         {/* Watchlist Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center px-3 py-1 rounded hover:bg-gray-100 dark:hover:bg-[#18181b] border border-gray-200 dark:border-[#23232a] mr-2">
+            <button className="flex items-center px-2 py-0.5 text-xs sm:px-3 sm:py-1 sm:text-xs rounded hover:bg-gray-100 dark:hover:bg-[#18181b] border border-gray-200 dark:border-[#23232a] mr-2">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 mr-2">Watchlist</span>
               <ChevronRight size={16} />
             </button>
@@ -278,7 +278,7 @@ export default function TopNav() {
         {/* TradingViewWidget als Modal wie Watchlist */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center px-3 py-1 rounded hover:bg-gray-100 dark:hover:bg-[#18181b] border border-gray-200 dark:border-[#23232a]">
+            <button className="flex items-center px-2 py-0.5 text-xs sm:px-3 sm:py-1 sm:text-xs rounded hover:bg-gray-100 dark:hover:bg-[#18181b] border border-gray-200 dark:border-[#23232a]">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 mr-2">News</span>
               <ChevronRight size={16} />
             </button>
