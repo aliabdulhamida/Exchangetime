@@ -31,7 +31,7 @@ export default function Layout({ children, sidebar }: LayoutProps) {
         {sidebar}
         <div className="w-full flex flex-1 flex-col">
           {/* Sticky/fixed Header */}
-          <header className="fixed top-0 left-0 w-full z-50 h-16 border-b border-gray-200 dark:border-[#1F1F23] bg-white dark:bg-[#0F0F12]">
+          <header className="h-16 border-b border-gray-200 dark:border-[#1F1F23] bg-white dark:bg-[#0F0F12]">
             <TopNav />
           </header>
           {/* Padding-Top, damit Content nicht unter dem Header liegt */}
