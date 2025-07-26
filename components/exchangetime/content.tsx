@@ -28,7 +28,7 @@ interface ContentProps {
 
 function ModuleWrapper({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <div className="relative rounded shadow p-2">
+    <div className="relative p-2">
       <button
         onClick={onClose}
         className="absolute right-5 top-5 text-gray-400 hover:text-gray-700 dark:hover:text-white"
@@ -97,7 +97,7 @@ export default function Content({ visibleModules, hideModule }: ContentProps) {
       <div className="flex flex-col md:flex-row gap-6 items-stretch">
         {/* Compound Interest Calculator Container */}
         {visibleModules.includes("CompoundInterest") && (
-          <div className="flex-1 min-w-0 max-w-sm mx-auto md:mx-0 border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full">
+          <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-sm mx-auto md:mx-0 border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full">
             <ModuleWrapper onClose={() => hideModule("CompoundInterest") }>
               <div className="p-4 flex flex-col h-full">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Compound Interest</h2>
@@ -110,7 +110,7 @@ export default function Content({ visibleModules, hideModule }: ContentProps) {
         )}
         {/* Personal Budget Sankey Diagramm */}
         {visibleModules.includes("PersonalBudget") && (
-          <div className="flex-1 min-w-0 max-w-5xl mx-auto flex flex-col h-full pt-0 pb-6 px-6 relative">
+          <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-5xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full">
             <ModuleWrapper onClose={() => hideModule("PersonalBudget") }>
               <div className="flex-1 flex flex-col h-full">
                 <SankeyBudget />
