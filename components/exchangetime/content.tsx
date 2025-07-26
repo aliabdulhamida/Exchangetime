@@ -96,24 +96,28 @@ export default function Content({ visibleModules, hideModule }: ContentProps) {
       {/* Sixth Row - Personal Budget Sankey Diagram mit Compound Interest Calculator */}
       <div className="flex flex-col md:flex-row gap-6 items-stretch">
         {/* Compound Interest Calculator Container */}
-        <div className="flex-1 min-w-0 max-w-sm mx-auto md:mx-0 border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full">
-          <ModuleWrapper onClose={() => hideModule("CompoundInterest") }>
-            <div className="p-4 flex flex-col h-full">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Compound Interest</h2>
-              <div className="flex-1 flex flex-col justify-between">
-                <CompoundInterestCalculator />
+        {visibleModules.includes("CompoundInterest") && (
+          <div className="flex-1 min-w-0 max-w-sm mx-auto md:mx-0 border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full">
+            <ModuleWrapper onClose={() => hideModule("CompoundInterest") }>
+              <div className="p-4 flex flex-col h-full">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Compound Interest</h2>
+                <div className="flex-1 flex flex-col justify-between">
+                  <CompoundInterestCalculator />
+                </div>
               </div>
-            </div>
-          </ModuleWrapper>
-        </div>
+            </ModuleWrapper>
+          </div>
+        )}
         {/* Personal Budget Sankey Diagramm */}
-        <div className="flex-1 min-w-0 max-w-5xl mx-auto flex flex-col h-full pt-0 pb-6 px-6 relative">
-          <ModuleWrapper onClose={() => hideModule("PersonalBudget") }>
-            <div className="flex-1 flex flex-col h-full">
-              <SankeyBudget />
-            </div>
-          </ModuleWrapper>
-        </div>
+        {visibleModules.includes("PersonalBudget") && (
+          <div className="flex-1 min-w-0 max-w-5xl mx-auto flex flex-col h-full pt-0 pb-6 px-6 relative">
+            <ModuleWrapper onClose={() => hideModule("PersonalBudget") }>
+              <div className="flex-1 flex flex-col h-full">
+                <SankeyBudget />
+              </div>
+            </ModuleWrapper>
+          </div>
+        )}
       </div>
     </div>
   );
