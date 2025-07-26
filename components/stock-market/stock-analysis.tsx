@@ -537,14 +537,20 @@ export default function StockAnalysis() {
                   ))}
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <span>YTD:</span>
-                  <span className={ytdChange !== null ? (ytdChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : ''}>
-                    {ytdChange !== null ? `${ytdChange > 0 ? '+' : ''}${ytdChange.toFixed(2)}%` : '–'}
-                  </span>
-                  <span>52W:</span>
-                  <span className={week52Change !== null ? (week52Change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : ''}>
-                    {week52Change !== null ? `${week52Change > 0 ? '+' : ''}${week52Change.toFixed(2)}%` : '–'}
-                  </span>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 text-xs">
+                    <div>
+                      <span>YTD:</span>
+                      <span className={ytdChange !== null ? (ytdChange >= 0 ? 'text-green-600 dark:text-green-400 ml-1' : 'text-red-600 dark:text-red-400 ml-1') : 'ml-1'}>
+                        {ytdChange !== null ? `${ytdChange > 0 ? '+' : ''}${ytdChange.toFixed(2)}%` : '–'}
+                      </span>
+                    </div>
+                    <div>
+                      <span>52W:</span>
+                      <span className={week52Change !== null ? (week52Change >= 0 ? 'text-green-600 dark:text-green-400 ml-1' : 'text-red-600 dark:text-red-400 ml-1') : 'ml-1'}>
+                        {week52Change !== null ? `${week52Change > 0 ? '+' : ''}${week52Change.toFixed(2)}%` : '–'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

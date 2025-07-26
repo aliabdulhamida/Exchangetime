@@ -82,8 +82,8 @@ export default function FearGreedIndex() {
 
   return (
     <Dialog>
-      <div className="flex items-center gap-2 px-2 py-1 rounded">
-        <svg width="18" height="18" viewBox="0 0 18 18" className="animate-spin-slow" style={{ animationDuration: '2s', animationIterationCount: 'infinite', animationTimingFunction: 'linear' }}>
+      <div className="flex items-center gap-1 sm:gap-2 px-1 py-0.5 sm:px-2 sm:py-1 rounded">
+        <svg width="14" height="14" viewBox="0 0 18 18" className="animate-spin-slow sm:w-[18px] sm:h-[18px] w-[14px] h-[14px]" style={{ animationDuration: '2s', animationIterationCount: 'infinite', animationTimingFunction: 'linear' }}>
           <circle
             cx="9"
             cy="9"
@@ -96,9 +96,9 @@ export default function FearGreedIndex() {
             style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.4,0,.2,1)' }}
           />
         </svg>
-        <span className="font-bold text-xs" style={{ color: indexInfo.color }}>{index !== null ? Math.round(index) : "-"}</span>
+        <span className="font-bold text-[10px] sm:text-xs" style={{ color: indexInfo.color }}>{index !== null ? Math.round(index) : "-"}</span>
         <DialogTrigger asChild>
-          <button className="text-[10px] font-medium underline underline-offset-2 bg-transparent p-0 m-0 border-none cursor-pointer hover:text-blue-600 transition" style={{ color: indexInfo.color, background: "none" }}>
+          <button className="text-[9px] sm:text-[10px] font-medium underline underline-offset-2 bg-transparent p-0 m-0 border-none cursor-pointer hover:text-blue-600 transition" style={{ color: indexInfo.color, background: "none" }}>
             {indexInfo.label}
           </button>
         </DialogTrigger>
