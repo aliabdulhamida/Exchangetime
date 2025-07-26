@@ -1,6 +1,6 @@
 {
-  "name": "Exchangetime",
-  "short_name": "Exchangetime",
+  "name": "Exchange Time",
+  "short_name": "Exchange Time",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
