@@ -30,10 +30,12 @@ export default function Layout({ children, sidebar }: LayoutProps) {
       <div className={`flex h-screen ${theme === "dark" ? "dark" : ""}`}>
         {sidebar}
         <div className="w-full flex flex-1 flex-col">
-          <header className="h-16 border-b border-gray-200 dark:border-[#1F1F23]">
+          {/* Sticky/fixed Header */}
+          <header className="fixed top-0 left-0 w-full z-50 h-16 border-b border-gray-200 dark:border-[#1F1F23] bg-white dark:bg-[#0F0F12]">
             <TopNav />
           </header>
-          <main className="flex-1 overflow-auto p-6 bg-white dark:bg-[#0F0F12]">{children}</main>
+          {/* Padding-Top, damit Content nicht unter dem Header liegt */}
+          <main className="flex-1 overflow-auto p-6 bg-white dark:bg-[#0F0F12] pt-16">{children}</main>
         </div>
       </div>
     </>
