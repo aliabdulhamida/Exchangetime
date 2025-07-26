@@ -503,6 +503,8 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
                   <ModuleButton module="BacktestTool" icon={Wallet} label="Backtest Tool" />
                   <ModuleButton module="PortfolioTracker" icon={CreditCard} label="Portfolio Tracker" />
                   <ModuleButton module="CurrencyConverter" icon={DollarSign} label="Currency Converter" />
+                  <ModuleButton module="CompoundInterest" icon={Receipt} label="Compound Interest" />
+                  <ModuleButton module="PersonalBudget" icon={Folder} label="Personal Budget" />
                   <ModuleButton module="FearGreedIndex" icon={Gauge} label="Fear & Greed Index" />
                 </div>
               </div>

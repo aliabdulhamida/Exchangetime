@@ -53,7 +53,9 @@ import {
   YAxis,
   Tooltip,
   Bar,
-  BarChart
+  BarChart,
+  AreaChart,
+  Area
 } from "recharts"
 import { ChartTooltipContent } from "@/components/ui/chart"
 
@@ -344,25 +346,46 @@ export default function BacktestTool() {
                 <p className="font-semibold text-gray-900 dark:text-white">{result.totalShares ? result.totalShares.toFixed(2) : "-"}</p>
               </div>
             </div>
-            {portfolioHistory && portfolioHistory.length > 0 && (
-              <div className="mt-6">
-                 <div className="mb-2" />
-                 <ChartContainer config={{ value: { label: "Portfolio Value", color: "#2563eb" } }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={portfolioHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                      <XAxis dataKey="date" tick={{ fontSize: 12 }} minTickGap={30} />
-                      <YAxis tick={{ fontSize: 12 }} width={80} domain={["auto", "auto"]} />
-                      <Tooltip
-                        content={<ChartTooltipContent />}
-                        formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
-                        labelFormatter={(label: string) => `Date: ${label}`}
-                      />
-                      <Line type="monotone" dataKey="value" stroke="#2563eb" dot={false} strokeWidth={2} name="Portfolio Value" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
-            )}
+            {portfolioHistory && portfolioHistory.length > 0 && (() => {
+              // Chart-Farbe je nach Entwicklung
+              let chartColor = "#2563eb";
+              if (portfolioHistory.length > 1) {
+                const first = portfolioHistory[0].value;
+                const last = portfolioHistory[portfolioHistory.length - 1].value;
+                if (last > first) chartColor = "#16a34a"; // grün
+                else if (last < first) chartColor = "#dc2626"; // rot
+              }
+              return (
+                <div className="mt-6">
+                  <ChartContainer config={{ value: { label: "Portfolio Value", color: chartColor } }}>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart data={portfolioHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorPortfolioValue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={chartColor} stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor={chartColor} stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#a1a1aa' }} minTickGap={30} />
+                        <YAxis tick={{ fontSize: 12, fill: '#a1a1aa' }} width={80} domain={["auto", "auto"]} tickFormatter={(v: number) => v >= 1_000_000 ? (v/1_000_000).toFixed(1)+'M' : v >= 1_000 ? (v/1_000).toFixed(1)+'K' : v.toLocaleString()} />
+                        <Tooltip
+                          content={({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            return (
+                              <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]" style={{ lineHeight: 1.2 }}>
+                                <div className="mb-0.5" style={{ color: chartColor, fontSize: '11px' }}>{label}</div>
+                                <div><span style={{ color: chartColor, fontSize: '11px' }}>Value:</span> ${payload[0]?.payload?.value?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Area type="monotone" dataKey="value" stroke={chartColor} fillOpacity={1} fill="url(#colorPortfolioValue)" name="Portfolio Value" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </div>
+              );
+            })()}
             {dividendHistory && dividendHistory.length > 0 && (
               <div className="mt-8">
                 <ChartContainer config={{ amount: { label: "Dividende", color: "#22c55e" } }}>

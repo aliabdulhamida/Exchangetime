@@ -82,7 +82,7 @@ function SwipeToDeleteCard({
       </div>
       {/* Card */}
       <div
-        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#18181b] p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 relative text-xs sm:text-sm shadow-sm min-h-[72px] hover:shadow-md transition-shadow z-10 touch-none select-none w-full"
+        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#18181b] p-2 sm:p-3 flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 relative text-xs sm:text-sm shadow-sm min-h-[56px] hover:shadow-md transition-shadow z-10 touch-none select-none w-full"
         style={{ transform: `translateX(${dragX}px)`, transition: dragging ? 'none' : 'transform 0.2s' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -116,7 +116,7 @@ function SwipeToDeleteCard({
     </div>
   );
 }
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, AreaChart, Area } from "recharts";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -135,7 +135,7 @@ interface Purchase {
 export async function fetchStockData(symbol: string): Promise<StockDataPoint[] | { error: string }> {
   try {
     const end = Math.floor(Date.now() / 1000);
-    const start = end - 60 * 60 * 24 * 365; // 1 year
+    const start = 0; // keine Begrenzung, seit 1970
     const proxyUrl = "https://corsproxy.io/?";
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${start}&period2=${end}&interval=1d`;
     const url = proxyUrl + encodeURIComponent(yahooUrl);
@@ -319,8 +319,20 @@ export default function PortfolioTracker() {
   });
   allDates.sort();
 
+  // Finde das früheste Kaufdatum
+  let earliestBuyDate = null;
+  if (purchases.length > 0) {
+    earliestBuyDate = purchases.reduce((min, p) => (min === null || p.date < min ? p.date : min), null as string | null);
+  }
+
+  // Filtere allDates, sodass sie erst ab dem frühesten Kaufdatum starten
+  let filteredDates = allDates;
+  if (earliestBuyDate) {
+    filteredDates = allDates.filter(date => date >= earliestBuyDate!);
+  }
+
   let lastValue = 0;
-  const portfolioHistory = allDates.map((date) => {
+  const portfolioHistory = filteredDates.map((date) => {
     let value = 0;
     purchases.forEach((p) => {
       if (stockData[p.symbol]) {
@@ -388,7 +400,7 @@ export default function PortfolioTracker() {
           />
           <Input
             type="number"
-            className="w-full sm:w-28"
+            className="w-full sm:w-20"
             placeholder="Shares"
             value={shares}
             onChange={(e) => setShares(e.target.value)}
@@ -472,24 +484,48 @@ export default function PortfolioTracker() {
             {getTotalReturn().formatted}
           </div>
         </div>
-        <ChartContainer config={{ value: { label: "Portfolio Value", color: "#2563eb" } }}>
-          <ResponsiveContainer width="100%" height={300}>
-            {portfolioHistory.length > 0 ? (
-              <LineChart data={portfolioHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} minTickGap={30} />
-                <YAxis tick={{ fontSize: 12 }} width={80} domain={["auto", "auto"]} />
-                <Tooltip
-                  content={<ChartTooltipContent />}
-                  formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
-                  labelFormatter={(label: string) => `Date: ${label}`}
-                />
-                <Line type="monotone" dataKey="value" stroke="#2563eb" dot={false} strokeWidth={2} name="Portfolio Value" />
-              </LineChart>
-            ) : (
-              <div className="text-gray-400 dark:text-gray-600 text-sm">No data available.</div>
-            )}
-          </ResponsiveContainer>
-        </ChartContainer>
+        {(() => {
+          // Chart-Farbe je nach Entwicklung
+          let chartColor = "#2563eb";
+          if (portfolioHistory.length > 1) {
+            const first = portfolioHistory[0].value;
+            const last = portfolioHistory[portfolioHistory.length - 1].value;
+            if (last > first) chartColor = "#16a34a"; // grün
+            else if (last < first) chartColor = "#dc2626"; // rot
+          }
+          return (
+            <ChartContainer config={{ value: { label: "Portfolio Value", color: chartColor } }}>
+              <ResponsiveContainer width="100%" height={300}>
+                {portfolioHistory.length > 0 ? (
+                  <AreaChart data={portfolioHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorPortfolioValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={chartColor} stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor={chartColor} stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#a1a1aa' }} minTickGap={30} />
+                    <YAxis tick={{ fontSize: 12, fill: '#a1a1aa' }} width={80} domain={["auto", "auto"]} tickFormatter={(v: number) => v >= 1_000_000 ? (v/1_000_000).toFixed(1)+'M' : v >= 1_000 ? (v/1_000).toFixed(1)+'K' : v.toLocaleString()} />
+                    <Tooltip
+                      content={({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
+                        if (!active || !payload || !payload.length) return null;
+                        return (
+                          <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]" style={{ lineHeight: 1.2 }}>
+                            <div className="mb-0.5" style={{ color: chartColor, fontSize: '11px' }}>{label}</div>
+                            <div><span style={{ color: chartColor, fontSize: '11px' }}>Value:</span> ${payload[0]?.payload?.value?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Area type="monotone" dataKey="value" stroke={chartColor} fillOpacity={1} fill="url(#colorPortfolioValue)" name="Portfolio Value" />
+                  </AreaChart>
+                ) : (
+                  <div className="text-gray-400 dark:text-gray-600 text-sm">No data available.</div>
+                )}
+              </ResponsiveContainer>
+            </ChartContainer>
+          );
+        })()}
       </div>
     </div>
   );
