@@ -44,28 +44,41 @@ function SwipeToDeleteCard({
     const delta = e.clientX - startX;
     if (delta < 0) setDragX(delta);
   };
+  const [showDelete, setShowDelete] = React.useState(false);
   const handlePointerUp = () => {
     setDragging(false);
     if (Math.abs(dragX) > threshold) {
-      onDelete();
+      setShowDelete(true);
+      setDragX(-80); // fix position for delete button
+    } else {
+      setShowDelete(false);
+      setDragX(0);
     }
-    setDragX(0);
     setStartX(null);
+  };
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete();
   };
   const handlePointerLeave = () => {
     setDragging(false);
-    setDragX(0);
+    if (!showDelete) {
+      setDragX(0);
+    }
     setStartX(null);
   };
 
   return (
     <div className="relative" style={{ minWidth: 0 }}>
-      {/* Delete background */}
+      {/* Delete background (klickbar) */}
       <div
-        className="absolute inset-0 flex items-center justify-end pr-6 bg-red-50 dark:bg-red-900 rounded-lg z-0 transition-colors"
-        style={{ opacity: dragX < -10 ? 1 : 0, pointerEvents: 'none' }}
+        className="absolute inset-0 flex items-center justify-end pr-2 bg-red-50 dark:bg-red-900 rounded-lg z-0 transition-colors cursor-pointer"
+        style={{ opacity: dragX < -10 || showDelete ? 1 : 0, pointerEvents: showDelete ? 'auto' : 'none', transition: 'opacity 0.2s' }}
+        onClick={showDelete ? handleDeleteClick : undefined}
+        aria-label={showDelete ? 'Delete purchase' : undefined}
+        tabIndex={showDelete ? 0 : -1}
       >
-        <Trash className="w-6 h-6 text-red-600" />
+        <Trash className="w-6 h-6 text-red-600 mr-4" />
       </div>
       {/* Card */}
       <div
