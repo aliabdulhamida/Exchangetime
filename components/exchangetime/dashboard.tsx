@@ -2,7 +2,7 @@
 import Content from "./content";
 import Layout from "./layout";
 import Sidebar from "./sidebar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 
 const MODULES = [
@@ -31,6 +31,20 @@ export default function Dashboard() {
   function hideModule(module: string) {
     setVisibleModules((prev) => prev.filter((m) => m !== module));
   }
+
+  // Event-Listener für "Nur dieses Modul anzeigen"
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail === 'ALL') {
+        setVisibleModules([...MODULES]);
+      } else if (customEvent.detail && MODULES.includes(customEvent.detail)) {
+        setVisibleModules([customEvent.detail]);
+      }
+    };
+    window.addEventListener('showOnlyModule', handler);
+    return () => window.removeEventListener('showOnlyModule', handler);
+  }, []);
 
   return (
     <Layout
