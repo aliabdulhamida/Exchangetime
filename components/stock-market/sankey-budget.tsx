@@ -38,6 +38,8 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
   const [expenses, setExpenses] = useState<ExpenseInput[]>(defaultExpenses);
   // Theme detection (Tailwind/Next.js: 'dark' class on <html> or <body>)
   const [isDark, setIsDark] = useState(false);
+  // Overlay für großes Sankey
+  const [showSankeyOverlay, setShowSankeyOverlay] = useState(false);
   useEffect(() => {
     const checkTheme = () => {
       if (typeof window !== 'undefined') {
@@ -140,7 +142,25 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
   const nodes = nodeNames.map(name => ({ name }));
 
   // D3 Sankey Diagramm als Komponente
-  function SankeyD3({ width = 700, height = 400 }: { width?: number; height?: number }) {
+  function SankeyD3({ width = 700, height = 400, textSize }: { width?: number; height?: number; textSize?: number }) {
+    // Responsive Werte berechnen
+    // SVG skaliert mit Container, Textgröße und nodeWidth passen sich an
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const [containerWidth, setContainerWidth] = useState(width);
+    useEffect(() => {
+      function handleResize() {
+        if (containerRef.current) {
+          setContainerWidth(containerRef.current.offsetWidth);
+        }
+      }
+      handleResize();
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }, []);
+    // Werte für nodeWidth und Textgröße dynamisch
+    const effectiveWidth = containerWidth || width;
+    const nodeW = Math.max(12, Math.round(effectiveWidth / 50));
+    const fontSz = textSize !== undefined ? textSize : Math.max(10, Math.round(effectiveWidth / 60));
     // Tooltip State
     const [tooltip, setTooltip] = useState<{ x: number; y: number; content: React.ReactNode; visible: boolean }>({ x: 0, y: 0, content: '', visible: false });
     const svgRef = useRef<SVGSVGElement | null>(null);
@@ -150,22 +170,22 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
     const colors = isDark
       ? {
           node: '#ECEFF1',
-          text: '#757575',
+          text: '#fff',
           link: '#B0BEC5',
           linkOpacity: 0.25,
         }
       : {
-          node: '#111', // Schwarz für Knoten im weißen Theme
-          text: '#263238',
+          node: '#111',
+          text: '#111',
           link: '#90A4AE',
           linkOpacity: 0.18,
         };
 
     // Minimalistisches D3 Sankey Layout
     const sankeyGen = d3Sankey()
-      .nodeWidth(16)
-      .nodePadding(28)
-      .extent([[0, 0], [width, height]]);
+      .nodeWidth(nodeW)
+      .nodePadding(Math.max(16, Math.round(effectiveWidth / 30)))
+      .extent([[0, 0], [effectiveWidth, height]]);
     const graph = sankeyGen({
       nodes: nodes.map((d, i) => ({ ...d, index: i })),
       links: links.map(l => ({ ...l }))
@@ -191,14 +211,14 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
     const handleHideTooltip = () => setTooltip(t => ({ ...t, visible: false }));
 
     return (
-      <div style={{ width: '100%', maxWidth: width, overflowX: 'auto', position: 'relative' }}>
+      <div ref={containerRef} style={{ width: '100%', maxWidth: width, overflowX: 'auto', position: 'relative' }}>
         <svg
           ref={svgRef}
-          width="100%"
+          width={effectiveWidth}
           height={height}
-          viewBox={`0 0 ${width} ${height}`}
+          viewBox={`0 0 ${effectiveWidth} ${height}`}
           id="sankey-chart"
-          style={{ background: 'none', display: 'block' }}
+          style={{ background: 'none', display: 'block', width: '100%', height: height }}
         >
           <g>
           {/* Minimalistische Links */}
@@ -242,7 +262,7 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
                   x={endNode ? -8 : node.x1 - node.x0 + 8}
                   y={(node.y1 - node.y0) / 2}
                   dy="0.35em"
-                  fontSize={12}
+                  fontSize={fontSz}
                   fill={colors.text}
                   textAnchor={endNode ? "end" : "start"}
                   style={{ pointerEvents: 'none', userSelect: 'none', fontWeight: 400, letterSpacing: 0.1 }}
@@ -456,21 +476,67 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
       {/* Sankey Diagramm unterhalb von Income & Expenses */}
       <div className="flex flex-col items-center justify-start mt-8 w-full">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 w-full text-left">Sankey Diagram</h3>
-        <div className="mb-2 w-full flex justify-end">
-          <button
-            onClick={downloadChart}
-            className={
-              `flex items-center px-3 py-1.5 rounded text-sm border transition-colors duration-150 ` +
-              (isDark
-                ? 'bg-white text-black border-white hover:bg-gray-200'
-                : 'bg-black text-white border-black hover:bg-gray-900')
-            }
-            title="Download SVG"
-          >
-            <Download className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="mb-2 w-full flex justify-end gap-2">
+        <button
+          onClick={() => setShowSankeyOverlay(true)}
+          className={
+            `flex items-center px-3 py-1.5 rounded text-sm border transition-colors duration-150 ` +
+            (isDark
+              ? 'bg-white text-black border-white hover:bg-gray-200'
+              : 'bg-black text-white border-black hover:bg-gray-900')
+          }
+          title="Sankey groß anzeigen"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M8 8h8v8H8z" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
+        </button>
+        <button
+          onClick={downloadChart}
+          className={
+            `flex items-center px-3 py-1.5 rounded text-sm border transition-colors duration-150 ` +
+            (isDark
+              ? 'bg-white text-black border-white hover:bg-gray-200'
+              : 'bg-black text-white border-black hover:bg-gray-900')
+          }
+          title="Download SVG"
+        >
+          <Download className="w-4 h-4" />
+        </button>
+      </div>
         <SankeyD3 width={700} height={400} />
+        {/* Overlay für großes Sankey */}
+        {showSankeyOverlay && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sankey-dialog-title"
+          >
+            <div
+              className="relative rounded-lg shadow-lg p-6 max-w-5xl w-full flex flex-col items-center"
+              style={{ background: isDark ? '#000' : '#fff' }}
+            >
+              {/* Visually hidden DialogTitle for accessibility */}
+              <h2 id="sankey-dialog-title" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                Sankey Diagram
+              </h2>
+              <button
+                onClick={() => setShowSankeyOverlay(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                aria-label="Schließen"
+                style={{ zIndex: 10 }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 w-full text-left">Sankey Diagram</h3>
+              <div className="overflow-auto w-full flex justify-center">
+                <SankeyD3 width={1100} height={600} textSize={18} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       </div>
     </div>
