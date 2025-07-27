@@ -485,7 +485,7 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
               ? 'bg-white text-black border-white hover:bg-gray-200'
               : 'bg-black text-white border-black hover:bg-gray-900')
           }
-          title="Sankey groß anzeigen"
+          title="Show Sankey large"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M8 8h8v8H8z" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
         </button>
