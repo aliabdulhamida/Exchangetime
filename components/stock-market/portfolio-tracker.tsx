@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, RefreshCw, Trash } from "lucide-react";
+import { BarChart3, RefreshCw, Trash, TrendingUp, TrendingDown } from "lucide-react";
 import React, { useState, useEffect, JSX } from "react";
 
 // Einzelne Card-Komponente mit Swipe-to-Delete
@@ -472,16 +472,25 @@ export default function PortfolioTracker() {
         </div>
       </div>
       <div className="flex-1">
-        <div className="mb-2 flex flex-row items-end gap-6 flex-wrap">
-          <div className="flex flex-col">
+        <div className="mb-2 flex flex-row items-end gap-6 flex-wrap justify-end">
+          <div className="flex flex-col items-end">
             <span className="font-semibold text-gray-900 dark:text-white">Portfolio Value:</span>
             <span className="text-blue-700 dark:text-blue-400 font-bold">
               {getCurrentPortfolioValue().toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 })}
             </span>
-          </div>
-          <div className="flex flex-col">
-            <span className="font-semibold text-gray-900 dark:text-white">Total Return:</span>
-            {getTotalReturn().formatted}
+            <span className="mt-1 flex items-center gap-1">
+              {(() => {
+                const totalReturn = getTotalReturn();
+                if (totalReturn.pct === null) return totalReturn.formatted;
+                if (totalReturn.pct > 0) {
+                  return <><TrendingUp className="w-4 h-4 text-green-500" />{totalReturn.formatted}</>;
+                } else if (totalReturn.pct < 0) {
+                  return <><TrendingDown className="w-4 h-4 text-red-500" />{totalReturn.formatted}</>;
+                } else {
+                  return totalReturn.formatted;
+                }
+              })()}
+            </span>
           </div>
         </div>
         {(() => {
