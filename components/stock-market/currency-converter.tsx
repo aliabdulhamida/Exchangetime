@@ -6,6 +6,11 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Alert } from "@/components/ui/alert"
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import InputLabel from '@mui/material/InputLabel';
+import FormControl from '@mui/material/FormControl';
+import { useTheme } from "next-themes"
 
 const currencies = [
 	"USD",
@@ -55,15 +60,17 @@ const commonPairs = [
 	["AUD", "USD"],
 ]
 
+
 export default function CurrencyConverter() {
-	const [amount, setAmount] = useState("1000")
-	const [fromCurrency, setFromCurrency] = useState("USD")
-	const [toCurrency, setToCurrency] = useState("EUR")
-	const [result, setResult] = useState<string | null>(null)
-	const [rate, setRate] = useState<number | null>(null)
-	const [loading, setLoading] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-	const [lastUpdated, setLastUpdated] = useState<string | null>(null)
+  const [amount, setAmount] = useState("1000")
+  const [fromCurrency, setFromCurrency] = useState("USD")
+  const [toCurrency, setToCurrency] = useState("EUR")
+  const [result, setResult] = useState<string | null>(null)
+  const [rate, setRate] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
+  const { theme } = useTheme();
 
 	const handleConvert = async (e?: React.FormEvent) => {
 		if (e) e.preventDefault()
@@ -125,22 +132,66 @@ export default function CurrencyConverter() {
 					/>
 				</div>
 				<div className="flex items-center gap-4">
-					<div className="flex-1">
-						<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-							From
-						</label>
-						<select
-							value={fromCurrency}
-							onChange={(e) => setFromCurrency(e.target.value)}
-							className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-[#1F1F23] text-gray-900 dark:text-white"
-						>
-							{currencies.map((currency) => (
-								<option key={currency} value={currency}>
-									{currency}
-								</option>
-							))}
-						</select>
-					</div>
+	<div className="flex-1 mt-6">
+	  <FormControl size="small" fullWidth>
+			<InputLabel
+			  id="from-currency-label"
+			  sx={{
+				color: theme === 'dark' ? '#fff' : '#222',
+				'&.Mui-focused': { color: theme === 'dark' ? '#fff' : '#222' },
+			  }}
+			>From</InputLabel>
+			<Select
+			  labelId="from-currency-label"
+			  id="from-currency"
+			  value={fromCurrency}
+			  label="From"
+			  onChange={e => setFromCurrency(e.target.value as string)}
+			  sx={{
+				backgroundColor: theme === 'dark' ? '#1F1F23' : '#fff',
+				color: theme === 'dark' ? '#fff' : '#000',
+				fontSize: 14,
+				'.MuiOutlinedInput-notchedOutline': {
+				  borderColor: theme === 'dark' ? '#444' : '#ccc',
+				},
+				'&:hover .MuiOutlinedInput-notchedOutline': {
+				  borderColor: theme === 'dark' ? '#fff' : '#222',
+				},
+				'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+				  borderColor: theme === 'dark' ? '#fff' : '#222',
+				},
+				'.MuiSvgIcon-root': {
+				  color: theme === 'dark' ? '#fff' : '#000',
+				},
+			  }}
+			  MenuProps={{
+				PaperProps: {
+				  sx: {
+					backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
+					color: theme === 'dark' ? '#fff' : '#000',
+				  },
+				},
+			  }}
+			>
+			  {currencies.map((currency) => (
+				<MenuItem
+				  key={currency}
+				  value={currency}
+				  sx={{
+					backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
+					color: theme === 'dark' ? '#fff' : '#000',
+					'&.Mui-selected': {
+					  backgroundColor: theme === 'dark' ? '#333' : '#eee',
+					  color: theme === 'dark' ? '#fff' : '#000',
+					},
+				  }}
+				>
+				  {currency}
+				</MenuItem>
+			  ))}
+			</Select>
+		  </FormControl>
+		</div>
 					<Button
 						variant="outline"
 						size="sm"
@@ -151,22 +202,66 @@ export default function CurrencyConverter() {
 					>
 						<ArrowLeftRight className="w-5 h-5" />
 					</Button>
-					<div className="flex-1">
-						<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-							To
-						</label>
-						<select
-							value={toCurrency}
-							onChange={(e) => setToCurrency(e.target.value)}
-							className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-[#1F1F23] text-gray-900 dark:text-white"
-						>
-							{currencies.map((currency) => (
-								<option key={currency} value={currency}>
-									{currency}
-								</option>
-							))}
-						</select>
-					</div>
+	<div className="flex-1 mt-6">
+	  <FormControl size="small" fullWidth>
+			<InputLabel
+			  id="to-currency-label"
+			  sx={{
+				color: theme === 'dark' ? '#fff' : '#222',
+				'&.Mui-focused': { color: theme === 'dark' ? '#fff' : '#222' },
+			  }}
+			>To</InputLabel>
+			<Select
+			  labelId="to-currency-label"
+			  id="to-currency"
+			  value={toCurrency}
+			  label="To"
+			  onChange={e => setToCurrency(e.target.value as string)}
+			  sx={{
+				backgroundColor: theme === 'dark' ? '#1F1F23' : '#fff',
+				color: theme === 'dark' ? '#fff' : '#000',
+				fontSize: 14,
+				'.MuiOutlinedInput-notchedOutline': {
+				  borderColor: theme === 'dark' ? '#444' : '#ccc',
+				},
+				'&:hover .MuiOutlinedInput-notchedOutline': {
+				  borderColor: theme === 'dark' ? '#fff' : '#222',
+				},
+				'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+				  borderColor: theme === 'dark' ? '#fff' : '#222',
+				},
+				'.MuiSvgIcon-root': {
+				  color: theme === 'dark' ? '#fff' : '#000',
+				},
+			  }}
+			  MenuProps={{
+				PaperProps: {
+				  sx: {
+					backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
+					color: theme === 'dark' ? '#fff' : '#000',
+				  },
+				},
+			  }}
+			>
+			  {currencies.map((currency) => (
+				<MenuItem
+				  key={currency}
+				  value={currency}
+				  sx={{
+					backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
+					color: theme === 'dark' ? '#fff' : '#000',
+					'&.Mui-selected': {
+					  backgroundColor: theme === 'dark' ? '#333' : '#eee',
+					  color: theme === 'dark' ? '#fff' : '#000',
+					},
+				  }}
+				>
+				  {currency}
+				</MenuItem>
+			  ))}
+			</Select>
+		  </FormControl>
+		</div>
 				</div>
 				<div className="mb-2">
 					<p className="text-xs text-gray-500 dark:text-gray-400 mb-1">

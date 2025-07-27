@@ -191,12 +191,19 @@ export default function Content({ visibleModules, hideModule }: ContentProps) {
 }
 
 // --- Zinseszins-Rechner Komponente ---
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import InputLabel from '@mui/material/InputLabel';
+import FormControl from '@mui/material/FormControl';
+import { useTheme } from "next-themes";
+
 function CompoundInterestCalculator() {
   const [start, setStart] = useState(1000);
   const [rate, setRate] = useState(5);
   const [years, setYears] = useState(10);
   const [interval, setInterval] = useState(1);
   const [monthly, setMonthly] = useState(0);
+  const { theme } = useTheme();
 
   // Formel für Endkapital mit monatlichen Einzahlungen (Zinseszins mit Raten):
   // FV = P*(1+r/n)^(n*t) + PMT*(((1+r/n)^(n*t)-1)/(r/n))
@@ -266,18 +273,81 @@ function CompoundInterestCalculator() {
             onChange={e => setYears(Number(e.target.value))}
           />
         </label>
-        <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
-          Payout Interval
-          <select
-            className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition"
-            value={interval}
-            onChange={e => setInterval(Number(e.target.value))}
-          >
-            <option value={12}>Monthly</option>
-            <option value={4}>Quarterly</option>
-            <option value={1}>Yearly</option>
-          </select>
-        </label>
+        <div className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200 mt-4">
+          <FormControl size="small" fullWidth>
+            <InputLabel
+              id="interval-label"
+              sx={theme === 'dark' ? {
+                color: '#fff',
+                fontSize: 14,
+                top: 2,
+                backgroundColor: '#23232a',
+                px: 0.5,
+              } : {
+                color: '#222',
+                fontSize: 14,
+                top: 2,
+                backgroundColor: '#fff',
+                px: 0.5,
+              }}
+            >Payout Interval</InputLabel>
+            <Select
+              labelId="interval-label"
+              id="interval-select"
+              value={interval}
+              label="Payout Interval"
+              onChange={e => setInterval(Number(e.target.value))}
+              sx={theme === 'dark' ? {
+                backgroundColor: '#23232a',
+                color: '#fff',
+                fontSize: 14,
+                '.MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#444',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#fff',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#fff',
+                },
+                '.MuiSvgIcon-root': {
+                  color: '#fff',
+                },
+              } : {
+                backgroundColor: '#fff',
+                color: '#000',
+                fontSize: 14,
+                '.MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#ccc',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#222',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#222',
+                },
+                '.MuiSvgIcon-root': {
+                  color: '#000',
+                },
+              }}
+              MenuProps={{
+                PaperProps: {
+                  sx: theme === 'dark' ? {
+                    backgroundColor: '#23232a',
+                    color: '#fff',
+                  } : {
+                    backgroundColor: '#fff',
+                    color: '#000',
+                  },
+                },
+              }}
+            >
+              <MenuItem value={12}>Monthly</MenuItem>
+              <MenuItem value={4}>Quarterly</MenuItem>
+              <MenuItem value={1}>Yearly</MenuItem>
+            </Select>
+          </FormControl>
+        </div>
         <div className="mt-4 text-base font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-[#23232a] rounded-md px-3 py-2">
           Final Capital: {result.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} €
         </div>

@@ -322,7 +322,7 @@ export default function BacktestTool() {
             <h3 className="font-semibold text-gray-900 dark:text-white">Results</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
-                <p className="text-xs text-gray-600 dark:text-gray-400">Initial Value</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Total Investment</p>
                 <p className="font-semibold text-gray-900 dark:text-white">${result.initialValue.toLocaleString()}</p>
               </div>
               <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
@@ -331,11 +331,11 @@ export default function BacktestTool() {
               </div>
               <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
                 <p className="text-xs text-gray-600 dark:text-gray-400">Total Return</p>
-                <p className="font-semibold text-green-600">{result.totalReturn.toFixed(2)}%</p>
+                <p className={`font-semibold ${result.totalReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>{result.totalReturn.toFixed(2)}%</p>
               </div>
               <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
                 <p className="text-xs text-gray-600 dark:text-gray-400">Annualized Return</p>
-                <p className="font-semibold text-green-600">{result.annualizedReturn.toFixed(2)}%</p>
+                <p className={`font-semibold ${result.annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>{result.annualizedReturn.toFixed(2)}%</p>
               </div>
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                 <p className="text-xs text-blue-600 dark:text-blue-400">Dividends {reinvestDividends ? "Reinvested" : "(Cash)"}</p>

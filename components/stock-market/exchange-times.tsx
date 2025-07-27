@@ -2,6 +2,10 @@
 
 import { Clock, Heart } from "lucide-react"
 import { useTheme } from "next-themes"
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import InputLabel from '@mui/material/InputLabel';
+import FormControl from '@mui/material/FormControl';
 import { useState, useEffect } from "react"
 import marketHours from "@/lib/exchangeinfo.js"
 
@@ -161,17 +165,68 @@ export default function ExchangeTimes() {
             </button>
           </div>
           <div className="flex gap-2 items-center mt-2 sm:mt-0">
-            <label htmlFor="region-select" className="text-sm text-gray-700 dark:text-gray-300 font-medium">Region:</label>
-            <select
-              id="region-select"
-              value={selectedRegion}
-              onChange={e => setSelectedRegion(e.target.value)}
-              className="px-2 py-1 rounded border border-gray-300 dark:bg-[#18181c] dark:text-white text-sm"
-            >
-              {regions.map(region => (
-                <option key={region} value={region}>{region}</option>
-              ))}
-            </select>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel
+                id="region-select-label"
+                sx={{
+                  color: theme === 'dark' ? '#fff' : '#222',
+                  '&.Mui-focused': {
+                    color: theme === 'dark' ? '#fff' : '#222',
+                  },
+                }}
+              >
+                Region
+              </InputLabel>
+              <Select
+                labelId="region-select-label"
+                id="region-select"
+                value={selectedRegion}
+                label="Region"
+                onChange={(e) => setSelectedRegion(e.target.value as string)}
+                sx={{
+                  backgroundColor: theme === 'dark' ? '#18181c' : '#fff',
+                  color: theme === 'dark' ? '#fff' : '#000',
+                  fontSize: 14,
+                  '.MuiOutlinedInput-notchedOutline': {
+                    borderColor: theme === 'dark' ? '#444' : '#ccc',
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: theme === 'dark' ? '#fff' : '#222',
+                  },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: theme === 'dark' ? '#fff' : '#222',
+                  },
+                  '.MuiSvgIcon-root': {
+                    color: theme === 'dark' ? '#fff' : '#000',
+                  },
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
+                      color: theme === 'dark' ? '#fff' : '#000',
+                    },
+                  },
+                }}
+              >
+                {regions.map(region => (
+                  <MenuItem
+                    key={region}
+                    value={region}
+                    sx={{
+                      backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
+                      color: theme === 'dark' ? '#fff' : '#000',
+                      '&.Mui-selected': {
+                        backgroundColor: theme === 'dark' ? '#333' : '#eee',
+                        color: theme === 'dark' ? '#fff' : '#000',
+                      },
+                    }}
+                  >
+                    {region}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </div>
         </div>
         <div className="max-h-[420px] overflow-y-auto pr-2">
