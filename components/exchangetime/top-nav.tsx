@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { Bell, ChevronRight, RotateCw, Trash2, Pencil } from "lucide-react"
 import { fetchStockData as fetchStockDataPortfolio } from "../stock-market/portfolio-tracker"
-import Profile01 from "./profile-01"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { ThemeToggle } from "../theme-toggle"
@@ -424,6 +423,14 @@ export default function TopNav() {
           style={{ position: 'absolute', bottom: 70, right: 0, width: 320, maxWidth: '90vw' }}
         >
           <div className="bg-white dark:bg-[#18181b] border border-gray-200 dark:border-[#23232a] rounded-lg shadow-xl p-2">
+            <iframe
+              src="https://tunein.com/embed/player/s110052/"
+              style={{ width: '100%', height: 100, border: 'none' }}
+              scrolling="no"
+              frameBorder="no"
+              title="Radio Player 2"
+              allow="autoplay"
+            />
             <iframe
               src="https://tunein.com/embed/player/s165740/"
               style={{ width: '100%', height: 100, border: 'none' }}
