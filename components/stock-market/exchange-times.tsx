@@ -60,8 +60,25 @@ export default function ExchangeTimes() {
         const localNow = new Date(
             now.toLocaleString("en-US", { timeZone: exchange.timezone })
         );
-        const [openHour, openMinute] = exchange.openTime.split(":");
-        const [closeHour, closeMinute] = exchange.closeTime.split(":");
+        const day = localNow.getDay(); // 0 = Sonntag, 6 = Samstag
+        // Standard: Börsen sind am Samstag und Sonntag geschlossen
+        if (day === 0 || day === 6) return false;
+        // Feiertage prüfen
+        const exInfo = (marketHours as any)[exchange.name];
+        const holidays = exInfo?.holidays || {};
+        const dateStr = localNow.toISOString().slice(0, 10); // YYYY-MM-DD
+        if (holidays[dateStr]) {
+            // Wenn geschlossen (closeEarly: false), dann nie offen
+            if (!holidays[dateStr].closeEarly) return false;
+        }
+        // Öffnungs- und Schließzeiten ggf. für verkürzten Tag anpassen
+        let openTime = exchange.openTime;
+        let closeTime = exchange.closeTime;
+        if (holidays[dateStr] && holidays[dateStr].closeEarly && holidays[dateStr].earlyCloseTime) {
+            closeTime = holidays[dateStr].earlyCloseTime;
+        }
+        const [openHour, openMinute] = openTime.split(":");
+        const [closeHour, closeMinute] = closeTime.split(":");
         const open = new Date(localNow);
         const close = new Date(localNow);
         open.setHours(Number(openHour), Number(openMinute), 0, 0);
@@ -160,11 +177,171 @@ export default function ExchangeTimes() {
         <div className="max-h-[420px] overflow-y-auto pr-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {sorted.map((exchange) => {
-              // Zeit bis zum nächsten Event berechnen
+              // Zeit bis zum nächsten Event berechnen, unter Berücksichtigung von Wochenenden und Feiertagen
               const now = new Date();
-              const localNow = new Date(now.toLocaleString("en-US", { timeZone: exchange.timezone }));
-              const [openHour, openMinute] = exchange.openTime.split(":").map(Number);
-              const [closeHour, closeMinute] = exchange.closeTime.split(":").map(Number);
+              const exInfo = (marketHours as any)[exchange.name];
+              const holidays = exInfo?.holidays || {};
+              let localNow = new Date(now.toLocaleString("en-US", { timeZone: exchange.timezone }));
+              let day = localNow.getDay(); // 0 = Sonntag, 6 = Samstag
+              let dateStr = localNow.toISOString().slice(0, 10);
+              let openTime = exchange.openTime;
+              let closeTime = exchange.closeTime;
+              // Feiertag heute?
+              if (holidays[dateStr]) {
+                if (!holidays[dateStr].closeEarly) {
+                  // Komplett geschlossen, nächste Öffnung suchen
+                  let nextOpen = new Date(localNow);
+                  let addDays = 1;
+                  while (true) {
+                    nextOpen.setDate(nextOpen.getDate() + addDays);
+                    let nextDay = nextOpen.getDay();
+                    let nextDateStr = nextOpen.toISOString().slice(0, 10);
+                    if ((nextDay !== 0 && nextDay !== 6) && (!holidays[nextDateStr] || holidays[nextDateStr].closeEarly)) {
+                      break;
+                    }
+                    addDays = 1;
+                  }
+                  openTime = exchange.openTime;
+                  if (holidays[nextOpen.toISOString().slice(0, 10)]?.closeEarly && holidays[nextOpen.toISOString().slice(0, 10)]?.earlyCloseTime) {
+                    closeTime = holidays[nextOpen.toISOString().slice(0, 10)].earlyCloseTime;
+                  } else {
+                    closeTime = exchange.closeTime;
+                  }
+                  const open = new Date(nextOpen);
+                  const [openHour, openMinute] = openTime.split(":").map(Number);
+                  open.setHours(openHour, openMinute, 0, 0);
+                  let timeLeft = (open.getTime() - localNow.getTime()) / 1000;
+                  let timeLeftLabel = "Opens in:";
+                  let progress = 0;
+                  let hours = Math.floor(timeLeft / 3600);
+                  let minutes = Math.floor((timeLeft % 3600) / 60);
+                  let currentTime = exchange.localTime || "";
+                  return (
+                    // ...existing code...
+                    <div
+                      key={exchange.name}
+                      onClick={() => toggleFavorite(exchange.name)}
+                      className={`relative flex flex-col items-center rounded-2xl px-5 py-5 min-w-[210px] max-w-[260px] mx-auto cursor-pointer transition-all duration-200 border-2
+                        ${favorites.includes(exchange.name)
+                          ? (theme === 'dark' ? 'border-white' : 'border-red-500')
+                          : 'border-gray-300 dark:border-[#23232a] hover:border-gray-400 dark:hover:border-white'}
+                        bg-white dark:bg-[#18181c] shadow-[0_4px_24px_0_rgba(0,0,0,0.07)] dark:shadow-lg
+                      `}
+                    >
+                      <div className="absolute top-2 left-3 text-[11px] text-gray-800 dark:text-gray-400 font-semibold select-none pointer-events-none">
+                        {exchange.city}
+                      </div>
+                      <div className="absolute top-2 right-2 flex gap-1 items-center select-none pointer-events-none">
+                        <span className="bg-red-600 dark:bg-red-700 text-white rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider shadow-sm">CLOSED</span>
+                      </div>
+                      <div className="h-5" />
+                      <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
+                        {exchange.name}
+                        <span title={exchange.timezone} className="text-gray-400 cursor-pointer text-xs">&#9432;</span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
+                        Open: <span className="font-bold text-gray-700 dark:text-gray-100">{openTime}</span> - Close: <span className="font-bold text-gray-700 dark:text-gray-100">{closeTime}</span>
+                      </div>
+                      <div className="text-base font-mono font-bold text-gray-500 dark:text-gray-300 mb-2 tracking-widest">
+                        {currentTime}
+                      </div>
+                      <div className="flex justify-between w-full text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+                        <span>{timeLeftLabel}</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{hours > 0 ? `${hours}h ` : ''}{minutes}m</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-300 dark:bg-[#23232a] rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
+                          style={{ width: `${Math.round(progress * 100)}%` }}
+                        ></div>
+                      </div>
+                      {/* Hinweistext entfernt */}
+                    </div>
+                  );
+                }
+                // Verkürzter Tag: closeTime anpassen
+                if (holidays[dateStr].closeEarly && holidays[dateStr].earlyCloseTime) {
+                  closeTime = holidays[dateStr].earlyCloseTime;
+                }
+              }
+              // Wochenende prüfen
+              if (day === 0 || day === 6) {
+                // Nächste Öffnung am nächsten Werktag, der kein Feiertag ist
+                let nextOpen = new Date(localNow);
+                let addDays = 1;
+                while (true) {
+                  nextOpen.setDate(nextOpen.getDate() + addDays);
+                  let nextDay = nextOpen.getDay();
+                  let nextDateStr = nextOpen.toISOString().slice(0, 10);
+                  if ((nextDay !== 0 && nextDay !== 6) && (!holidays[nextDateStr] || holidays[nextDateStr].closeEarly)) {
+                    break;
+                  }
+                  addDays = 1;
+                }
+                openTime = exchange.openTime;
+                if (holidays[nextOpen.toISOString().slice(0, 10)]?.closeEarly && holidays[nextOpen.toISOString().slice(0, 10)]?.earlyCloseTime) {
+                  closeTime = holidays[nextOpen.toISOString().slice(0, 10)].earlyCloseTime;
+                } else {
+                  closeTime = exchange.closeTime;
+                }
+                const open = new Date(nextOpen);
+                const [openHour, openMinute] = openTime.split(":").map(Number);
+                open.setHours(openHour, openMinute, 0, 0);
+                let timeLeft = (open.getTime() - localNow.getTime()) / 1000;
+                let timeLeftLabel = "Opens in:";
+                let progress = 0;
+                let hours = Math.floor(timeLeft / 3600);
+                let minutes = Math.floor((timeLeft % 3600) / 60);
+                let currentTime = exchange.localTime || "";
+                return (
+                  // ...existing code...
+                  <div
+                    key={exchange.name}
+                    onClick={() => toggleFavorite(exchange.name)}
+                    className={`relative flex flex-col items-center rounded-2xl px-5 py-5 min-w-[210px] max-w-[260px] mx-auto cursor-pointer transition-all duration-200 border-2
+                      ${favorites.includes(exchange.name)
+                        ? (theme === 'dark' ? 'border-white' : 'border-red-500')
+                        : 'border-gray-300 dark:border-[#23232a] hover:border-gray-400 dark:hover:border-white'}
+                      bg-white dark:bg-[#18181c] shadow-[0_4px_24px_0_rgba(0,0,0,0.07)] dark:shadow-lg
+                    `}
+                  >
+                    <div className="absolute top-2 left-3 text-[11px] text-gray-800 dark:text-gray-400 font-semibold select-none pointer-events-none">
+                      {exchange.city}
+                    </div>
+                    <div className="absolute top-2 right-2 flex gap-1 items-center select-none pointer-events-none">
+                      <span className="bg-red-600 dark:bg-red-700 text-white rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider shadow-sm">CLOSED</span>
+                    </div>
+                    <div className="h-5" />
+                    <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
+                      {exchange.name}
+                      <span title={exchange.timezone} className="text-gray-400 cursor-pointer text-xs">&#9432;</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
+                      Open: <span className="font-bold text-gray-700 dark:text-gray-100">{openTime}</span> - Close: <span className="font-bold text-gray-700 dark:text-gray-100">{closeTime}</span>
+                    </div>
+                    <div className="text-base font-mono font-bold text-gray-500 dark:text-gray-300 mb-2 tracking-widest">
+                      {currentTime}
+                    </div>
+                    <div className="flex justify-between w-full text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+                      <span>{timeLeftLabel}</span>
+                      <span className="font-bold text-gray-900 dark:text-white">{hours > 0 ? `${hours}h ` : ''}{minutes}m</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-300 dark:bg-[#23232a] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
+                        style={{ width: `${Math.round(progress * 100)}%` }}
+                      ></div>
+                    </div>
+                    {/* Hinweistext entfernt */}
+                  </div>
+                );
+              }
+              // Regulärer Tag, ggf. verkürzt
+              if (holidays[dateStr] && holidays[dateStr].closeEarly && holidays[dateStr].earlyCloseTime) {
+                closeTime = holidays[dateStr].earlyCloseTime;
+              }
+              const [openHour, openMinute] = openTime.split(":").map(Number);
+              const [closeHour, closeMinute] = closeTime.split(":").map(Number);
               const open = new Date(localNow);
               open.setHours(openHour, openMinute, 0, 0);
               const close = new Date(localNow);
@@ -176,25 +353,39 @@ export default function ExchangeTimes() {
                 timeLeft = (close.getTime() - localNow.getTime()) / 1000;
                 timeLeftLabel = "Time Left:";
                 progress = 1 - (close.getTime() - localNow.getTime()) / (close.getTime() - open.getTime());
+              } else if (localNow < open) {
+                timeLeft = (open.getTime() - localNow.getTime()) / 1000;
+                timeLeftLabel = "Opens in:";
+                progress = 0;
               } else {
-                // Wenn geschlossen, Zeit bis zur nächsten Öffnung
-                if (localNow < open) {
-                  timeLeft = (open.getTime() - localNow.getTime()) / 1000;
-                  timeLeftLabel = "Opens in:";
-                  progress = 0;
-                } else {
-                  // Nächster Tag
-                  const nextOpen = new Date(open);
-                  nextOpen.setDate(open.getDate() + 1);
-                  timeLeft = (nextOpen.getTime() - localNow.getTime()) / 1000;
-                  timeLeftLabel = "Opens in:";
-                  progress = 0;
+                // Nach Börsenschluss, nächste Öffnung suchen
+                let nextOpen = new Date(open);
+                let addDays = 1;
+                while (true) {
+                  nextOpen.setDate(nextOpen.getDate() + addDays);
+                  let nextDay = nextOpen.getDay();
+                  let nextDateStr = nextOpen.toISOString().slice(0, 10);
+                  if ((nextDay !== 0 && nextDay !== 6) && (!holidays[nextDateStr] || holidays[nextDateStr].closeEarly)) {
+                    break;
+                  }
+                  addDays = 1;
                 }
+                openTime = exchange.openTime;
+                if (holidays[nextOpen.toISOString().slice(0, 10)]?.closeEarly && holidays[nextOpen.toISOString().slice(0, 10)]?.earlyCloseTime) {
+                  closeTime = holidays[nextOpen.toISOString().slice(0, 10)].earlyCloseTime;
+                } else {
+                  closeTime = exchange.closeTime;
+                }
+                const openNext = new Date(nextOpen);
+                const [openHourNext, openMinuteNext] = openTime.split(":").map(Number);
+                openNext.setHours(openHourNext, openMinuteNext, 0, 0);
+                timeLeft = (openNext.getTime() - localNow.getTime()) / 1000;
+                timeLeftLabel = "Opens in:";
+                progress = 0;
               }
-              const hours = Math.floor(timeLeft / 3600);
-              const minutes = Math.floor((timeLeft % 3600) / 60);
-              // Formatierte aktuelle Zeit
-              const currentTime = exchange.localTime || "";
+              let hours = Math.floor(timeLeft / 3600);
+              let minutes = Math.floor((timeLeft % 3600) / 60);
+              let currentTime = exchange.localTime || "";
               return (
                 <div
                   key={exchange.name}
