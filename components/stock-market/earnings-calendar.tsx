@@ -1,6 +1,6 @@
 "use client"
 
-import { Calendar, Clock, Info } from "lucide-react"
+import { Calendar, Clock, Info, CalendarX } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
@@ -112,7 +112,10 @@ export default function EarningsCalendar() {
       <div className="pl-4">
         {/* Datum entfernt */}
         {items.length === 0 ? (
-          <div className="text-gray-400">No earnings scheduled.</div>
+          <div className="flex flex-col items-center justify-center flex-1 min-h-[60px] text-sm text-gray-400">
+            <CalendarX className="w-5 h-5 mb-1" />
+            <span className="block text-center">No earnings scheduled.</span>
+          </div>
         ) : (
           <div className="max-h-[420px] overflow-y-auto space-y-3 px-4 md:px-8 rounded-lg scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
             {items.map((item, idx) => (
