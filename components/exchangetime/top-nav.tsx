@@ -173,7 +173,7 @@ export default function TopNav() {
   return (
     <>
       <nav className="px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-[#0F0F12] border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64">
-        <div className="flex flex-nowrap items-center justify-center w-full sm:justify-start ml-8 sm:ml-0 sm:-ml-32 lg:-ml-56 gap-x-2 overflow-x-auto">
+        <div className="flex flex-nowrap items-center ml-16 gap-x-2 overflow-x-auto">
         {/* Watchlist Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -340,7 +340,7 @@ export default function TopNav() {
       {/* TuneIn Radio Hover Bottom Right */}
       <div
         ref={radioRef}
-        style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000 }}
+        style={{ position: 'fixed', bottom: 155, right: 24, zIndex: 1000 }}
         onMouseEnter={handleRadioEnter}
         onMouseLeave={handleRadioLeave}
       >
