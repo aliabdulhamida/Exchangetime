@@ -217,7 +217,6 @@ export default function ExchangeTimes() {
                   let minutes = Math.floor((timeLeft % 3600) / 60);
                   let currentTime = exchange.localTime || "";
                   return (
-                    // ...existing code...
                     <div
                       key={exchange.name}
                       onClick={() => toggleFavorite(exchange.name)}
@@ -237,7 +236,6 @@ export default function ExchangeTimes() {
                       <div className="h-5" />
                       <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
                         {exchange.name}
-                        <span title={exchange.timezone} className="text-gray-400 cursor-pointer text-xs">&#9432;</span>
                       </div>
                       <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
                         Open: <span className="font-bold text-gray-700 dark:text-gray-100">{openTime}</span> - Close: <span className="font-bold text-gray-700 dark:text-gray-100">{closeTime}</span>
@@ -294,7 +292,6 @@ export default function ExchangeTimes() {
                 let minutes = Math.floor((timeLeft % 3600) / 60);
                 let currentTime = exchange.localTime || "";
                 return (
-                  // ...existing code...
                   <div
                     key={exchange.name}
                     onClick={() => toggleFavorite(exchange.name)}
@@ -314,7 +311,6 @@ export default function ExchangeTimes() {
                     <div className="h-5" />
                     <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
                       {exchange.name}
-                      <span title={exchange.timezone} className="text-gray-400 cursor-pointer text-xs">&#9432;</span>
                     </div>
                     <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
                       Open: <span className="font-bold text-gray-700 dark:text-gray-100">{openTime}</span> - Close: <span className="font-bold text-gray-700 dark:text-gray-100">{closeTime}</span>
@@ -410,7 +406,6 @@ export default function ExchangeTimes() {
                   <div className="h-5" />
                   <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
                     {exchange.name}
-                    <span title={exchange.timezone} className="text-gray-400 cursor-pointer text-xs">&#9432;</span>
                   </div>
                   <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
                     Open: <span className="font-bold text-gray-700 dark:text-gray-100">{exchange.openTime}</span> - Close: <span className="font-bold text-gray-700 dark:text-gray-100">{exchange.closeTime}</span>

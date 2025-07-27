@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { Bell, ChevronRight, RotateCw, Trash2, Pencil } from "lucide-react"
 import { fetchStockData as fetchStockDataPortfolio } from "../stock-market/portfolio-tracker"
@@ -13,6 +13,42 @@ const FearGreedIndex = dynamic(() => import("@/components/stock-market/fear-gree
 
 
 export default function TopNav() {
+  // --- Radio Hover State ---
+  const [radioOpen, setRadioOpen] = useState(false)
+  const radioTimeout = useRef<NodeJS.Timeout | null>(null)
+  const radioRef = useRef<HTMLDivElement | null>(null)
+  // Schließe das Radio-Menü bei Klick außerhalb
+  useEffect(() => {
+    if (!radioOpen) return;
+    function handleClick(e: MouseEvent | TouchEvent) {
+      if (!radioRef.current) return;
+      if (!radioRef.current.contains(e.target as Node)) {
+        setRadioOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+    };
+  }, [radioOpen]);
+
+  const handleRadioEnter = () => {
+    if (radioTimeout.current) {
+      clearTimeout(radioTimeout.current)
+      radioTimeout.current = null
+    }
+    // Nur öffnen, wenn noch nicht offen
+    setRadioOpen(prev => prev ? true : true)
+  }
+
+  const handleRadioLeave = () => {
+    if (radioTimeout.current) clearTimeout(radioTimeout.current)
+    radioTimeout.current = setTimeout(() => {
+      setRadioOpen(false)
+    }, 2000)
+  }
   // Watchlist: Lazy Initializer, liest direkt aus localStorage
   const [watchlist, setWatchlist] = useState<{ ticker: string }[]>(() => {
     if (typeof window === 'undefined') return [
@@ -135,8 +171,9 @@ export default function TopNav() {
   }
 
   return (
-    <nav className="px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-[#0F0F12] border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64">
-      <div className="flex flex-nowrap items-center justify-center w-full sm:justify-start ml-8 sm:ml-0 sm:-ml-32 lg:-ml-56 gap-x-2 overflow-x-auto">
+    <>
+      <nav className="px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-[#0F0F12] border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64">
+        <div className="flex flex-nowrap items-center justify-center w-full sm:justify-start ml-8 sm:ml-0 sm:-ml-32 lg:-ml-56 gap-x-2 overflow-x-auto">
         {/* Watchlist Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -299,6 +336,105 @@ export default function TopNav() {
         </div>
         <ThemeToggle />
       </div>
-    </nav>
+      </nav>
+      {/* TuneIn Radio Hover Bottom Right */}
+      <div
+        ref={radioRef}
+        style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000 }}
+        onMouseEnter={handleRadioEnter}
+        onMouseLeave={handleRadioLeave}
+      >
+        <button
+          className="rounded-full shadow-xl bg-white dark:bg-[#18181b] border-2 border-gray-300 dark:border-[#23232a] p-3 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:focus:ring-emerald-900 animate-radio-pulse"
+          style={{ boxShadow: '0 3px 12px rgba(34,197,94,0.10)' }}
+          tabIndex={0}
+          aria-label="Radio öffnen"
+          onClick={e => {
+            // Verhindere Doppelauslösung durch Touch
+            if ((window as any)._radioTouchHandled) {
+              (window as any)._radioTouchHandled = false;
+              return;
+            }
+            e.stopPropagation();
+            if (!radioOpen) {
+              handleRadioEnter();
+              if (radioTimeout.current) clearTimeout(radioTimeout.current);
+              radioTimeout.current = setTimeout(() => {
+                setRadioOpen(false);
+              }, 2000);
+            } else {
+              setRadioOpen(false);
+              if (radioTimeout.current) clearTimeout(radioTimeout.current);
+            }
+          }}
+          onTouchStart={e => {
+            (window as any)._radioTouchHandled = true;
+            e.stopPropagation();
+            // Zeitstempel für Short-Tap
+            (window as any)._radioTouchStart = Date.now();
+          }}
+          onTouchEnd={e => {
+            e.stopPropagation();
+            const start = (window as any)._radioTouchStart || 0;
+            const duration = Date.now() - start;
+            (window as any)._radioTouchStart = 0;
+            // Nur Short-Tap (max 350ms) akzeptieren
+            if (duration > 350) return;
+            if (!radioOpen) {
+              handleRadioEnter();
+              if (radioTimeout.current) clearTimeout(radioTimeout.current);
+              radioTimeout.current = setTimeout(() => {
+                setRadioOpen(false);
+              }, 2000);
+            } else {
+              setRadioOpen(false);
+              if (radioTimeout.current) clearTimeout(radioTimeout.current);
+            }
+          }}
+        >
+          {/* Pulsating Animation Keyframes */}
+          <style jsx global>{`
+            @keyframes radio-pulse {
+              0% { box-shadow: 0 0 0 0 rgba(120,120,120,0.45), 0 4px 16px rgba(34,197,94,0.10); }
+              70% { box-shadow: 0 0 0 12px rgba(120,120,120,0), 0 4px 16px rgba(34,197,94,0.10); }
+              100% { box-shadow: 0 0 0 0 rgba(120,120,120,0), 0 4px 16px rgba(34,197,94,0.10); }
+            }
+            .dark .animate-radio-pulse {
+              animation: radio-pulse 1.6s cubic-bezier(0.4,0,0.6,1) infinite;
+            }
+          `}</style>
+          {/* bi-broadcast Bootstrap Icon as SVG (exakt wie vom User) */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            fill="currentColor"
+            viewBox="0 0 16 16"
+            className="text-black dark:text-white"
+            style={{ color: undefined }}
+          >
+            <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0"/>
+          </svg>
+        </button>
+        <div
+          className={
+            (radioOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none') +
+            ' transition-opacity duration-300'
+          }
+          style={{ position: 'absolute', bottom: 70, right: 0, width: 320, maxWidth: '90vw' }}
+        >
+          <div className="bg-white dark:bg-[#18181b] border border-gray-200 dark:border-[#23232a] rounded-lg shadow-xl p-2">
+            <iframe
+              src="https://tunein.com/embed/player/s165740/"
+              style={{ width: '100%', height: 100, border: 'none' }}
+              scrolling="no"
+              frameBorder="no"
+              title="Radio Player"
+              allow="autoplay"
+            />
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
