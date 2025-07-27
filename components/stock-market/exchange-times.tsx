@@ -131,7 +131,6 @@ export default function ExchangeTimes() {
     return (
       <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23] shadow-lg">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-          <Clock className="w-6 h-6 text-white" />
           Exchange Times
         </h2>
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">

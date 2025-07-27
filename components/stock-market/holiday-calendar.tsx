@@ -61,7 +61,6 @@ export default function HolidayCalendar() {
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#1F1F23]">
       <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-        <AlertCircle className="w-4 h-4" />
         Holiday Calendar
       </h2>
       <div className="flex flex-col gap-4 sm:gap-6 sm:flex-row">
