@@ -208,7 +208,6 @@ export default function InsiderTrades() {
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-2xl p-8 border border-gray-200 dark:border-[#1F1F23] max-w-2xl mx-auto">
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-        <Users className="w-5 h-5" />
         Insider Trades
       </h2>
       <div className="flex gap-2 mb-4">

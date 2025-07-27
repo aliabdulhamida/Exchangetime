@@ -234,7 +234,6 @@ export default function BacktestTool() {
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23] flex flex-col">
       <div className="flex items-center justify-start mb-6">
-        <BarChart3 className="w-5 h-5 mr-2" />
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">Backtest Tool</h2>
       </div>
       {!result ? (

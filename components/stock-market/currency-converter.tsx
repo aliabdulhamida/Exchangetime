@@ -115,10 +115,9 @@ export default function CurrencyConverter() {
 
 	return (
 		<div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23]">
-			<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-				<DollarSign className="w-5 h-5" />
-				Currency Converter
-			</h2>
+	  <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+		Currency Converter
+	  </h2>
 			<form className="space-y-4" onSubmit={handleConvert}>
 				<div>
 					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

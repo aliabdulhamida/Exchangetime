@@ -51,8 +51,8 @@ export default function MarketSummary() {
 
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23]">
-      <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-        <Newspaper className="w-5 h-5" />
+
+      <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
         Weekly Market Summary
       </h2>
 

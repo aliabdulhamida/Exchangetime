@@ -379,7 +379,6 @@ export default function PortfolioTracker() {
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23] flex flex-col">
       <div className="flex items-center justify-start mb-6">
-        <BarChart3 className="w-6 h-6 mr-2" />
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Portfolio Tracker</h3>
       </div>
       <div className="mb-6">
