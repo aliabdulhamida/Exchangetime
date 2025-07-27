@@ -27,7 +27,7 @@ export default function Layout({ children, sidebar }: LayoutProps) {
   return (
     <>
       <DownloadAppOverlay />
-      <div className={`flex h-screen ${theme === "dark" ? "dark" : ""}`}>
+      <div className={`flex h-screen ${theme === "dark" ? "dark" : ""}`}> 
         {sidebar}
         <div className="w-full flex flex-1 flex-col">
           {/* Sticky/fixed Header */}
