@@ -73,7 +73,7 @@ export default function EarningsCalendar() {
   let items = EARNINGS_DATA[key] || []
 
   return (
-    <div className="rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23] max-w-2xl mx-auto">
+    <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#1F1F23]">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Calendar className="w-5 h-5" /> Earnings Calendar
