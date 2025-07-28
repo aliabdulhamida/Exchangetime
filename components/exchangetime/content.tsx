@@ -18,11 +18,12 @@ import InsiderTrades from "../stock-market/insider-trades";
 import EarningsCalendar from "../stock-market/earnings-calendar";
 import HolidayCalendar from "../stock-market/holiday-calendar";
 import SankeyBudget from "../stock-market/sankey-budget";
+import TradingViewWidget from "../stock-market/TradingViewWidget";
 import { X } from "lucide-react";
 import React, { useState } from "react";
 
 interface ContentProps {
-  visibleModules: string[];
+  visibleModules?: string[];
   hideModule: (module: string) => void;
 }
 
@@ -54,9 +55,29 @@ function ModuleWrapper({ children, onClose, onSolo }: { children: React.ReactNod
   );
 }
 
-export default function Content({ visibleModules, hideModule }: ContentProps) {
+// Standardmäßig sichtbare Module, wenn keine explizite Steuerung erfolgt
+const DEFAULT_VISIBLE_MODULES = [
+  "TechnicalAnalysis",
+  "StockAnalysis",
+  "ExchangeTimes",
+  "MarketSummary",
+  "BacktestTool",
+  "PortfolioTracker",
+  "CurrencyConverter",
+  "CompoundInterest",
+  "PersonalBudget",
+  "InsiderTrades",
+  "EarningsCalendar",
+  "HolidayCalendar",
+  // ... weitere Standardmodule falls gewünscht
+];
+
+export default function Content(props: ContentProps) {
+  const { visibleModules, hideModule } = props;
+  // Wenn visibleModules nicht gesetzt oder leer ist, TechnicalAnalysis standardmäßig anzeigen
+  const modules = !visibleModules || visibleModules.length === 0 ? DEFAULT_VISIBLE_MODULES : visibleModules;
   // Wenn nur ein Modul sichtbar ist, ist es "solo". Sonst nicht.
-  const isSolo = visibleModules.length === 1 ? visibleModules[0] : null;
+  const isSolo = modules.length === 1 ? modules[0] : null;
   // Toggle-Funktion: Solo oder alle anzeigen
   const showOnlyModule = (module: string) => {
     if (typeof window !== 'undefined' && window.dispatchEvent) {
@@ -75,117 +96,163 @@ export default function Content({ visibleModules, hideModule }: ContentProps) {
       {/* Module-Rendering: Wenn nur ein Modul sichtbar ist, trotzdem Grid-Layout */}
       {/* Das bisherige Grid-Layout bleibt immer erhalten */}
       <>
-          {/* Top Row - Exchange Times */}
-          <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-            {visibleModules.includes("ExchangeTimes") && (
-              <ModuleWrapper
-                onClose={() => hideModule("ExchangeTimes")}
-                onSolo={() => showOnlyModule("ExchangeTimes")}
-              >
-                <ExchangeTimes />
-              </ModuleWrapper>
-            )}
-          </div>
+        {/* Top Row - Exchange Times */}
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+          {modules.includes("ExchangeTimes") && (
+            <ModuleWrapper
+              onClose={() => hideModule("ExchangeTimes")}
+              onSolo={() => showOnlyModule("ExchangeTimes")}
+            >
+              <ExchangeTimes />
+            </ModuleWrapper>
+          )}
+        </div>
 
-          {/* Zweite Zeile: Stock Analysis und Insider Trades */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {visibleModules.includes("StockAnalysis") && (
-              <div className={visibleModules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
-                <ModuleWrapper onClose={() => hideModule("StockAnalysis")} onSolo={() => showOnlyModule("StockAnalysis")}> 
+        {/* Zweite Zeile: Stock Analysis, Insider Trades und Portfolio Tracker */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {modules.includes("StockAnalysis") && (
+            <div className={(modules.length === 1 ? "w-full max-w-xl mx-auto " : "") + "flex flex-col h-full min-h-[420px]"}>
+              <ModuleWrapper onClose={() => hideModule("StockAnalysis")} onSolo={() => showOnlyModule("StockAnalysis")}> 
+                <div className="flex flex-col h-full min-h-[420px]">
                   <StockAnalysis />
-                </ModuleWrapper>
-              </div>
-            )}
-            {visibleModules.includes("InsiderTrades") && (
-              <div className={visibleModules.length === 1 ? "w-full max-w-xl mx-auto mt-4" : ""}>
-                <ModuleWrapper onClose={() => hideModule("InsiderTrades")} onSolo={() => showOnlyModule("InsiderTrades")}> 
+                </div>
+              </ModuleWrapper>
+            </div>
+          )}
+          {modules.includes("InsiderTrades") && (
+            <div className={(modules.length === 1 ? "w-full max-w-xl mx-auto mt-4 " : "") + "flex flex-col h-full min-h-[420px]"}>
+              <ModuleWrapper onClose={() => hideModule("InsiderTrades")} onSolo={() => showOnlyModule("InsiderTrades")}> 
+                <div className="flex flex-col h-full min-h-[420px]">
                   <InsiderTrades />
-                </ModuleWrapper>
-              </div>
-            )}
-          </div>
-
-          {/* Third Row - Trading Tools */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {visibleModules.includes("PortfolioTracker") && (
-              <div className={visibleModules.length === 1 ? "w-full max-w-xl mx-auto mt-4" : ""}>
-                <ModuleWrapper onClose={() => hideModule("PortfolioTracker")} onSolo={() => showOnlyModule("PortfolioTracker")}> 
+                </div>
+              </ModuleWrapper>
+            </div>
+          )}
+          {modules.includes("PortfolioTracker") && (
+            <div className={(modules.length === 1 ? "w-full max-w-xl mx-auto mt-4 " : "") + "flex flex-col h-full min-h-[420px]"}>
+              <ModuleWrapper onClose={() => hideModule("PortfolioTracker")} onSolo={() => showOnlyModule("PortfolioTracker")}> 
+                <div className="flex flex-col h-full min-h-[420px]">
                   <PortfolioTracker />
-                </ModuleWrapper>
-              </div>
-            )}
-            {visibleModules.includes("BacktestTool") && (
-              <div className={visibleModules.length === 1 ? "w-full max-w-xl mx-auto mt-4" : ""}>
-                <ModuleWrapper onClose={() => hideModule("BacktestTool")} onSolo={() => showOnlyModule("BacktestTool")}> 
-                  <BacktestTool />
-                </ModuleWrapper>
-              </div>
-            )}
-          </div>
+                </div>
+              </ModuleWrapper>
+            </div>
+          )}
+        </div>
 
-          {/* Fourth Row - Market Data & Currency Converter */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {visibleModules.includes("MarketSummary") && (
-              <div className={visibleModules.length === 1 ? "w-full max-w-xl mx-auto mt-4" : ""}>
-                <ModuleWrapper onClose={() => hideModule("MarketSummary")} onSolo={() => showOnlyModule("MarketSummary")}> 
-                  <MarketSummary />
-                </ModuleWrapper>
-              </div>
-            )}
-            {visibleModules.includes("CurrencyConverter") && (
-              <div className={visibleModules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
-                <ModuleWrapper onClose={() => hideModule("CurrencyConverter")} onSolo={() => showOnlyModule("CurrencyConverter")}> 
-                  <CurrencyConverter />
-                </ModuleWrapper>
-              </div>
-            )}
-          </div>
-
-          {/* Fifth Row - Calendar und Holiday Info */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {visibleModules.includes("EarningsCalendar") && (
-              <div className={visibleModules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
-                <ModuleWrapper onClose={() => hideModule("EarningsCalendar")} onSolo={() => showOnlyModule("EarningsCalendar")}> 
-                  <EarningsCalendar />
-                </ModuleWrapper>
-              </div>
-            )}
-            {visibleModules.includes("HolidayCalendar") && (
-              <div className={visibleModules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
-                <ModuleWrapper onClose={() => hideModule("HolidayCalendar")} onSolo={() => showOnlyModule("HolidayCalendar")}> 
-                  <HolidayCalendar />
-                </ModuleWrapper>
-              </div>
-            )}
-          </div>
-
-          {/* Sixth Row - Personal Budget Sankey Diagram mit Compound Interest Calculator */}
-          <div className={`flex flex-col md:flex-row gap-6 items-stretch${visibleModules.length === 1 ? ' justify-center' : ''}`}> 
-            {/* Compound Interest Calculator Container */}
-            {visibleModules.includes("CompoundInterest") && (
-              <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-sm mx-auto md:mx-0 border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full">
-                <ModuleWrapper onClose={() => hideModule("CompoundInterest") } onSolo={() => showOnlyModule("CompoundInterest") }>
-                  <div className="p-4 flex flex-col h-full">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Compound Interest</h2>
-                    <div className="flex-1 flex flex-col justify-between">
-                      <CompoundInterestCalculator />
-                    </div>
+        {/* Neue Zeile: Technical Analysis */}
+        <div className="grid grid-cols-1 gap-6">
+          {modules.includes("TechnicalAnalysis") && (
+            <div className={
+              `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full ` +
+              (modules.length === 1 ? "" : "")
+            }>
+              <ModuleWrapper 
+                onClose={() => hideModule("TechnicalAnalysis")}
+                onSolo={() => showOnlyModule("TechnicalAnalysis")}
+              >
+                <div className="p-4 flex flex-col h-full">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Technical Analysis</h2>
+                  <div className="flex-1 min-h-[700px]">
+                    <TradingViewWidget />
                   </div>
-                </ModuleWrapper>
+                </div>
+              </ModuleWrapper>
+            </div>
+          )}
+        </div>
+
+        {/* Third Row - Trading Tools */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {modules.includes("CompoundInterest") && (
+            <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 min-h-[220px] border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col justify-center">
+              <div className="flex items-center justify-between px-6 pt-4 pb-0">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Compound Interest</h2>
+                <div className="flex gap-2 items-center">
+                  {/* Augen-Button und X-Button aus ModuleWrapper */}
+                  <button
+                    onClick={() => showOnlyModule("CompoundInterest")}
+                    className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent hover:border-blue-400 rounded p-1 transition"
+                    aria-label="Show only this module"
+                    title="Show only this module"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  </button>
+                  <button
+                    onClick={() => hideModule("CompoundInterest")}
+                    className="text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                    aria-label="Close"
+                    title="Close"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            )}
-            {/* Personal Budget Sankey Diagramm */}
-            {visibleModules.includes("PersonalBudget") && (
-              <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-5xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full">
-                <ModuleWrapper onClose={() => hideModule("PersonalBudget") } onSolo={() => showOnlyModule("PersonalBudget") }>
-                  <div className="flex-1 flex flex-col h-full">
-                    <SankeyBudget />
-                  </div>
-                </ModuleWrapper>
+              <div className="p-4 flex flex-col h-full">
+                <div className="flex-1 flex flex-col justify-between">
+                  <CompoundInterestCalculator />
+                </div>
               </div>
-            )}
-          </div>
-        </>
+            </div>
+          )}
+          {modules.includes("BacktestTool") && (
+            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto mt-4" : ""}>
+              <ModuleWrapper onClose={() => hideModule("BacktestTool")} onSolo={() => showOnlyModule("BacktestTool")}> 
+                <BacktestTool />
+              </ModuleWrapper>
+            </div>
+          )}
+        </div>
+
+        {/* Fourth Row - Market Data & Currency Converter */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {modules.includes("MarketSummary") && (
+            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto mt-4" : ""}>
+              <ModuleWrapper onClose={() => hideModule("MarketSummary")} onSolo={() => showOnlyModule("MarketSummary")}> 
+                <MarketSummary />
+              </ModuleWrapper>
+            </div>
+          )}
+          {modules.includes("CurrencyConverter") && (
+            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
+              <ModuleWrapper onClose={() => hideModule("CurrencyConverter")} onSolo={() => showOnlyModule("CurrencyConverter")}> 
+                <CurrencyConverter />
+              </ModuleWrapper>
+            </div>
+          )}
+        </div>
+
+        {/* Fifth Row - Calendar und Holiday Info */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {modules.includes("EarningsCalendar") && (
+            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
+              <ModuleWrapper onClose={() => hideModule("EarningsCalendar")} onSolo={() => showOnlyModule("EarningsCalendar")}> 
+                <EarningsCalendar />
+              </ModuleWrapper>
+            </div>
+          )}
+          {modules.includes("HolidayCalendar") && (
+            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
+              <ModuleWrapper onClose={() => hideModule("HolidayCalendar")} onSolo={() => showOnlyModule("HolidayCalendar")}> 
+                <HolidayCalendar />
+              </ModuleWrapper>
+            </div>
+          )}
+        </div>
+
+        {/* Sixth Row - Personal Budget Sankey Diagramm */}
+        <div className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}> 
+          {/* Personal Budget Sankey Diagramm */}
+          {modules.includes("PersonalBudget") && (
+            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-5xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full">
+              <ModuleWrapper onClose={() => hideModule("PersonalBudget") } onSolo={() => showOnlyModule("PersonalBudget") }>
+                <div className="flex-1 flex flex-col h-full">
+                  <SankeyBudget />
+                </div>
+              </ModuleWrapper>
+            </div>
+          )}
+        </div>
+      </>
     </div>
   );
 }
@@ -230,8 +297,9 @@ function CompoundInterestCalculator() {
   });
 
   return (
-    <>
-      <form className="flex flex-col gap-4 p-2">
+    <div className="flex flex-col md:flex-row gap-6 w-full">
+      {/* Linke Spalte: Eingaben */}
+      <form className="flex flex-col gap-4 p-2 md:w-1/2 w-full max-w-md">
         <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
           Initial Capital
           <input
@@ -348,43 +416,46 @@ function CompoundInterestCalculator() {
             </Select>
           </FormControl>
         </div>
-        <div className="mt-4 text-base font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-[#23232a] rounded-md px-3 py-2">
+      </form>
+      {/* Rechte Spalte: Ergebnisse und Chart */}
+      <div className="flex flex-col gap-2 md:w-1/2 w-full justify-center">
+        <div className="text-base font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-[#23232a] rounded-md px-3 py-2">
           Final Capital: {result.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} €
         </div>
-        <div className="mt-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-[#23232a] rounded-md px-3 py-2">
+        <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-[#23232a] rounded-md px-3 py-2">
           Initial Capital: {start.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} €<br />
           Total Deposits: {(monthly * 12 * years).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} €<br />
           Return: {(result - start - (monthly * 12 * years)).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} €
         </div>
-      </form>
-      <div className="w-full h-80 mt-4">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="year" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
-            <YAxis tick={{ fill: '#a1a1aa', fontSize: 12 }} tickFormatter={v => v.toLocaleString()} />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (!active || !payload || !payload.length) return null;
-                return (
-                  <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-4 py-2 shadow-lg text-xs min-w-[120px]">
-                    {/* Jahreszahl entfernt, nur noch Capital anzeigen */}
-                    <div>
-                      <span className="text-gray-300">Capital:</span> {typeof payload[0]?.value === 'number' ? payload[0].value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '-'} €
+        <div className="w-full h-80 mt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="year" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#a1a1aa', fontSize: 12 }} tickFormatter={v => v.toLocaleString()} />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload || !payload.length) return null;
+                  return (
+                    <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-4 py-2 shadow-lg text-xs min-w-[120px]">
+                      {/* Jahreszahl entfernt, nur noch Capital anzeigen */}
+                      <div>
+                        <span className="text-gray-300">Capital:</span> {typeof payload[0]?.value === 'number' ? payload[0].value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '-'} €
+                      </div>
                     </div>
-                  </div>
-                );
-              }}
-            />
-            <Area type="monotone" dataKey="capital" stroke="#2563eb" fillOpacity={1} fill="url(#colorCapital)" />
-          </AreaChart>
-        </ResponsiveContainer>
+                  );
+                }}
+              />
+              <Area type="monotone" dataKey="capital" stroke="#2563eb" fillOpacity={1} fill="url(#colorCapital)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

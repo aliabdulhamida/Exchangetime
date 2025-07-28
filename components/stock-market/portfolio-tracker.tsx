@@ -383,38 +383,40 @@ export default function PortfolioTracker() {
       </div>
       <div className="mb-6">
         <form
-          className="flex flex-col sm:flex-row gap-2 items-end"
+          className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             handleAddPurchase();
           }}
         >
-          <Input
-            type="text"
-            className="w-full sm:w-44"
-            placeholder="Enter ticker (e.g. AAPL)"
-            value={search}
-            onChange={(e) => setSearch(e.target.value.toUpperCase())}
-            disabled={loading}
-          />
-          <Input
-            type="number"
-            className="w-full sm:w-20"
-            placeholder="Shares"
-            value={shares}
-            onChange={(e) => setShares(e.target.value)}
-            min={0}
-            step={0.01}
-            disabled={loading}
-          />
-          <Input
-            type="date"
-            className="w-full sm:w-40"
-            value={buyDate}
-            onChange={(e) => setBuyDate(e.target.value)}
-            disabled={loading}
-          />
-          <Button type="submit" disabled={loading} className="h-10 px-4 flex items-center whitespace-nowrap w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <Input
+              type="text"
+              className="w-full sm:w-44"
+              placeholder="Enter ticker (e.g. AAPL)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value.toUpperCase())}
+              disabled={loading}
+            />
+            <Input
+              type="number"
+              className="w-full sm:w-20"
+              placeholder="Shares"
+              value={shares}
+              onChange={(e) => setShares(e.target.value)}
+              min={0}
+              step={0.01}
+              disabled={loading}
+            />
+            <Input
+              type="date"
+              className="w-full sm:w-40"
+              value={buyDate}
+              onChange={(e) => setBuyDate(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+          <Button type="submit" disabled={loading} className="h-10 px-4 flex items-center whitespace-nowrap w-full sm:w-auto mt-2">
             Buy
           </Button>
         </form>
@@ -439,7 +441,7 @@ export default function PortfolioTracker() {
             <div className="text-gray-400 dark:text-gray-600 text-sm">No purchases yet.</div>
           ) : (
             <div
-              className="grid gap-2 grid-cols-1 max-h-64 overflow-y-auto pr-2"
+              className="grid gap-2 grid-cols-1 max-h-60 overflow-y-auto pr-2"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {purchases.map((p, i) => {

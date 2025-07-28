@@ -206,8 +206,8 @@ export default function InsiderTrades() {
 
   // --- BEGINN JSX-RETURN ---
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-2xl p-8 border border-gray-200 dark:border-[#1F1F23] max-w-2xl mx-auto">
-      <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+    <div className="bg-white dark:bg-[#0F0F12] rounded-2xl pt-4 pl-4 pr-8 pb-8 border border-gray-200 dark:border-[#1F1F23] max-w-2xl mx-auto">
+      <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2 mt-0 ml-0">
         Insider Trades
       </h2>
       <div className="flex gap-2 mb-4">
@@ -226,6 +226,14 @@ export default function InsiderTrades() {
           <Search className="w-4 h-4" />
         </Button>
       </div>
+      {/* Disclaimer ähnlich wie Stock Analysis */}
+      {(!loading && !error && trades.length === 0) && (
+        <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+          <p className="text-xs text-blue-600 dark:text-blue-400">
+            💡 Insider trading data is reported with a delay and should be used for informational purposes only.
+          </p>
+        </div>
+      )}
       {loading && (
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           {[...Array(4)].map((_, i) => (
@@ -270,40 +278,7 @@ export default function InsiderTrades() {
           </div>
         </Alert>
       )}
-      {companyName && (
-        <div className="mb-4 flex items-center justify-between w-full">
-          <div className="flex flex-col text-left">
-            <span className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight drop-shadow-sm">{companyName}</span>
-            {ticker && (
-              <span className="text-xs font-mono text-gray-500 dark:text-gray-400 mt-0.5">{ticker}</span>
-            )}
-          </div>
-          {ticker && (
-            <div className="flex flex-col items-end min-w-[70px]">
-              <span className="text-lg font-bold text-gray-900 dark:text-white">
-                {latestPrice !== null ? `$${latestPrice.toFixed(2)}` : '-'}
-              </span>
-              <span className={
-                dailyChange !== null
-                  ? dailyChange > 0
-                    ? 'text-green-600 dark:text-green-400 text-xs font-semibold flex items-center gap-1'
-                    : dailyChange < 0
-                    ? 'text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-1'
-                    : 'text-gray-500 text-xs font-semibold flex items-center gap-1'
-                  : 'text-gray-500 text-xs font-semibold flex items-center gap-1'
-              }>
-                {dailyChange !== null && dailyChange > 0 && (
-                  <TrendingUp className="w-3.5 h-3.5 text-green-500 inline-block" />
-                )}
-                {dailyChange !== null && dailyChange < 0 && (
-                  <TrendingDown className="w-3.5 h-3.5 text-red-500 inline-block" />
-                )}
-                {dailyChange !== null ? `${dailyChange > 0 ? '+' : ''}${dailyChange.toFixed(2)}%` : '–'}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Bereich mit Company, Ticker, Preis und Tagesänderung entfernt */}
       {/* Statistikkarten und Chart */}
       {trades.length > 0 && (
         <>
@@ -341,8 +316,8 @@ export default function InsiderTrades() {
               </CardContent>
             </Card>
           </div>
-          {/* Chart im Compound-Interest-Stil */}
-          <div className="w-full h-80 mb-8">
+          {/* Chart im Compound-Interest-Stil (kleiner) */}
+          <div className="w-full h-48 mb-8">
             <InsiderTradesChart trades={trades} />
           </div>
         </>
@@ -357,58 +332,60 @@ export default function InsiderTrades() {
             </svg>
             <span>Select transactions to show the total value.</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[420px] h-[420px] overflow-y-auto pr-2">
-            {trades.map((trade, index) => {
-              const selected = selectedIndexes.includes(index)
-              return (
-                <Card
-                  key={index}
-                  className={`flex flex-col px-6 py-5 min-h-[160px] relative cursor-pointer transition-all duration-150 border-2 ${selected ? 'border-white dark:border-white shadow-lg' : 'border-transparent'}`}
-                  onClick={() => toggleSelect(index)}
-                  tabIndex={0}
-                  aria-pressed={selected}
-                  aria-label={`Insider Trade ${index + 1} auswählen`}
-                >
-                  <CardContent className="flex flex-col p-0 h-full">
-                    {/* Top Row: Titel und Sale-Badge nebeneinander */}
-                    <div className="flex items-start w-full mb-6 relative">
-                      <div className="absolute left-0 -top-1 text-xs font-extrabold text-card-foreground uppercase tracking-tight leading-tight max-w-[70%] break-words">{trade.position}</div>
-                      {/* Badges absolut oben rechts platzieren */}
-                      <div className="absolute -right-4 -top-2 flex gap-1">
-                        {sellRegex.test(trade.transaction) && (
-                          <span className="text-red-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
-                            <ArrowDownCircle className="w-3 h-3 mr-0.5" /> Sale
-                          </span>
-                        )}
-                        {buyRegex.test(trade.transaction) && (
-                          <span className="text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
-                            <ArrowUpCircle className="w-3 h-3 mr-0.5" /> Buy
-                          </span>
-                        )}
+          <div className="relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[320px] overflow-y-auto pr-2">
+              {trades.map((trade, index) => {
+                const selected = selectedIndexes.includes(index)
+                return (
+                  <Card
+                    key={index}
+                    className={`flex flex-col px-6 py-5 min-h-[160px] relative cursor-pointer transition-all duration-150 border-2 ${selected ? 'border-white dark:border-white shadow-lg' : 'border-transparent'}`}
+                    onClick={() => toggleSelect(index)}
+                    tabIndex={0}
+                    aria-pressed={selected}
+                    aria-label={`Insider Trade ${index + 1} auswählen`}
+                  >
+                    <CardContent className="flex flex-col p-0 h-full">
+                      {/* Top Row: Titel und Sale-Badge nebeneinander */}
+                      <div className="flex items-start w-full mb-6 relative">
+                        <div className="absolute left-0 -top-1 text-xs font-extrabold text-card-foreground uppercase tracking-tight leading-tight max-w-[70%] break-words">{trade.position}</div>
+                        {/* Badges absolut oben rechts platzieren */}
+                        <div className="absolute -right-4 -top-2 flex gap-1">
+                          {sellRegex.test(trade.transaction) && (
+                            <span className="text-red-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
+                              <ArrowDownCircle className="w-3 h-3 mr-0.5" /> Sale
+                            </span>
+                          )}
+                          {buyRegex.test(trade.transaction) && (
+                            <span className="text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1" style={{letterSpacing: 1}}>
+                              <ArrowUpCircle className="w-3 h-3 mr-0.5" /> Buy
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    {/* Datum und Name */}
-                    <div className="text-[10px] font-bold text-card-foreground flex justify-center mt-2 mb-0.5">{trade.date}</div>
-                    <div className="text-[10px] text-muted-foreground text-center mb-2">{trade.insider}</div>
-                    {/* Werte */}
-                    <div className="flex flex-row items-end justify-between w-full mt-auto gap-2">
-                      <div className="flex flex-col items-center flex-1">
-                        <span className="text-[9px] text-muted-foreground font-semibold mb-0.5">PRICE</span>
-                        <span className="text-xs font-bold text-card-foreground">${trade.price.toFixed(2)}</span>
+                      {/* Datum und Name */}
+                      <div className="text-[10px] font-bold text-card-foreground flex justify-center mt-2 mb-0.5">{trade.date}</div>
+                      <div className="text-[10px] text-muted-foreground text-center mb-2">{trade.insider}</div>
+                      {/* Werte */}
+                      <div className="flex flex-row items-end justify-between w-full mt-auto gap-2">
+                        <div className="flex flex-col items-start flex-1 pl-1">
+                          <span className="text-[8px] text-muted-foreground font-semibold mb-0.5">PRICE</span>
+                          <span className="text-[11px] font-bold text-card-foreground">${trade.price.toFixed(2)}</span>
+                        </div>
+                        <div className="flex flex-col items-start flex-1 pl-1">
+                          <span className="text-[8px] text-muted-foreground font-semibold mb-0.5">SHARES</span>
+                          <span className="text-[11px] font-bold text-card-foreground">{formatCompactNumber(trade.shares)}</span>
+                        </div>
+                        <div className="flex flex-col items-start flex-1 pl-1">
+                          <span className="text-[8px] text-muted-foreground font-semibold mb-0.5">VALUE</span>
+                          <span className="text-[11px] font-bold text-card-foreground">${formatCompactNumber(trade.value)}</span>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-center flex-1">
-                        <span className="text-[9px] text-muted-foreground font-semibold mb-0.5">SHARES</span>
-                        <span className="text-xs font-bold text-card-foreground">{formatCompactNumber(trade.shares)}</span>
-                      </div>
-                      <div className="flex flex-col items-center flex-1">
-                        <span className="text-[9px] text-muted-foreground font-semibold mb-0.5">VALUE</span>
-                        <span className="text-xs font-bold text-card-foreground">${formatCompactNumber(trade.value)}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
           </div>
           {selectedIndexes.length > 0 && (
             <div className="mt-4 mb-2 flex items-center justify-center">
@@ -419,11 +396,7 @@ export default function InsiderTrades() {
           )}
         </>
       )}
-      <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-        <p className="text-xs text-blue-600 dark:text-blue-400">
-          💡 Insider trading data is reported with a delay and should be used for informational purposes only.
-        </p>
-      </div>
+      {/* Info-Hinweis entfernt, jetzt als Tooltip am Titel */}
     </div>
   )
 }

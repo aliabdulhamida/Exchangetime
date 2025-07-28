@@ -1,4 +1,3 @@
-
 "use client"
 // Hilfsfunktion: aggregierte Dividendenzahlungen nach gehaltenen Aktien
 function calculateDividendHistory(data: any[], dividendData: any[], initialAmount: number, monthlyAmount: number, startDate: string, endDate: string, reinvestDividends = false) {
@@ -345,64 +344,67 @@ export default function BacktestTool() {
                 <p className="font-semibold text-gray-900 dark:text-white">{result.totalShares ? result.totalShares.toFixed(2) : "-"}</p>
               </div>
             </div>
-            {portfolioHistory && portfolioHistory.length > 0 && (() => {
-              // Chart-Farbe je nach Entwicklung
-              let chartColor = "#2563eb";
-              if (portfolioHistory.length > 1) {
-                const first = portfolioHistory[0].value;
-                const last = portfolioHistory[portfolioHistory.length - 1].value;
-                if (last > first) chartColor = "#16a34a"; // grün
-                else if (last < first) chartColor = "#dc2626"; // rot
-              }
-              return (
-                <div className="mt-6">
-                  <ChartContainer config={{ value: { label: "Portfolio Value", color: chartColor } }}>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <AreaChart data={portfolioHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="colorPortfolioValue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={chartColor} stopOpacity={0.8}/>
-                            <stop offset="95%" stopColor={chartColor} stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#a1a1aa' }} minTickGap={30} />
-                        <YAxis tick={{ fontSize: 12, fill: '#a1a1aa' }} width={80} domain={["auto", "auto"]} tickFormatter={(v: number) => v >= 1_000_000 ? (v/1_000_000).toFixed(1)+'M' : v >= 1_000 ? (v/1_000).toFixed(1)+'K' : v.toLocaleString()} />
-                        <Tooltip
-                          content={({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
-                            if (!active || !payload || !payload.length) return null;
-                            return (
-                              <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]" style={{ lineHeight: 1.2 }}>
-                                <div className="mb-0.5" style={{ color: chartColor, fontSize: '11px' }}>{label}</div>
-                                <div><span style={{ color: chartColor, fontSize: '11px' }}>Value:</span> ${payload[0]?.payload?.value?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                              </div>
-                            );
-                          }}
-                        />
-                        <Area type="monotone" dataKey="value" stroke={chartColor} fillOpacity={1} fill="url(#colorPortfolioValue)" name="Portfolio Value" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </div>
-              );
-            })()}
-            {dividendHistory && dividendHistory.length > 0 && (
-              <div className="mt-8">
-                <ChartContainer config={{ amount: { label: "Dividende", color: "#22c55e" } }}>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={dividendHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={30} />
-                      <YAxis tick={{ fontSize: 10 }} width={60} domain={[0, "auto"]} />
-                      <Tooltip
-                        content={<ChartTooltipContent />}
-                        formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
-                        labelFormatter={(label: string) => `Date: ${label}`}
-                      />
-                      <Bar dataKey="amount" fill="#22c55e" name="Dividende" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
+            {(portfolioHistory && portfolioHistory.length > 0) || (dividendHistory && dividendHistory.length > 0) ? (
+              <div className="mt-6 flex flex-col md:flex-row gap-6 w-full">
+                {portfolioHistory && portfolioHistory.length > 0 && (() => {
+                  let chartColor = "#2563eb";
+                  if (portfolioHistory.length > 1) {
+                    const first = portfolioHistory[0].value;
+                    const last = portfolioHistory[portfolioHistory.length - 1].value;
+                    if (last > first) chartColor = "#16a34a";
+                    else if (last < first) chartColor = "#dc2626";
+                  }
+                  return (
+                    <div className="flex-1 min-w-0">
+                      <ChartContainer config={{ value: { label: "Portfolio Value", color: chartColor } }}>
+                        <ResponsiveContainer width="100%" height={60}>
+                          <AreaChart data={portfolioHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="colorPortfolioValue" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={chartColor} stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor={chartColor} stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#a1a1aa' }} minTickGap={30} />
+                            <YAxis tick={{ fontSize: 12, fill: '#a1a1aa' }} width={80} domain={["auto", "auto"]} tickFormatter={(v: number) => v >= 1_000_000 ? (v/1_000_000).toFixed(1)+'M' : v >= 1_000 ? (v/1_000).toFixed(1)+'K' : v.toLocaleString()} />
+                            <Tooltip
+                              content={({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
+                                if (!active || !payload || !payload.length) return null;
+                                return (
+                                  <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]" style={{ lineHeight: 1.2 }}>
+                                    <div className="mb-0.5" style={{ color: chartColor, fontSize: '11px' }}>{label}</div>
+                                    <div><span style={{ color: chartColor, fontSize: '11px' }}>Value:</span> ${payload[0]?.payload?.value?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                                  </div>
+                                );
+                              }}
+                            />
+                            <Area type="monotone" dataKey="value" stroke={chartColor} fillOpacity={1} fill="url(#colorPortfolioValue)" name="Portfolio Value" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </ChartContainer>
+                    </div>
+                  );
+                })()}
+                {dividendHistory && dividendHistory.length > 0 && (
+                  <div className="flex-1 min-w-0">
+                    <ChartContainer config={{ amount: { label: "Dividende", color: "#22c55e" } }}>
+                      <ResponsiveContainer width="100%" height={60}>
+                        <BarChart data={dividendHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={30} />
+                          <YAxis tick={{ fontSize: 10 }} width={60} domain={[0, "auto"]} />
+                          <Tooltip
+                            content={<ChartTooltipContent />}
+                            formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                            labelFormatter={(label: string) => `Date: ${label}`}
+                          />
+                          <Bar dataKey="amount" fill="#22c55e" name="Dividende" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </div>
+                )}
               </div>
-            )}
+            ) : null}
             <button
               className="mt-8 w-full flex items-center justify-center gap-2 bg-[#fafafa] text-gray-900 font-medium rounded-md text-sm h-10 border-none hover:bg-gray-100 transition"
               onClick={() => {
