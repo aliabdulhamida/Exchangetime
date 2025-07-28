@@ -1,7 +1,7 @@
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import Footer from "@/components/Footer"
+
 
 import Script from "next/script"
 
@@ -38,7 +38,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
         </ThemeProvider>
-        <Footer />
+
         {/* Service Worker Registrierung für PWA */}
         <Script id="pwa-sw-register" strategy="afterInteractive">
           {`

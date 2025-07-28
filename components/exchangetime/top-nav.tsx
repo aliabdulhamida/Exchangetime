@@ -336,20 +336,14 @@ export default function TopNav() {
         <ThemeToggle />
       </div>
       </nav>
-      {/* TuneIn Radio Hover Bottom Right */}
-      <div
-        ref={radioRef}
-        style={{ position: 'fixed', bottom: 155, right: 24, zIndex: 1000 }}
-        onMouseEnter={handleRadioEnter}
-        onMouseLeave={handleRadioLeave}
-      >
+      {/* TuneIn Radio Bottom Right - Button und Player immer im DOM, Modal blendet nur UI ein/aus */}
+      <div style={{ position: 'fixed', bottom: 155, right: 24, zIndex: 1000, pointerEvents: 'none' }}>
         <button
           className="rounded-full shadow-xl bg-white dark:bg-[#18181b] border-2 border-gray-300 dark:border-[#23232a] p-3 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:focus:ring-emerald-900 animate-radio-pulse"
-          style={{ boxShadow: '0 3px 12px rgba(34,197,94,0.10)' }}
+          style={{ boxShadow: '0 3px 12px rgba(34,197,94,0.10)', pointerEvents: 'auto', position: 'relative', zIndex: 2 }}
           tabIndex={0}
           aria-label="Radio öffnen"
           onClick={e => {
-            // Verhindere Doppelauslösung durch Touch
             if ((window as any)._radioTouchHandled) {
               (window as any)._radioTouchHandled = false;
               return;
@@ -358,9 +352,6 @@ export default function TopNav() {
             if (!radioOpen) {
               handleRadioEnter();
               if (radioTimeout.current) clearTimeout(radioTimeout.current);
-              radioTimeout.current = setTimeout(() => {
-                setRadioOpen(false);
-              }, 2000);
             } else {
               setRadioOpen(false);
               if (radioTimeout.current) clearTimeout(radioTimeout.current);
@@ -369,7 +360,6 @@ export default function TopNav() {
           onTouchStart={e => {
             (window as any)._radioTouchHandled = true;
             e.stopPropagation();
-            // Zeitstempel für Short-Tap
             (window as any)._radioTouchStart = Date.now();
           }}
           onTouchEnd={e => {
@@ -377,14 +367,10 @@ export default function TopNav() {
             const start = (window as any)._radioTouchStart || 0;
             const duration = Date.now() - start;
             (window as any)._radioTouchStart = 0;
-            // Nur Short-Tap (max 350ms) akzeptieren
             if (duration > 350) return;
             if (!radioOpen) {
               handleRadioEnter();
               if (radioTimeout.current) clearTimeout(radioTimeout.current);
-              radioTimeout.current = setTimeout(() => {
-                setRadioOpen(false);
-              }, 2000);
             } else {
               setRadioOpen(false);
               if (radioTimeout.current) clearTimeout(radioTimeout.current);
@@ -415,14 +401,20 @@ export default function TopNav() {
             <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0"/>
           </svg>
         </button>
+        {/* Player bleibt immer im DOM, Modal blendet nur UI ein/aus */}
         <div
           className={
-            (radioOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none') +
-            ' transition-opacity duration-300'
+            (radioOpen ? 'fixed inset-0 z-[1100] flex items-end justify-end' : '')
           }
-          style={{ position: 'absolute', bottom: 70, right: 0, width: 320, maxWidth: '90vw' }}
+          style={radioOpen ? { pointerEvents: 'auto' } : { display: 'none' }}
+          onClick={radioOpen ? () => setRadioOpen(false) : undefined}
         >
-          <div className="bg-white dark:bg-[#18181b] border border-gray-200 dark:border-[#23232a] rounded-lg shadow-xl p-2">
+          {radioOpen && <div className="absolute inset-0 bg-black bg-opacity-40" />}
+          <div
+            className="relative mb-[225px] mr-6 w-[320px] max-w-[90vw] bg-white dark:bg-[#18181b] border border-gray-200 dark:border-[#23232a] rounded-lg shadow-xl p-2 z-[1110]"
+            onClick={e => e.stopPropagation()}
+            style={radioOpen ? { visibility: 'visible', pointerEvents: 'auto' } : { visibility: 'hidden', pointerEvents: 'none' }}
+          >
             <iframe
               src="https://tunein.com/embed/player/s110052/"
               style={{ width: '100%', height: 100, border: 'none' }}
