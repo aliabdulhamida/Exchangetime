@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 
 
 const MODULES = [
+  "TechnicalAnalysis",
   "ExchangeTimes",
   "StockAnalysis",
   "InsiderTrades",

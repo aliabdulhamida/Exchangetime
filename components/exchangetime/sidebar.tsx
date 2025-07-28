@@ -66,6 +66,7 @@ interface SidebarProps {
 export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [helpLegalOpen, setHelpLegalOpen] = useState(false);
   const { theme, systemTheme } = useTheme();
   const currentTheme = theme === "system" ? systemTheme : theme;
 
@@ -78,8 +79,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
     // Farben dynamisch je nach Theme setzen
     let baseClasses = "flex items-center px-3 py-2 text-sm rounded-md transition-colors w-full text-left";
     let activeClasses = currentTheme === "dark"
-      ? "bg-transparent text-white"
-      : "bg-transparent text-black";
+      ? "bg-transparent text-white cursor-default opacity-60"
+      : "bg-transparent text-black cursor-default opacity-60";
     let inactiveClasses = currentTheme === "dark"
       ? "bg-[#1F1F23] text-gray-200 hover:bg-[#23232a] hover:text-white"
       : "bg-black text-white hover:bg-black hover:text-white";
@@ -91,6 +92,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
           baseClasses,
           isVisible ? activeClasses : inactiveClasses
         ].join(" ")}
+        aria-disabled={isVisible}
+        tabIndex={isVisible ? -1 : 0}
       >
         <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
         {label}
@@ -505,6 +508,7 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
                   <ModuleButton module="CurrencyConverter" icon={DollarSign} label="Currency Converter" />
                   <ModuleButton module="CompoundInterest" icon={Receipt} label="Compound Interest" />
                   <ModuleButton module="PersonalBudget" icon={Folder} label="Personal Budget" />
+                 <ModuleButton module="TechnicalAnalysis" icon={Gauge} label="Technical Analysis" />
                 </div>
               </div>
 
@@ -523,16 +527,25 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
 
           <div className="px-4 py-4 border-t border-gray-200 dark:border-[#1F1F23]">
             <div className="mt-0">
-              <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Help & Legal
-              </div>
-              <div className="space-y-1">
-                <SimpleNavItem href="/settings/about" icon={HelpCircle}>About</SimpleNavItem>
-                <SimpleNavItem href="/settings/mission" icon={HelpCircle}>Our Mission</SimpleNavItem>
-                <SimpleNavItem href="/settings/privacy-policy" icon={HelpCircle}>Privacy Policy</SimpleNavItem>
-                <SimpleNavItem href="/settings/terms-of-service" icon={HelpCircle}>Terms of Service</SimpleNavItem>
-                <SimpleNavItem href="/settings/contact" icon={HelpCircle}>Contact</SimpleNavItem>
-              </div>
+              <button
+                className="flex items-center w-full px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                onClick={() => setHelpLegalOpen((prev) => !prev)}
+                aria-expanded={helpLegalOpen}
+                aria-controls="help-legal-section"
+                type="button"
+              >
+                <span className="flex-1 text-left">Help & Legal</span>
+                <svg className={`w-4 h-4 ml-2 transition-transform ${helpLegalOpen ? 'rotate-90' : '-rotate-90'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              </button>
+              {helpLegalOpen && (
+                <div id="help-legal-section" className="space-y-1 animate-fade-in">
+                  <SimpleNavItem href="/settings/about" icon={HelpCircle}>About</SimpleNavItem>
+                  <SimpleNavItem href="/settings/mission" icon={HelpCircle}>Our Mission</SimpleNavItem>
+                  <SimpleNavItem href="/settings/privacy-policy" icon={HelpCircle}>Privacy Policy</SimpleNavItem>
+                  <SimpleNavItem href="/settings/terms-of-service" icon={HelpCircle}>Terms of Service</SimpleNavItem>
+                  <SimpleNavItem href="/settings/contact" icon={HelpCircle}>Contact</SimpleNavItem>
+                </div>
+              )}
             </div>
           </div>
         </div>
