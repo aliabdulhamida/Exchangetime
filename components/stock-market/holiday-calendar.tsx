@@ -63,8 +63,8 @@ export default function HolidayCalendar() {
       <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
         Holiday Calendar
       </h2>
-      <div className="flex flex-col gap-4 sm:gap-6 sm:flex-row">
-        <div className="w-full sm:w-auto flex justify-center">
+      <div className="flex flex-col gap-4 sm:gap-6">
+        <div className="w-full flex justify-center">
           <Calendar
             value={selected ? new Date(selected) : undefined}
             onChange={(value) => {

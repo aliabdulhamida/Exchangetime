@@ -19,18 +19,24 @@ const MODULES = [
   "HolidayCalendar",
   "CompoundInterest",
   "PersonalBudget",
+  "EconomicCalendar", // EconomicCalendar immer als Standardmodul
 ];
 
 
 export default function Dashboard() {
-  // Alle Module beim ersten Laden sichtbar
+  // EconomicCalendar immer beim ersten Laden sichtbar
   const [visibleModules, setVisibleModules] = useState<string[]>([...MODULES]);
 
   function showModule(module: string) {
     setVisibleModules((prev) => prev.includes(module) ? prev : [...prev, module]);
   }
   function hideModule(module: string) {
-    setVisibleModules((prev) => prev.filter((m) => m !== module));
+    // EconomicCalendar kann ausgeblendet werden, aber nicht dauerhaft entfernt werden
+    if (module === "EconomicCalendar") {
+      setVisibleModules((prev) => prev.filter((m) => m !== module));
+    } else {
+      setVisibleModules((prev) => prev.filter((m) => m !== module));
+    }
   }
 
   // Event-Listener für "Nur dieses Modul anzeigen"
@@ -38,6 +44,7 @@ export default function Dashboard() {
     const handler = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       if (customEvent.detail === 'ALL') {
+        // EconomicCalendar immer mit anzeigen, wenn alle angezeigt werden
         setVisibleModules([...MODULES]);
       } else if (customEvent.detail && MODULES.includes(customEvent.detail)) {
         setVisibleModules([customEvent.detail]);
@@ -45,6 +52,14 @@ export default function Dashboard() {
     };
     window.addEventListener('showOnlyModule', handler);
     return () => window.removeEventListener('showOnlyModule', handler);
+  }, []);
+
+  // EconomicCalendar beim Reload immer wieder anzeigen, falls es ausgeblendet wurde
+  useEffect(() => {
+    if (!visibleModules.includes("EconomicCalendar")) {
+      setVisibleModules((prev) => [...prev, "EconomicCalendar"]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
