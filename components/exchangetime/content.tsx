@@ -19,6 +19,7 @@ import EarningsCalendar from "../stock-market/earnings-calendar";
 import HolidayCalendar from "../stock-market/holiday-calendar";
 import SankeyBudget from "../stock-market/sankey-budget";
 import TradingViewWidget from "../stock-market/TradingViewWidget";
+import TradingviewEcCalendar from "../stock-market/TradingviewEc-Calendar.jsx";
 import { X } from "lucide-react";
 import React, { useState } from "react";
 
@@ -120,7 +121,12 @@ export default function Content(props: ContentProps) {
             </div>
           )}
           {modules.includes("InsiderTrades") && (
-            <div className={(modules.length === 1 ? "w-full max-w-xl mx-auto mt-4 " : "") + "flex flex-col h-full min-h-[420px]"}>
+            <div className={
+              (modules.length === 1
+                ? "w-full md:max-w-xl md:mx-auto md:mt-4 "
+                : "w-full ") +
+              "flex flex-col h-full min-h-[420px]"
+            }>
               <ModuleWrapper onClose={() => hideModule("InsiderTrades")} onSolo={() => showOnlyModule("InsiderTrades")}> 
                 <div className="flex flex-col h-full min-h-[420px]">
                   <InsiderTrades />
@@ -222,7 +228,21 @@ export default function Content(props: ContentProps) {
         </div>
 
         {/* Fifth Row - Calendar und Holiday Info */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Neues Modul links neben Earnings Calendar */}
+          {modules.includes("EconomicCalendar") && (
+            <div className={(modules.length === 1 ? "w-full max-w-xl mx-auto " : "") + "border border-gray-200 dark:border-[#23232a] rounded-xl"}>
+              <ModuleWrapper
+                onClose={() => hideModule("EconomicCalendar")}
+                onSolo={() => showOnlyModule("EconomicCalendar")}
+              >
+                <div className="flex flex-col h-full min-h-[220px] items-start justify-start px-6 pb-4 mt-3">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Economic Calendar</h2>
+                  <TradingviewEcCalendar />
+                </div>
+              </ModuleWrapper>
+            </div>
+          )}
           {modules.includes("EarningsCalendar") && (
             <div className={modules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
               <ModuleWrapper onClose={() => hideModule("EarningsCalendar")} onSolo={() => showOnlyModule("EarningsCalendar")}> 
@@ -243,7 +263,7 @@ export default function Content(props: ContentProps) {
         <div className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}> 
           {/* Personal Budget Sankey Diagramm */}
           {modules.includes("PersonalBudget") && (
-            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-5xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full">
+            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full">
               <ModuleWrapper onClose={() => hideModule("PersonalBudget") } onSolo={() => showOnlyModule("PersonalBudget") }>
                 <div className="flex-1 flex flex-col h-full">
                   <SankeyBudget />

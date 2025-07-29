@@ -206,7 +206,7 @@ export default function InsiderTrades() {
 
   // --- BEGINN JSX-RETURN ---
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-2xl pt-4 pl-4 pr-8 pb-8 border border-gray-200 dark:border-[#1F1F23] max-w-2xl mx-auto">
+    <div className="bg-white dark:bg-[#0F0F12] rounded-2xl pt-4 pl-4 pr-8 pb-8 border border-gray-200 dark:border-[#1F1F23] w-full md:max-w-2xl md:mx-auto">
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2 mt-0 ml-0">
         Insider Trades
       </h2>

@@ -334,7 +334,7 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-xl border border-gray-200 dark:border-[#1F1F23] max-w-5xl w-full" id="personal-budget-container">
+    <div className="bg-white dark:bg-[#0F0F12] rounded-xl border border-gray-200 dark:border-[#1F1F23] max-w-full w-full" id="personal-budget-container">
       <div className="flex items-center justify-between p-6 pb-0">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Personal Budget</h2>
         {onClose && (
@@ -353,191 +353,190 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
       </div>
       {/* ...restlicher Inhalt bleibt unverändert, aber ohne doppelten Titel ... */}
       <div className="p-6 pt-2">
-      {/* Income & Expenses nebeneinander */}
-      <div className="flex flex-col md:flex-row gap-8 mb-6">
-        {/* Income Streams */}
-        <div className="flex flex-col flex-1 max-w-md">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Income Streams</h3>
-          <div className="space-y-3 mb-6">
-            {revenues.map((input, idx) => (
-              <div key={idx} className="flex flex-col sm:flex-row items-center gap-2 mb-2 sm:gap-2 sm:items-center sm:justify-start w-full">
-                <div className="flex flex-row items-center w-full">
-                  <input
-                    className="border rounded px-2 py-1 w-full sm:w-60 bg-transparent"
-                    value={input.name}
-                    onChange={e => handleRevenueChange(idx, "name", e.target.value)}
-                    placeholder="Income Source"
-                  />
-                  <input
-                    type="number"
-                    className="border rounded px-2 py-1 w-full sm:w-32 bg-transparent ml-2"
-                    value={input.amount}
-                    onChange={e => handleRevenueChange(idx, "amount", e.target.value)}
-                    min={0}
-                    placeholder="Amount"
-                  />
-                  <button
-                    className="text-red-500 hover:text-red-700 px-2 ml-2"
-                    onClick={() => removeRevenue(idx)}
-                    aria-label="Delete income"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <div className="flex-1" />
+        {/* Inputs und Sankey nebeneinander */}
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Linke Spalte: Inputs */}
+          <div className="flex flex-col flex-1 max-w-md">
+            {/* Income Streams */}
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Income Streams</h3>
+            <div className="space-y-3 mb-6">
+              {revenues.map((input, idx) => (
+                <div key={idx} className="flex flex-col sm:flex-row items-center gap-2 mb-2 sm:gap-2 sm:items-center sm:justify-start w-full">
+                  <div className="flex flex-row items-center w-full">
+                    <input
+                      className="border rounded px-2 py-1 w-full sm:w-60 bg-transparent"
+                      value={input.name}
+                      onChange={e => handleRevenueChange(idx, "name", e.target.value)}
+                      placeholder="Income Source"
+                    />
+                    <input
+                      type="number"
+                      className="border rounded px-2 py-1 w-full sm:w-32 bg-transparent ml-2"
+                      value={input.amount}
+                      onChange={e => handleRevenueChange(idx, "amount", e.target.value)}
+                      min={0}
+                      placeholder="Amount"
+                    />
+                    <button
+                      className="text-red-500 hover:text-red-700 px-2 ml-2"
+                      onClick={() => removeRevenue(idx)}
+                      aria-label="Delete income"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <div className="flex-1" />
+                  </div>
                 </div>
-              </div>
-            ))}
-            <button
-              className="mt-2 px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 text-sm w-full sm:w-auto"
-              onClick={addRevenue}
-            >
-              + Add Income
-            </button>
-          </div>
-        </div>
-        {/* Expenses */}
-        <div className="flex flex-col flex-1 max-w-md mt-8 md:mt-0">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Expenses</h3>
-          <div className="space-y-3">
-            {expenses.map((input, idx) => (
-              <div key={idx} className="mb-4">
-                <div className="flex flex-row items-center w-full mb-2">
-                  <input
-                    className="border rounded px-2 py-1 w-full sm:w-60 bg-transparent"
-                    value={input.name}
-                    onChange={e => handleExpenseChange(idx, "name", e.target.value)}
-                    placeholder="Expense Name"
-                  />
-                  <input
-                    type="number"
-                    className="border rounded px-2 py-1 w-full sm:w-32 bg-transparent ml-2"
-                    value={input.amount}
-                    onChange={e => handleExpenseChange(idx, "amount", e.target.value)}
-                    min={0}
-                    placeholder="Amount"
-                  />
-                  <button
-                    className="text-red-500 hover:text-red-700 px-2 ml-2"
-                    onClick={() => removeExpense(idx)}
-                    aria-label="Delete expense"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <div className="flex-1" />
-                </div>
-                {/* Subcategories */}
-                <div className="ml-4">
-                  {(input.subcategories || []).map((sub, subIdx) => (
-                    <div key={subIdx} className="flex flex-row items-center w-full mb-1">
-                      <input
-                        className="border rounded px-2 py-1 w-full sm:w-48 bg-transparent"
-                        value={sub.name}
-                        onChange={e => handleSubcategoryChange(idx, subIdx, "name", e.target.value)}
-                        placeholder="Subcategory Name"
-                      />
-                      <input
-                        type="number"
-                        className="border rounded px-2 py-1 w-full sm:w-28 bg-transparent ml-2"
-                        value={sub.amount}
-                        onChange={e => handleSubcategoryChange(idx, subIdx, "amount", e.target.value)}
-                        min={0}
-                        placeholder="Amount"
-                      />
-                      <button
-                        className="text-red-400 hover:text-red-700 px-2 ml-2"
-                        onClick={() => removeSubcategory(idx, subIdx)}
-                        aria-label="Delete subcategory"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <div className="flex-1" />
-                    </div>
-                  ))}
-                  <button
-                    className="mt-1 p-0.5 rounded flex items-center justify-center text-xs border border-gray-300 bg-white text-gray-800 hover:bg-gray-200 dark:bg-[#23232a] dark:text-gray-100 dark:border-gray-700 dark:hover:bg-[#353542]"
-                    style={{ width: '22px', height: '22px' }}
-                    onClick={() => addSubcategory(idx)}
-                    aria-label="Add subcategory"
-                  >
-                    <span className="text-base leading-none transition-colors duration-150">＋</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-            <button
-              className="mt-2 px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm w-full sm:w-auto"
-              onClick={addExpense}
-            >
-              + Add Expense
-            </button>
-          </div>
-        </div>
-      </div>
-      {/* Sankey Diagramm unterhalb von Income & Expenses */}
-      <div className="flex flex-col items-center justify-start mt-8 w-full">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 w-full text-left">Sankey Diagram</h3>
-      <div className="mb-2 w-full flex justify-end gap-2">
-        <button
-          onClick={() => setShowSankeyOverlay(true)}
-          className={
-            `flex items-center px-3 py-1.5 rounded text-sm border transition-colors duration-150 ` +
-            (isDark
-              ? 'bg-white text-black border-white hover:bg-gray-200'
-              : 'bg-black text-white border-black hover:bg-gray-900')
-          }
-          title="Show Sankey large"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M8 8h8v8H8z" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
-        </button>
-        <button
-          onClick={downloadChart}
-          className={
-            `flex items-center px-3 py-1.5 rounded text-sm border transition-colors duration-150 ` +
-            (isDark
-              ? 'bg-white text-black border-white hover:bg-gray-200'
-              : 'bg-black text-white border-black hover:bg-gray-900')
-          }
-          title="Download SVG"
-        >
-          <Download className="w-4 h-4" />
-        </button>
-      </div>
-        <SankeyD3 width={700} height={400} />
-        {/* Overlay für großes Sankey */}
-        {showSankeyOverlay && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="sankey-dialog-title"
-          >
-            <div
-              className="relative rounded-lg shadow-lg p-6 max-w-5xl w-full flex flex-col items-center"
-              style={{ background: isDark ? '#000' : '#fff' }}
-            >
-              {/* Visually hidden DialogTitle for accessibility */}
-              <h2 id="sankey-dialog-title" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
-                Sankey Diagram
-              </h2>
+              ))}
               <button
-                onClick={() => setShowSankeyOverlay(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white"
-                aria-label="Schließen"
-                style={{ zIndex: 10 }}
+                className="mt-2 px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 text-sm w-full sm:w-auto"
+                onClick={addRevenue}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
+                + Add Income
               </button>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 w-full text-left">Sankey Diagram</h3>
-              <div className="overflow-auto w-full flex justify-center">
-                <SankeyD3 width={1100} height={600} textSize={18} />
-              </div>
+            </div>
+            {/* Expenses unter Income Streams */}
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Expenses</h3>
+            <div className="space-y-3">
+              {expenses.map((input, idx) => (
+                <div key={idx} className="mb-4">
+                  <div className="flex flex-row items-center w-full mb-2">
+                    <input
+                      className="border rounded px-2 py-1 w-full sm:w-60 bg-transparent"
+                      value={input.name}
+                      onChange={e => handleExpenseChange(idx, "name", e.target.value)}
+                      placeholder="Expense Name"
+                    />
+                    <input
+                      type="number"
+                      className="border rounded px-2 py-1 w-full sm:w-32 bg-transparent ml-2"
+                      value={input.amount}
+                      onChange={e => handleExpenseChange(idx, "amount", e.target.value)}
+                      min={0}
+                      placeholder="Amount"
+                    />
+                    <button
+                      className="text-red-500 hover:text-red-700 px-2 ml-2"
+                      onClick={() => removeExpense(idx)}
+                      aria-label="Delete expense"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <div className="flex-1" />
+                  </div>
+                  {/* Subcategories */}
+                  <div className="ml-4">
+                    {(input.subcategories || []).map((sub, subIdx) => (
+                      <div key={subIdx} className="flex flex-row items-center w-full mb-1">
+                        <input
+                          className="border rounded px-2 py-1 w-full sm:w-48 bg-transparent"
+                          value={sub.name}
+                          onChange={e => handleSubcategoryChange(idx, subIdx, "name", e.target.value)}
+                          placeholder="Subcategory Name"
+                        />
+                        <input
+                          type="number"
+                          className="border rounded px-2 py-1 w-full sm:w-28 bg-transparent ml-2"
+                          value={sub.amount}
+                          onChange={e => handleSubcategoryChange(idx, subIdx, "amount", e.target.value)}
+                          min={0}
+                          placeholder="Amount"
+                        />
+                        <button
+                          className="text-red-400 hover:text-red-700 px-2 ml-2"
+                          onClick={() => removeSubcategory(idx, subIdx)}
+                          aria-label="Delete subcategory"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <div className="flex-1" />
+                      </div>
+                    ))}
+                    <button
+                      className="mt-1 p-0.5 rounded flex items-center justify-center text-xs border border-gray-300 bg-white text-gray-800 hover:bg-gray-200 dark:bg-[#23232a] dark:text-gray-100 dark:border-gray-700 dark:hover:bg-[#353542]"
+                      style={{ width: '22px', height: '22px' }}
+                      onClick={() => addSubcategory(idx)}
+                      aria-label="Add subcategory"
+                    >
+                      <span className="text-base leading-none transition-colors duration-150">＋</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <button
+                className="mt-2 px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm w-full sm:w-auto"
+                onClick={addExpense}
+              >
+                + Add Expense
+              </button>
             </div>
           </div>
-        )}
-      </div>
+          {/* Rechte Spalte: Sankey Diagramm */}
+          <div className="flex-1 flex flex-col items-center justify-start mt-8 lg:mt-0 w-full">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 w-full text-left">Sankey Diagram</h3>
+            <div className="mb-2 w-full flex justify-end gap-2">
+              <button
+                onClick={() => setShowSankeyOverlay(true)}
+                className={
+                  `flex items-center px-3 py-1.5 rounded text-sm border transition-colors duration-150 ` +
+                  (isDark
+                    ? 'bg-white text-black border-white hover:bg-gray-200'
+                    : 'bg-black text-white border-black hover:bg-gray-900')
+                }
+                title="Show Sankey large"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M8 8h8v8H8z" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
+              </button>
+              <button
+                onClick={downloadChart}
+                className={
+                  `flex items-center px-3 py-1.5 rounded text-sm border transition-colors duration-150 ` +
+                  (isDark
+                    ? 'bg-white text-black border-white hover:bg-gray-200'
+                    : 'bg-black text-white border-black hover:bg-gray-900')
+                }
+                title="Download SVG"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            </div>
+            <SankeyD3 width={700} height={400} />
+            {/* Overlay für großes Sankey */}
+            {showSankeyOverlay && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="sankey-dialog-title"
+              >
+                <div
+                  className="relative rounded-lg shadow-lg p-6 max-w-5xl w-full flex flex-col items-center"
+                  style={{ background: isDark ? '#000' : '#fff' }}
+                >
+                  {/* Visually hidden DialogTitle for accessibility */}
+                  <h2 id="sankey-dialog-title" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                    Sankey Diagram
+                  </h2>
+                  <button
+                    onClick={() => setShowSankeyOverlay(false)}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                    aria-label="Schließen"
+                    style={{ zIndex: 10 }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 w-full text-left">Sankey Diagram</h3>
+                  <div className="overflow-auto w-full flex justify-center">
+                    <SankeyD3 width={1100} height={600} textSize={18} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

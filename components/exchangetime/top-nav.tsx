@@ -6,7 +6,7 @@ import { fetchStockData as fetchStockDataPortfolio } from "../stock-market/portf
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { ThemeToggle } from "../theme-toggle"
-import TradingViewWidget from "../stock-market/TradingViewWidget"
+import TradingViewNews from "../stock-market/TradingViewNews"
 
 const FearGreedIndex = dynamic(() => import("@/components/stock-market/fear-greed-index"), { ssr: false })
 
@@ -322,7 +322,7 @@ export default function TopNav() {
           <DropdownMenuContent align="start" className="min-w-[240px] w-full max-w-md sm:max-w-lg md:max-w-xl">
             <div className="flex flex-col gap-2 p-2">
               <div className="w-full h-[350px] sm:h-[500px] flex items-center justify-center">
-                <TradingViewWidget />
+                <TradingViewNews />
               </div>
             </div>
           </DropdownMenuContent>

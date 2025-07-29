@@ -518,6 +518,7 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
                 </div>
                 <div className="space-y-1">
                   <ModuleButton module="InsiderTrades" icon={Users2} label="Insider Trades" />
+                  <ModuleButton module="EconomicCalendar" icon={CalendarDays} label="Economic Calendar" />
                   <ModuleButton module="EarningsCalendar" icon={CalendarDays} label="Earnings Calendar" />
                   <ModuleButton module="HolidayCalendar" icon={CupSoda} label="Holiday Calendar" />
                 </div>
