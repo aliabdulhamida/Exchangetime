@@ -12,7 +12,10 @@ function TradingviewEcCalendar() {
     let width = 400;
     let height = 550;
     if (window.matchMedia('(max-width: 600px)').matches) {
-      width = window.innerWidth - 32 > 320 ? window.innerWidth - 32 : 320;
+      // Breitenberechnung für mobile Geräte verbessern
+      // 48px Abstand für Sicherheit (24px auf jeder Seite)
+      width = window.innerWidth - 48; 
+      width = Math.min(width, 320); // Begrenze maximale Breite auf 320px
       height = 420;
     } else if (window.matchMedia('(max-width: 900px)').matches) {
       width = 350;
@@ -37,7 +40,7 @@ function TradingviewEcCalendar() {
   }, []);
 
   return (
-    <div className="tradingview-widget-container" ref={container}>
+    <div className="tradingview-widget-container w-full max-w-full overflow-hidden" ref={container}>
       <div className="tradingview-widget-container__widget"></div>
     </div>
   );
