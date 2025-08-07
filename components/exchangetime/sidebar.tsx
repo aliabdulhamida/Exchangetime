@@ -52,7 +52,7 @@ import {
 
 import { Home } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog"
 import Image from "next/image"
@@ -67,8 +67,38 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [helpLegalOpen, setHelpLegalOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const { theme, systemTheme } = useTheme();
+  
+  // Sicheres Abrufen des gespeicherten Zustands aus dem localStorage beim Mounten der Komponente
+  useEffect(() => {
+    try {
+      const savedState = localStorage.getItem('sidebar-collapsed');
+      if (savedState !== null) {
+        setIsCollapsed(savedState === 'true');
+      }
+    } catch (error) {
+      console.error('Fehler beim Zugriff auf localStorage:', error);
+    }
+  }, []);
   const currentTheme = theme === "system" ? systemTheme : theme;
+  
+  // Speichere den Collapse-Zustand im localStorage
+  const toggleCollapsed = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    
+    try {
+      localStorage.setItem('sidebar-collapsed', newState.toString());
+      
+      // Optionaler Haptic Feedback, wenn vom Browser unterstützt
+      if (window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(50); // 50ms leichte Vibration für taktiles Feedback
+      }
+    } catch (error) {
+      console.error('Fehler beim Speichern des Sidebar-Status:', error);
+    }
+  };
 
   function handleNavigation() {
     setIsMobileMenuOpen(false);
@@ -77,13 +107,16 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   function ModuleButton({ module, icon: Icon, label }: { module: string; icon: any; label: string }) {
     const isVisible = visibleModules.includes(module);
     // Farben dynamisch je nach Theme setzen
-    let baseClasses = "flex items-center px-3 py-2 text-sm rounded-md transition-colors w-full text-left";
+    let baseClasses = "flex items-center py-2 text-sm rounded-md transition-colors w-full text-left";
+    baseClasses += isCollapsed ? " justify-center px-1 mb-3" : " px-3";
+    
     let activeClasses = currentTheme === "dark"
       ? "bg-transparent text-white cursor-default opacity-60"
       : "bg-transparent text-black cursor-default opacity-60";
     let inactiveClasses = currentTheme === "dark"
       ? "bg-[#1F1F23] text-gray-200 hover:bg-[#23232a] hover:text-white"
       : "bg-black text-white hover:bg-black hover:text-white";
+    
     return (
       <button
         onClick={() => isVisible ? null : showModule(module)}
@@ -94,9 +127,10 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         ].join(" ")}
         aria-disabled={isVisible}
         tabIndex={isVisible ? -1 : 0}
+        title={isCollapsed ? label : undefined}
       >
-        <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
-        {label}
+        <Icon className={`${isCollapsed ? 'h-5 w-5' : 'h-4 w-4 mr-3'} flex-shrink-0`} />
+        {!isCollapsed && label}
       </button>
     );
   }
@@ -419,14 +453,16 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
     return (
       <a
         href={href}
-        className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors w-full text-left
+        className={`flex items-center py-2 text-sm rounded-md transition-colors w-full text-left
+          ${isCollapsed ? "justify-center px-1 mb-3" : "px-3"}
           ${currentTheme === "dark"
             ? "text-gray-200 hover:text-white hover:bg-[#23232a]"
             : "text-gray-800 hover:text-black hover:bg-gray-100"}
         `}
+        title={isCollapsed ? children?.toString() : undefined}
       >
-        <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
-        {children}
+        <Icon className={`${isCollapsed ? 'h-5 w-5' : 'h-4 w-4 mr-3'} flex-shrink-0`} />
+        {!isCollapsed && children}
       </a>
     );
   }
@@ -443,19 +479,22 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
       </button>
       <nav
         className={`
-          fixed inset-y-0 left-0 z-[70] w-64
+          fixed inset-y-0 left-0 z-[70]
           ${currentTheme === "dark" ? "bg-[#0F0F12] border-[#1F1F23]" : "bg-white border-gray-200"}
-          transform transition-transform duration-200 ease-in-out
-          lg:translate-x-0 lg:static lg:w-64 border-r
+          transform transition-all duration-300 ease-in-out
+          lg:translate-x-0 lg:static border-r
           ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+          ${isCollapsed ? "lg:w-20" : "lg:w-64"}
+          ${isCollapsed ? "w-20" : "w-64"}
         `}
+        data-collapsed={isCollapsed}
         aria-label="Sidebar navigation"
       >
         {/* Close button only on mobile and only when sidebar is open */}
         {isMobileMenuOpen && (
           <button
             type="button"
-            className="absolute top-[0.875rem] right-4 z-[80] p-2 rounded-lg shadow-md lg:hidden"
+            className="absolute top-[0.875rem] right-4 z-[80] p-2 rounded-lg shadow-sm lg:hidden hover:bg-gray-100 dark:hover:bg-[#23232a] transition-colors"
             onClick={() => setIsMobileMenuOpen(false)}
             aria-label="Close sidebar"
             style={{ background: 'transparent' }}
@@ -463,33 +502,69 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
             <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
           </button>
         )}
+        {/* Toggle Button für Collapse/Expand (nur sichtbar auf Desktop) */}
+        <button
+          type="button"
+          className="hidden lg:flex absolute -right-3 top-20 z-[80] p-1 rounded-md shadow-md bg-white dark:bg-[#1F1F23] border border-gray-200 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#2a2a32] transition-all duration-200 ease-in-out"
+          onClick={toggleCollapsed}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          style={{
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.1)',
+            transform: `rotate(${isCollapsed ? 180 : 0}deg)`,
+          }}
+          title={isCollapsed ? "Seitenleiste ausklappen" : "Seitenleiste einklappen"}
+        >
+          <svg 
+            className="h-4 w-4 text-gray-700 dark:text-gray-200" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+            strokeWidth="2.2"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              d="M15 19l-7-7 7-7" 
+            />
+          </svg>
+        </button>
         <div className="h-full flex flex-col">
           <Link
             href="https://exchangetime.de/"
             target="_blank"
             rel="noopener noreferrer"
-            className="h-16 px-6 flex items-center border-b border-gray-200 dark:border-[#1F1F23]"
+            className="h-16 flex items-center border-b border-gray-200 dark:border-[#1F1F23]"
+            style={{ padding: isCollapsed ? '0' : '0 1.5rem' }}
           >
-            <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center w-full' : ''}`}>
               {/* Responsive Globe Icon je nach Theme */}
               <Globe
-                className={`w-7 h-7 align-middle ${currentTheme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}
+                className={`${isCollapsed ? 'w-8 h-8' : 'w-7 h-7'} align-middle ${currentTheme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}
                 style={{ marginTop: '-2px' }}
                 stroke={currentTheme === 'dark' ? '#fff' : '#0F172A'}
                 fill="none"
               />
-              <span className="text-lg font-semibold hover:cursor-pointer text-gray-900 dark:text-white align-middle" style={{ lineHeight: '28px' }}>
-                Exchange Time
-              </span>
+              {!isCollapsed && (
+                <span className="text-lg font-semibold hover:cursor-pointer text-gray-900 dark:text-white align-middle" style={{ lineHeight: '28px' }}>
+                  Exchange Time
+                </span>
+              )}
             </div>
           </Link>
 
           <div className="flex-1 overflow-y-auto py-4 px-4">
             <div className="space-y-6">
               <div>
-                <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Market Overview
-                </div>
+                {!isCollapsed && (
+                  <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Market Overview
+                  </div>
+                )}
+                {isCollapsed && (
+                  <div className="text-center mb-3 mt-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    MO
+                  </div>
+                )}
                 <div className="space-y-1">
                   {/* Dashboard Button entfernt */}
                   <ModuleButton module="StockAnalysis" icon={BarChart2} label="Stock Analysis" />
@@ -499,9 +574,16 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
               </div>
 
               <div>
-                <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Trading Tools
-                </div>
+                {!isCollapsed && (
+                  <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Trading Tools
+                  </div>
+                )}
+                {isCollapsed && (
+                  <div className="text-center mb-3 mt-5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    TT
+                  </div>
+                )}
                 <div className="space-y-1">
                   <ModuleButton module="BacktestTool" icon={Wallet} label="Backtest Tool" />
                   <ModuleButton module="PortfolioTracker" icon={CreditCard} label="Portfolio Tracker" />
@@ -513,9 +595,16 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
               </div>
 
               <div>
-                <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Market Data
-                </div>
+                {!isCollapsed && (
+                  <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Market Data
+                  </div>
+                )}
+                {isCollapsed && (
+                  <div className="text-center mb-3 mt-5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    MD
+                  </div>
+                )}
                 <div className="space-y-1">
                   <ModuleButton module="InsiderTrades" icon={Users2} label="Insider Trades" />
                   <ModuleButton module="EconomicCalendar" icon={CalendarDays} label="Economic Calendar" />
@@ -526,25 +615,40 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
             </div>
           </div>
 
-          <div className="px-4 py-4 border-t border-gray-200 dark:border-[#1F1F23]">
+          <div className={`${isCollapsed ? 'px-2' : 'px-4'} py-4 border-t border-gray-200 dark:border-[#1F1F23]`}>
             <div className="mt-0">
-              <button
-                className="flex items-center w-full px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                onClick={() => setHelpLegalOpen((prev) => !prev)}
-                aria-expanded={helpLegalOpen}
-                aria-controls="help-legal-section"
-                type="button"
-              >
-                <span className="flex-1 text-left">Help & Legal</span>
-                <svg className={`w-4 h-4 ml-2 transition-transform ${helpLegalOpen ? 'rotate-90' : '-rotate-90'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </button>
-              {helpLegalOpen && (
-                <div id="help-legal-section" className="space-y-1 animate-fade-in">
-                  <SimpleNavItem href="/settings/about" icon={HelpCircle}>About</SimpleNavItem>
-                  <SimpleNavItem href="/settings/mission" icon={HelpCircle}>Our Mission</SimpleNavItem>
-                  <SimpleNavItem href="/settings/privacy-policy" icon={HelpCircle}>Privacy Policy</SimpleNavItem>
-                  <SimpleNavItem href="/settings/terms-of-service" icon={HelpCircle}>Terms of Service</SimpleNavItem>
-                  <SimpleNavItem href="/settings/contact" icon={HelpCircle}>Contact</SimpleNavItem>
+              {!isCollapsed ? (
+                <>
+                  <button
+                    className="flex items-center w-full px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                    onClick={() => setHelpLegalOpen((prev) => !prev)}
+                    aria-expanded={helpLegalOpen}
+                    aria-controls="help-legal-section"
+                    type="button"
+                  >
+                    <span className="flex-1 text-left">Help & Legal</span>
+                    <svg className={`w-4 h-4 ml-2 transition-transform ${helpLegalOpen ? 'rotate-90' : '-rotate-90'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                  {helpLegalOpen && (
+                    <div id="help-legal-section" className="space-y-1 animate-fade-in">
+                      <SimpleNavItem href="/settings/about" icon={HelpCircle}>About</SimpleNavItem>
+                      <SimpleNavItem href="/settings/mission" icon={HelpCircle}>Our Mission</SimpleNavItem>
+                      <SimpleNavItem href="/settings/privacy-policy" icon={HelpCircle}>Privacy Policy</SimpleNavItem>
+                      <SimpleNavItem href="/settings/terms-of-service" icon={HelpCircle}>Terms of Service</SimpleNavItem>
+                      <SimpleNavItem href="/settings/contact" icon={HelpCircle}>Contact</SimpleNavItem>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex justify-center mt-3">
+                  <button
+                    className="p-2 rounded-md text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#23232a]"
+                    onClick={() => setHelpLegalOpen((prev) => !prev)}
+                    aria-label="Help & Legal"
+                    title="Help & Legal"
+                  >
+                    <HelpCircle className="h-5 w-5" />
+                  </button>
                 </div>
               )}
             </div>
