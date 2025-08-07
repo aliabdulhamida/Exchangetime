@@ -4,46 +4,55 @@ import { Calendar, Clock, Info, CalendarX } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
-// Earnings-Daten aus JS-Snippet
+
 const EARNINGS_DATA: Record<string, any[]> = {
-  '2025-07-28': [
-    { ticker: 'BOH', company_name: 'Bank of Hawaii', release_time: 'Before Market Open', eps_estimate: '1.06', revenue_estimate: null },
-    { ticker: 'EPD', company_name: 'Enterprise Products Partners', release_time: 'Before Market Open', eps_estimate: '0.64', revenue_estimate: null },
-    { ticker: 'RVTY', company_name: 'Revvity, Inc.', release_time: 'Before Market Open', eps_estimate: '1.14', revenue_estimate: null },
-    { ticker: 'ABCB', company_name: 'Ameris Bancorp', release_time: 'After Market Close', eps_estimate: '1.33', revenue_estimate: null },
-    { ticker: 'AMKR', company_name: 'Amkor Technology', release_time: 'After Market Close', eps_estimate: '0.16', revenue_estimate: null },
-    { ticker: 'CDNS', company_name: 'Cadence Design', release_time: 'After Market Close', eps_estimate: '1.56', revenue_estimate: null },
-    /* plus many of the other post-market names like HIG, NUE, WM, etc. as needed */
+  '2025-08-04': [
+    { ticker: 'DVN', company_name: 'Devon Energy Corporation', release_time: 'Before Market Open', eps_estimate: '0.84', revenue_estimate: '4.28' },
+    { ticker: 'SU', company_name: 'Suncor Energy Inc.', release_time: 'Before Market Open', eps_estimate: '0.51', revenue_estimate: '8.59' },
+    { ticker: 'CNR', company_name: 'Core Natural Resources', release_time: 'Before Market Open', eps_estimate: '-0.70', revenue_estimate: '1.10' },
+    { ticker: 'CRC', company_name: 'California Resources Corporation', release_time: 'Before Market Open', eps_estimate: '1.10', revenue_estimate: '0.98' },
+    { ticker: 'MOS', company_name: 'The Mosaic Company', release_time: 'Before Market Open', eps_estimate: '0.51', revenue_estimate: '3.54' }
   ],
-  '2025-07-29': [
-    { ticker: 'PG', company_name: 'Procter & Gamble', release_time: 'Before Market Open', eps_estimate: '1.42', revenue_estimate: '20.9' },
-    { ticker: 'PYPL', company_name: 'PayPal Holdings', release_time: 'Before Market Open', eps_estimate: '1.30', revenue_estimate: null },
-    { ticker: 'SPOT', company_name: 'Spotify Technology', release_time: 'Before Market Open', eps_estimate: '1.33', revenue_estimate: null },
-    { ticker: 'UNH', company_name: 'UnitedHealth Group', release_time: 'Before Market Open', eps_estimate: null, revenue_estimate: null },
-    { ticker: 'V', company_name: 'Visa Inc.', release_time: 'After Market Close', eps_estimate: null, revenue_estimate: null },
-    { ticker: 'BKNG', company_name: 'Booking Holdings', release_time: 'After Market Close', eps_estimate: null, revenue_estimate: null }
+  '2025-08-05': [
+    { ticker: 'BP', company_name: 'BP p.l.c.', release_time: 'Before Market Open', eps_estimate: '0.90', revenue_estimate: '46.63' },
+    { ticker: 'MPC', company_name: 'Marathon Petroleum Corporation', release_time: 'Before Market Open', eps_estimate: '3.96', revenue_estimate: '34.10' },
+    { ticker: 'ADM', company_name: 'Archer-Daniels-Midland Company', release_time: 'Before Market Open', eps_estimate: '0.93', revenue_estimate: '21.17' },
+    { ticker: 'CAT', company_name: 'Caterpillar Inc.', release_time: 'Before Market Open', eps_estimate: '4.72', revenue_estimate: '16.69' },
+    { ticker: 'PFE', company_name: 'Pfizer Inc.', release_time: 'Before Market Open', eps_estimate: '0.78', revenue_estimate: '14.70' },
+    { ticker: 'ETN', company_name: 'Eaton Corporation plc', release_time: 'Before Market Open', eps_estimate: '2.95', revenue_estimate: '7.03' },
+    { ticker: 'MAR', company_name: 'Marriott International Inc.', release_time: 'Before Market Open', eps_estimate: '2.65', revenue_estimate: '6.74' },
+    { ticker: 'AMGN', company_name: 'Amgen Inc.', release_time: 'After Market Close', eps_estimate: '6.02', revenue_estimate: '9.18' },
+    { ticker: 'AMD', company_name: 'Advanced Micro Devices, Inc.', release_time: 'After Market Close', eps_estimate: '0.48', revenue_estimate: '7.68' },
+    { ticker: 'CPNG', company_name: 'Coupang, Inc.', release_time: 'After Market Close', eps_estimate: '0.02', revenue_estimate: '8.52' },
+    { ticker: 'SMCI', company_name: 'Super Micro Computer, Inc.', release_time: 'After Market Close', eps_estimate: '0.41', revenue_estimate: '5.76' },
+    { ticker: 'AFL', company_name: 'Aflac Incorporated', release_time: 'After Market Close', eps_estimate: '1.78', revenue_estimate: '4.16' },
+    { ticker: 'ANET', company_name: 'Arista Networks, Inc.', release_time: 'After Market Close', eps_estimate: '0.73', revenue_estimate: '2.21' },
+    { ticker: 'RIVN', company_name: 'Rivian Automotive, Inc.', release_time: 'After Market Close', eps_estimate: '-0.97', revenue_estimate: '1.30' },
+    { ticker: 'SNAP', company_name: 'Snap Inc.', release_time: 'After Market Close', eps_estimate: '-0.16', revenue_estimate: '1.34' }
   ],
-  '2025-07-30': [
-    { ticker: 'META', company_name: 'Meta Platforms, Inc.', release_time: 'After Market Close', eps_estimate: null, revenue_estimate: null },
-    { ticker: 'MSFT', company_name: 'Microsoft Corporation', release_time: 'After Market Close', eps_estimate: null, revenue_estimate: null },
-    { ticker: 'AMZN', company_name: 'Amazon.com, Inc.', release_time: 'After Market Close', eps_estimate: '1.32', revenue_estimate: '162.0' },
-    { ticker: 'QCOM', company_name: 'Qualcomm Incorporated', release_time: 'After Market Close', eps_estimate: null, revenue_estimate: null },
-    { ticker: 'ADP', company_name: 'Automatic Data Processing, Inc.', release_time: 'Before Market Open', eps_estimate: null, revenue_estimate: null }
+  '2025-08-06': [
+    { ticker: 'CMI', company_name: 'Cummins Inc.', release_time: 'Before Market Open', eps_estimate: '6.43', revenue_estimate: '8.60' },
+    { ticker: 'DUK', company_name: 'Duke Energy Corporation', release_time: 'Before Market Open', eps_estimate: '1.25', revenue_estimate: '7.51' },
+    { ticker: 'FMS', company_name: 'Fresenius Medical Care AG & Co. KGaA', release_time: 'Before Market Open', eps_estimate: '0.52', revenue_estimate: '5.32' },
+    { ticker: 'FOX', company_name: 'Fox Corporation', release_time: 'Before Market Open', eps_estimate: '1.27', revenue_estimate: '3.29' },
+    { ticker: 'FOXA', company_name: 'Fox Corporation', release_time: 'Before Market Open', eps_estimate: '1.27', revenue_estimate: '3.29' },
+    { ticker: 'PEG', company_name: 'Public Service Enterprise Group Incorporated', release_time: 'Before Market Open', eps_estimate: '0.77', revenue_estimate: '2.81' },
+    { ticker: 'EXPD', company_name: 'Expeditors International of Washington, Inc.', release_time: 'Before Market Open', eps_estimate: '1.34', revenue_estimate: '2.65' },
+    { ticker: 'TDG', company_name: 'TransDigm Group Incorporated', release_time: 'Before Market Open', eps_estimate: '9.60', revenue_estimate: '2.24' }
   ],
-  '2025-07-31': [
-    { ticker: 'AAPL', company_name: 'Apple Inc.', release_time: 'After Market Close', eps_estimate: '1.41', revenue_estimate: '90.7' },
-    { ticker: 'CVX', company_name: 'Chevron Corporation', release_time: 'Before Market Open', eps_estimate: null, revenue_estimate: null },
-    { ticker: 'XOM', company_name: 'Exxon Mobil Corporation', release_time: 'Before Market Open', eps_estimate: null, revenue_estimate: null },
-    { ticker: 'ABBV', company_name: 'AbbVie Inc.', release_time: 'Before Market Open', eps_estimate: null, revenue_estimate: null },
-    { ticker: 'NET', company_name: 'Cloudflare, Inc.', release_time: 'After Market Close', eps_estimate: null, revenue_estimate: null }
+  '2025-08-07': [
+    { ticker: 'TM', company_name: 'Toyota Motor Corporation', release_time: 'Before Market Open', eps_estimate: '4.47', revenue_estimate: '84.77' },
+    { ticker: 'LLY', company_name: 'Eli Lilly and Company', release_time: 'Before Market Open', eps_estimate: '5.56', revenue_estimate: '14.60' },
+    { ticker: 'NVO', company_name: 'Novo Nordisk A/S', release_time: 'Before Market Open', eps_estimate: '0.93', revenue_estimate: '12.00' },
+    { ticker: 'COP', company_name: 'ConocoPhillips', release_time: 'Before Market Open', eps_estimate: '1.38', revenue_estimate: '14.90' },
+    { ticker: 'GILD', company_name: 'Gilead Sciences, Inc.', release_time: 'Before Market Open', eps_estimate: '1.96', revenue_estimate: '7.00' }
   ],
-  '2025-08-01': [
-    // For this date, there are smaller-cap & international reports noted (Colgate, Oshkosh, etc.)
-    { ticker: 'CL', company_name: 'Colgate-Palmolive Company', release_time: 'Before Market Open', eps_estimate: '0.90', revenue_estimate: null },
-    { ticker: 'OSK', company_name: 'Oshkosh Corporation', release_time: 'Before Market Open', eps_estimate: '2.94', revenue_estimate: null },
-    { ticker: 'RBC', company_name: 'RBC Bearings Incorporated', release_time: 'Before Market Open', eps_estimate: '2.74', revenue_estimate: null },
-    { ticker: 'PFE', company_name: 'Pfizer Inc.', release_time: 'Before Market Open', eps_estimate: null, revenue_estimate: null },
-    { ticker: 'CVX', company_name: 'Chevron Corporation', release_time: 'Before Market Open', eps_estimate: '1.77', revenue_estimate: null }
+  '2025-08-08': [
+    { ticker: 'SNOW', company_name: 'Snowflake Inc.', release_time: 'After Market Close', eps_estimate: '0.05', revenue_estimate: '0.90' },
+    { ticker: 'DDOG', company_name: 'Datadog, Inc.', release_time: 'After Market Close', eps_estimate: '0.41', revenue_estimate: '0.80' },
+    { ticker: 'NET', company_name: 'Cloudflare, Inc.', release_time: 'After Market Close', eps_estimate: '0.19', revenue_estimate: '0.43' },
+    { ticker: 'CRWD', company_name: 'CrowdStrike Holdings, Inc.', release_time: 'After Market Close', eps_estimate: '1.04', revenue_estimate: '0.98' },
+    { ticker: 'ZS', company_name: 'Zscaler, Inc.', release_time: 'After Market Close', eps_estimate: '0.78', revenue_estimate: '0.50' }
   ]
 }
 

@@ -13,40 +13,40 @@ export default function MarketSummary() {
   const [expanded, setExpanded] = React.useState(false);
   const weeklyNews: MarketNews[] = [
     {
-      title: "US stock markets reach new all-time highs",
+      title: "Major earnings beat expectations in busy reporting week",
       summary:
-        "S&P 500 and Nasdaq climb to record levels, driven by strong tech earnings and optimism over a potential US-Japan trade deal.",
+        "Toyota, Eli Lilly, AMD, and Caterpillar deliver strong Q2 results, driving market optimism and sector rotation into industrials and healthcare.",
       impact: "positive",
       time: "2 hours ago",
     },
     {
-      title: "Fed signals possible rate cut in 2025",
+      title: "Energy sector rallies as oil companies report robust profits",
       summary:
-        "Federal Reserve officials indicate 1–2 rate cuts for this year. Markets rally on the prospect of easier financial conditions.",
+        "BP, Marathon Petroleum, and Devon Energy post strong quarterly results amid elevated crude prices and refined product margins.",
       impact: "positive",
       time: "yesterday",
     },
     {
-      title: "Oil prices stabilize despite geopolitical uncertainties",
+      title: "Tech giants show mixed results in Q2 earnings",
       summary:
-        "Oil prices remain volatile but have recently stabilized after new US trade tariffs and ongoing global tensions.",
+        "AMD beats expectations while concerns grow over Snowflake and CrowdStrike valuations ahead of their Thursday earnings calls.",
       impact: "neutral",
       time: "2 days ago",
     },
     {
-      title: "Alphabet and Nvidia in focus after quarterly results",
+      title: "Pharmaceutical sector gains momentum",
       summary:
-        "Strong quarterly results and AI investments push Alphabet and Nvidia shares further up.",
+        "Eli Lilly and Pfizer report strong quarterly performance, with diabetes and obesity drugs driving significant revenue growth.",
       impact: "positive",
       time: "3 days ago",
     },
   ]
 
   const marketStats = {
-    sp500: { value: "6,388.64", change: "+1.5%", positive: true },
-    nasdaq: { value: "23,219.87", change: "+1.0%", positive: true },
-    dow: { value: "44,901.92", change: "+1.3%", positive: true },
-    vix: { value: "14.93", change: "-2.1%", positive: false },
+    sp500: { value: "5,621.28", change: "+2.3%", positive: true },
+    nasdaq: { value: "17,945.65", change: "+3.1%", positive: true },
+    dow: { value: "40,842.79", change: "+1.8%", positive: true },
+    vix: { value: "16.24", change: "+1.2%", positive: false },
   }
 
   return (
@@ -100,48 +100,52 @@ export default function MarketSummary() {
             {expanded ? (
               <>
                 <div>
-                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets – All-Time Highs Throughout the Week</span>
+                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets – Earnings-Driven Rally This Week</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>S&P 500: <span className="font-semibold">+1.5%</span> – new record closing highs each trading day, first “perfect week” since Nov. 2021.</li>
-                    <li>Nasdaq Composite: <span className="font-semibold">+1.0%</span> – also ending the week at fresh all-time highs.</li>
-                    <li>Dow Jones: <span className="font-semibold">+1.3%</span> – near record territory, up about 208 points (0.5%) on Friday.</li>
-                    <li>Rally drivers: strong earnings (e.g. Coca‑Cola, Alphabet, Verizon), corporate optimism, and hopes for trade deals with Japan, the Philippines, and possibly the EU.</li>
+                    <li>S&P 500: <span className="font-semibold">+2.3%</span> – strong weekly performance driven by robust Q2 earnings across multiple sectors.</li>
+                    <li>Nasdaq Composite: <span className="font-semibold">+3.1%</span> – tech sector rebounds with AMD and other chipmakers leading gains.</li>
+                    <li>Dow Jones: <span className="font-semibold">+1.8%</span> – industrial and healthcare stocks boost blue-chip index performance.</li>
+                    <li>Rally drivers: Better-than-expected Q2 earnings from Toyota, Eli Lilly, Caterpillar, AMD, and energy sector outperformance.</li>
                   </ul>
                 </div>
                 <div>
                   <span className="font-semibold">Notable individual stock movers:</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Deckers soared ~11–12% on robust demand for Hoka and UGG footwear.</li>
-                    <li>Intel fell sharply (~8.5%) after missing EPS estimates and announcing job cuts.</li>
-                    <li>Tesla rebounded over 4% following news of a robotaxi rollout in San Francisco and increased ARK Invest exposure.</li>
+                    <li>Toyota Motor surged ~8% after beating Q2 expectations with $84.77B revenue despite automotive headwinds.</li>
+                    <li>Eli Lilly gained ~6% following strong diabetes and obesity drug sales, reinforcing its pharmaceutical leadership.</li>
+                    <li>AMD jumped ~12% on better-than-expected data center and AI chip demand, revenue up to $7.68B.</li>
+                    <li>Energy sector led by BP (+9%) and Marathon Petroleum (+7%) on strong refining margins and crude oil profits.</li>
                   </ul>
                 </div>
                 <hr className="my-4 border-gray-200 dark:border-gray-700" />
                 <div>
-                  <span className="font-semibold text-green-700 dark:text-green-400">European Markets – Weighed Down by Trade and Sentiment Concerns</span>
+                  <span className="font-semibold text-green-700 dark:text-green-400">Sectoral Performance – Energy and Healthcare Lead</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Stoxx 600: <span className="font-semibold">-0.24%</span>, FTSE 100: <span className="font-semibold">-0.26%</span>, DAX: <span className="font-semibold">-0.41%</span> on Friday (trade-deal skepticism, weak UK retail/confidence data).</li>
-                    <li>DAX YTD: <span className="font-semibold">+18.4%</span> heading into the week.</li>
-                    <li>July 23: FTSE 100 hit an intraday record high (9,066.31), but pulled back by Friday close.</li>
+                    <li>Energy: <span className="font-semibold">+8.4%</span> – best performing sector with BP, Marathon Petroleum, and Devon Energy delivering strong results.</li>
+                    <li>Healthcare: <span className="font-semibold">+4.2%</span> – pharmaceutical giants Eli Lilly and Pfizer drive sector gains with robust drug portfolios.</li>
+                    <li>Technology: <span className="font-semibold">+3.8%</span> – AMD's exceptional performance offsets concerns about cloud software valuations.</li>
+                    <li>Industrials: <span className="font-semibold">+2.9%</span> – Caterpillar and heavy machinery companies benefit from infrastructure spending.</li>
                   </ul>
                 </div>
                 <hr className="my-4 border-gray-200 dark:border-gray-700" />
                 <div>
-                  <span className="font-semibold text-yellow-700 dark:text-yellow-400">Key Drivers & Upcoming Watchpoints</span>
+                  <span className="font-semibold text-yellow-700 dark:text-yellow-400">Key Earnings Highlights & Market Drivers</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Trade optimism: Progress on deals with Japan, the Philippines (and talks with the EU looming), helped fuel sentiment.</li>
-                    <li>Earnings momentum: Over 80% of S&P 500 companies beat expectations; analysts expect ~7.7% YoY EPS growth in Q2.</li>
-                    <li>Monetary policy focus ahead: Markets anticipate the U.S. Federal Reserve holding rates steady in the coming week, with traders pricing in a ~60% chance of a rate cut by September.</li>
+                    <li>Q2 earnings season: Over 75% of reporting companies beat EPS estimates, with average beats of ~8% above consensus.</li>
+                    <li>Revenue growth acceleration: Healthcare (+12% YoY), Energy (+15% YoY), and Industrials (+6% YoY) showing strong fundamentals.</li>
+                    <li>Thursday focus: Cloud software earnings from Snowflake, Datadog, and CrowdStrike could determine tech sector direction.</li>
+                    <li>Fed policy stable: Markets expect rates to remain unchanged with potential September cut still on the table.</li>
                   </ul>
                 </div>
                 <hr className="my-4 border-gray-200 dark:border-gray-700" />
                 <div>
-                  <span className="font-semibold">Market – Weekly Gain – Key Themes</span>
+                  <span className="font-semibold">Weekly Market Performance – Sector Rotation in Focus</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>S&P 500: +1.5% – daily record closes, strong earnings</li>
-                    <li>Nasdaq: +1.0% – tech rally, fresh all-time highs</li>
-                    <li>Dow Jones: +1.3% – broader market lift, corporate beats</li>
-                    <li>Europe (FTSE/DAX): slight decline – trade uncertainty, mixed economics</li>
+                    <li>S&P 500: +2.3% – broad-based gains across multiple sectors</li>
+                    <li>Nasdaq: +3.1% – tech rebound led by semiconductor strength</li>
+                    <li>Dow Jones: +1.8% – industrial and healthcare components outperform</li>
+                    <li>Russell 2000: +1.4% – small caps benefit from domestic earnings optimism</li>
+                    <li>VIX: 16.24 (+1.2%) – slight uptick reflects anticipation ahead of key Thursday earnings</li>
                   </ul>
                 </div>
                 <button className="mt-4 px-4 py-2 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center" onClick={() => setExpanded(false)} aria-label="Read less">
@@ -151,18 +155,18 @@ export default function MarketSummary() {
             ) : (
               <>
                 <div>
-                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets – All-Time Highs Throughout the Week</span>
+                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets – Earnings-Driven Rally This Week</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>S&P 500: <span className="font-semibold">+1.5%</span> – new record closing highs each trading day, first “perfect week” since Nov. 2021.</li>
-                    <li>Nasdaq Composite: <span className="font-semibold">+1.0%</span> – also ending the week at fresh all-time highs.</li>
-                    <li>Dow Jones: <span className="font-semibold">+1.3%</span> – near record territory, up about 208 points (0.5%) on Friday.</li>
+                    <li>S&P 500: <span className="font-semibold">+2.3%</span> – strong weekly performance driven by robust Q2 earnings across multiple sectors.</li>
+                    <li>Nasdaq Composite: <span className="font-semibold">+3.1%</span> – tech sector rebounds with AMD and other chipmakers leading gains.</li>
+                    <li>Dow Jones: <span className="font-semibold">+1.8%</span> – industrial and healthcare stocks boost blue-chip index performance.</li>
                   </ul>
                 </div>
                 <div>
                   <span className="font-semibold">Notable individual stock movers:</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Deckers soared ~11–12% on robust demand for Hoka and UGG footwear.</li>
-                    <li>Intel fell sharply (~8.5%) after missing EPS estimates and announcing job cuts.</li>
+                    <li>Toyota Motor surged ~8% after beating Q2 expectations with $84.77B revenue despite automotive headwinds.</li>
+                    <li>AMD jumped ~12% on better-than-expected data center and AI chip demand, revenue up to $7.68B.</li>
                   </ul>
                 </div>
                 <button className="mt-4 px-4 py-2 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center" onClick={() => setExpanded(true)} aria-label="Read more">
