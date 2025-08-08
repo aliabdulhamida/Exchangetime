@@ -48,12 +48,14 @@ import {
   X,
   CupSoda,
   Gauge,
+  BookOpen,
 } from "lucide-react"
 
 import { Home } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
+import { usePathname } from "next/navigation"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog"
 import Image from "next/image"
 
@@ -68,6 +70,10 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [helpLegalOpen, setHelpLegalOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const pathname = usePathname();
+  const [activeView, setActiveView] = useState<'dashboard' | 'blog'>(
+    pathname?.startsWith('/blog') ? 'blog' : 'dashboard'
+  );
   const { theme, systemTheme } = useTheme();
   
   // Sicheres Abrufen des gespeicherten Zustands aus dem localStorage beim Mounten der Komponente
@@ -81,6 +87,16 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
       console.error('Fehler beim Zugriff auf localStorage:', error);
     }
   }, []);
+  
+  // Aktualisiere activeView basierend auf der aktuellen Route
+  useEffect(() => {
+    if (pathname?.startsWith('/blog')) {
+      setActiveView('blog');
+    } else {
+      setActiveView('dashboard');
+    }
+  }, [pathname]);
+  
   const currentTheme = theme === "system" ? systemTheme : theme;
   
   // Speichere den Collapse-Zustand im localStorage
@@ -552,19 +568,109 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
             </div>
           </Link>
 
-          <div className="flex-1 overflow-y-auto py-4 px-4">
-            <div className="space-y-6">
+          <div className="flex-1 overflow-y-auto py-3 px-3">
+            <div className="space-y-5">
+              {/* Toggle-Button für Dashboard und Blog - horizontal */}
+              <div className="mb-1.5">
+                {isCollapsed ? (
+                  // Vertikaler Toggle für eingeklappte Sidebar
+                  <div className="relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#18181b] shadow-sm flex flex-col w-full">
+                    <Link 
+                      href="/" 
+                      onClick={(e) => {
+                        handleNavigation();
+                        setActiveView('dashboard');
+                      }}
+                      className={`
+                        relative z-10 flex items-center justify-center py-2.5 text-xs transition-all duration-300
+                        ${activeView === 'dashboard' 
+                          ? 'text-white' 
+                          : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'}
+                      `}
+                      title="Dashboard"
+                    >
+                      <Home className={`h-5 w-5 transition-all duration-300 ${activeView === 'dashboard' ? 'scale-105' : ''}`} />
+                    </Link>
+                    
+                    <Link 
+                      href="/blog" 
+                      onClick={(e) => {
+                        handleNavigation();
+                        setActiveView('blog');
+                      }}
+                      className={`
+                        relative z-10 flex items-center justify-center py-2.5 text-xs transition-all duration-300
+                        ${activeView === 'blog' 
+                          ? 'text-white' 
+                          : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'}
+                      `}
+                      title="Blog"
+                    >
+                      <BookOpen className={`h-5 w-5 transition-all duration-300 ${activeView === 'blog' ? 'scale-105' : ''}`} />
+                    </Link>
+                    
+                    {/* Sliding background for active option (vertical) */}
+                    <div 
+                      className="absolute inset-0 bg-gradient-to-b from-blue-600 to-blue-500 dark:from-blue-700 dark:to-blue-600 transition-all duration-300 ease-in-out z-0 h-1/2 w-full"
+                      style={{
+                        transform: activeView === 'dashboard' ? 'translateY(0)' : 'translateY(100%)',
+                      }}
+                    ></div>
+                  </div>
+                ) : (
+                  // Horizontaler Toggle für ausgeklappte Sidebar
+                  <div className="relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#18181b] shadow-sm flex max-w-[220px]">
+                    <Link 
+                      href="/" 
+                      onClick={(e) => {
+                        handleNavigation();
+                        setActiveView('dashboard');
+                      }}
+                      className={`
+                        relative z-10 flex items-center pl-1.5 pr-3 py-2 flex-1 text-sm transition-all duration-300
+                        ${activeView === 'dashboard' 
+                          ? 'text-white font-medium' 
+                          : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'}
+                      `}
+                    >
+                      <Home className={`h-4 w-4 mr-1.5 flex-shrink-0 transition-all duration-300 ${activeView === 'dashboard' ? 'scale-105' : ''}`} />
+                      <span className="transition-all duration-300 font-medium">Dashboard</span>
+                    </Link>
+                    
+                    <Link 
+                      href="/blog" 
+                      onClick={(e) => {
+                        handleNavigation();
+                        setActiveView('blog');
+                      }}
+                      className={`
+                        relative z-10 flex items-center justify-center py-2 px-3 flex-1 text-sm transition-all duration-300
+                        ${activeView === 'blog' 
+                          ? 'text-white font-medium' 
+                          : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'}
+                      `}
+                    >
+                      <BookOpen className={`h-4 w-4 mr-1.5 flex-shrink-0 transition-all duration-300 ${activeView === 'blog' ? 'scale-105' : ''}`} />
+                      <span className="transition-all duration-300 font-medium">Blog</span>
+                    </Link>
+                    
+                    {/* Sliding background for active option */}
+                    <div 
+                      className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-500 dark:from-blue-700 dark:to-blue-600 transition-all duration-300 ease-in-out z-0 w-1/2"
+                      style={{
+                        transform: activeView === 'dashboard' ? 'translateX(0)' : 'translateX(100%)',
+                      }}
+                    ></div>
+                  </div>
+                )}
+              </div>
               <div>
-                {!isCollapsed && (
-                  <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    Market Overview
+                {/* Header for Market Overview without inline collapse button */}
+                <div className="px-3 mb-2">
+                  <div className={`${isCollapsed ? 'text-center' : ''} text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400`}>
+                    {isCollapsed ? 'MO' : 'Market Overview'}
                   </div>
-                )}
-                {isCollapsed && (
-                  <div className="text-center mb-3 mt-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    MO
-                  </div>
-                )}
+                </div>
                 <div className="space-y-1">
                   {/* Dashboard Button entfernt */}
                   <ModuleButton module="StockAnalysis" icon={BarChart2} label="Stock Analysis" />
@@ -612,6 +718,8 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
                   <ModuleButton module="HolidayCalendar" icon={CupSoda} label="Holiday Calendar" />
                 </div>
               </div>
+
+
             </div>
           </div>
 
