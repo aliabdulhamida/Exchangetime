@@ -106,9 +106,9 @@ export default function RealEstateVsStocksCalculator() {
   }
 
   return (
-    <Card className="border-primary/20">
+    <Card className="bg-transparent border-0 shadow-none">
       <CardHeader>
-        <CardTitle>Interactive Calculator</CardTitle>
+        <CardTitle>Real Estate vs Stocks</CardTitle>
         <CardDescription>
           Compare a simple stock investment with a levered rental property assuming constant cap rate and NOI growth.
         </CardDescription>
@@ -167,7 +167,7 @@ export default function RealEstateVsStocksCalculator() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
-          <Card className="bg-muted/30">
+          <Card className="bg-transparent border-0 shadow-none">
             <CardHeader>
               <CardTitle className="text-lg">Stocks (end of year {result.n})</CardTitle>
             </CardHeader>
@@ -177,7 +177,7 @@ export default function RealEstateVsStocksCalculator() {
             </CardContent>
           </Card>
 
-          <Card className="bg-muted/30">
+          <Card className="bg-transparent border-0 shadow-none">
             <CardHeader>
               <CardTitle className="text-lg">Real Estate (end of year {result.n})</CardTitle>
             </CardHeader>

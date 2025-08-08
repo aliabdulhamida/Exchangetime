@@ -22,6 +22,7 @@ import TradingViewWidget from "../stock-market/TradingViewWidget";
 import TradingviewEcCalendar from "../stock-market/TradingviewEc-Calendar.jsx";
 import { X } from "lucide-react";
 import React, { useState } from "react";
+import RealEstateVsStocksCalculator from "../real-estate-vs-stocks-calculator";
 
 interface ContentProps {
   visibleModules?: string[];
@@ -67,6 +68,7 @@ const DEFAULT_VISIBLE_MODULES = [
   "CurrencyConverter",
   "CompoundInterest",
   "PersonalBudget",
+  "RealEstateVsStocks",
   "InsiderTrades",
   "EarningsCalendar",
   "HolidayCalendar",
@@ -81,7 +83,7 @@ export default function Content(props: ContentProps) {
   const isSolo = modules.length === 1 ? modules[0] : null;
   // Toggle-Funktion: Solo oder alle anzeigen
   const showOnlyModule = (module: string) => {
-    if (typeof window !== 'undefined' && window.dispatchEvent) {
+    if (typeof window !== 'undefined' && (window as any).dispatchEvent) {
       if (isSolo === module) {
         // Wenn bereits solo, dann alle anzeigen
         window.dispatchEvent(new CustomEvent('showOnlyModule', { detail: 'ALL' }));
@@ -267,6 +269,19 @@ export default function Content(props: ContentProps) {
               <ModuleWrapper onClose={() => hideModule("PersonalBudget") } onSolo={() => showOnlyModule("PersonalBudget") }>
                 <div className="flex-1 flex flex-col h-full">
                   <SankeyBudget />
+                </div>
+              </ModuleWrapper>
+            </div>
+          )}
+        </div>
+
+        {/* Seventh Row - Real Estate vs. Stocks Calculator */}
+        <div className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}>
+          {modules.includes("RealEstateVsStocks") && (
+            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full border border-gray-200 dark:border-[#23232a] rounded-xl">
+              <ModuleWrapper onClose={() => hideModule("RealEstateVsStocks")} onSolo={() => showOnlyModule("RealEstateVsStocks")}>
+                <div className="flex-1 flex flex-col h-full">
+                  <RealEstateVsStocksCalculator />
                 </div>
               </ModuleWrapper>
             </div>

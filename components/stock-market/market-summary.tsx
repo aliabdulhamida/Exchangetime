@@ -1,3 +1,4 @@
+"use client";
 
 import React from "react"
 import { Newspaper, TrendingUp, TrendingDown, ChevronDown, ChevronUp } from "lucide-react"
@@ -11,82 +12,159 @@ interface MarketNews {
 
 export default function MarketSummary() {
   const [expanded, setExpanded] = React.useState(false);
+
+  // Dynamische Marktwerte für die letzte abgeschlossene Woche (Mo–Fr)
+  const [marketStats, setMarketStats] = React.useState({
+    sp500: { value: "—", change: "—", positive: true },
+    nasdaq: { value: "—", change: "—", positive: true },
+    dow: { value: "—", change: "—", positive: true },
+    vix: { value: "—", change: "—", positive: false },
+  });
+
+  React.useEffect(() => {
+    function getLastCompletedWeek() {
+      const today = new Date();
+      const end = new Date(today);
+      // Finde den letzten Freitag
+      while (end.getDay() !== 5) {
+        end.setDate(end.getDate() - 1);
+      }
+      const start = new Date(end);
+      start.setDate(end.getDate() - 4); // Montag derselben Woche
+      // Normalisiere Zeiten
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+
+    async function fetchWeekly(symbol: string, invertPositive = false) {
+      const { start, end } = getLastCompletedWeek();
+      const period1 = Math.floor((start.getTime() - 2 * 24 * 60 * 60 * 1000) / 1000); // Puffer
+      const period2 = Math.floor((end.getTime() + 1 * 24 * 60 * 60 * 1000) / 1000);
+      const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d&includePrePost=false`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Fetch failed");
+        const json: any = await res.json();
+        const result = json?.chart?.result?.[0];
+        const ts: number[] = result?.timestamp || [];
+        const closes: number[] = result?.indicators?.quote?.[0]?.close || [];
+        const points = (ts || []).map((t, i) => ({ date: new Date(t * 1000), close: closes[i] })).filter(p => typeof p.close === 'number' && !isNaN(p.close));
+        // Filter auf Wochenbereich
+        const { start: s, end: e } = getLastCompletedWeek();
+        const inWeek = points.filter(p => p.date >= s && p.date <= e);
+        if (inWeek.length < 2) return { value: "—", change: "—", positive: !invertPositive };
+        const first = inWeek[0].close;
+        const last = inWeek[inWeek.length - 1].close;
+        const changePct = first ? ((last - first) / first) * 100 : 0;
+        const valueStr = typeof last === 'number' ? last.toLocaleString('en-US', { maximumFractionDigits: 2 }) : "—";
+        const changeStr = `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`;
+        const positive = invertPositive ? changePct < 0 : changePct >= 0;
+        return { value: valueStr, change: changeStr, positive };
+      } catch (e) {
+        return { value: "—", change: "—", positive: !invertPositive };
+      }
+    }
+
+    (async () => {
+      const [spx, ixic, dji, vix] = await Promise.all([
+        fetchWeekly('^GSPC'),
+        fetchWeekly('^IXIC'),
+        fetchWeekly('^DJI'),
+        fetchWeekly('^VIX', true), // VIX: Anstieg = negatives Risiko-Sentiment
+      ]);
+      setMarketStats({
+        sp500: spx,
+        nasdaq: ixic,
+        dow: dji,
+        vix: vix,
+      } as any);
+    })();
+  }, []);
+
   const weeklyNews: MarketNews[] = [
     {
-      title: "Major earnings beat expectations in busy reporting week",
+      title: "Wall Street ended a choppy week with mega caps masking weak breadth",
       summary:
-        "Toyota, Eli Lilly, AMD, and Caterpillar deliver strong Q2 results, driving market optimism and sector rotation into industrials and healthcare.",
-      impact: "positive",
-      time: "2 hours ago",
-    },
-    {
-      title: "Energy sector rallies as oil companies report robust profits",
-      summary:
-        "BP, Marathon Petroleum, and Devon Energy post strong quarterly results amid elevated crude prices and refined product margins.",
-      impact: "positive",
-      time: "yesterday",
-    },
-    {
-      title: "Tech giants show mixed results in Q2 earnings",
-      summary:
-        "AMD beats expectations while concerns grow over Snowflake and CrowdStrike valuations ahead of their Thursday earnings calls.",
+        "Large-cap tech and defensives underpinned the indexes while small caps remained more volatile amid policy headlines.",
       impact: "neutral",
-      time: "2 days ago",
+      time: "Yesterday",
     },
     {
-      title: "Pharmaceutical sector gains momentum",
+      title: "Gold set a record as hedging demand rose; Treasury yields edged higher",
       summary:
-        "Eli Lilly and Pfizer report strong quarterly performance, with diabetes and obesity drugs driving significant revenue growth.",
-      impact: "positive",
-      time: "3 days ago",
+        "A firmer dollar and higher real rates pressured some growth pockets while gold benefitted from risk hedging.",
+      impact: "neutral",
+      time: "This week",
+    },
+    {
+      title: "Tariff rhetoric and a Fed board nomination steered intraday swings",
+      summary:
+        "Traders positioned ahead of next week’s U.S. inflation data; September cut odds remain in focus.",
+      impact: "neutral",
+      time: "This week",
     },
   ]
-
-  const marketStats = {
-    sp500: { value: "5,621.28", change: "+2.3%", positive: true },
-    nasdaq: { value: "17,945.65", change: "+3.1%", positive: true },
-    dow: { value: "40,842.79", change: "+1.8%", positive: true },
-    vix: { value: "16.24", change: "+1.2%", positive: false },
-  }
 
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23]">
 
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-        Weekly Market Summary
+        Weekly Market Summary — Aug 04–08, 2025
       </h2>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* S&P 500 */}
         <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
           <p className="text-xs text-gray-600 dark:text-gray-400">S&P 500</p>
           <p className="font-semibold text-gray-900 dark:text-white">{marketStats.sp500.value}</p>
           <div className="flex items-center gap-1">
-            <TrendingUp className="w-3 h-3 text-green-500" />
-            <span className="text-xs text-green-600">{marketStats.sp500.change}</span>
+            {marketStats.sp500.positive ? (
+              <TrendingUp className="w-3 h-3 text-green-500" />
+            ) : (
+              <TrendingDown className="w-3 h-3 text-red-500" />
+            )}
+            <span className={marketStats.sp500.positive ? "text-xs text-green-600" : "text-xs text-red-600"}>{marketStats.sp500.change}</span>
           </div>
         </div>
+        {/* NASDAQ */}
         <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
           <p className="text-xs text-gray-600 dark:text-gray-400">NASDAQ</p>
           <p className="font-semibold text-gray-900 dark:text-white">{marketStats.nasdaq.value}</p>
           <div className="flex items-center gap-1">
-            <TrendingUp className="w-3 h-3 text-green-500" />
-            <span className="text-xs text-green-600">{marketStats.nasdaq.change}</span>
+            {marketStats.nasdaq.positive ? (
+              <TrendingUp className="w-3 h-3 text-green-500" />
+            ) : (
+              <TrendingDown className="w-3 h-3 text-red-500" />
+            )}
+            <span className={marketStats.nasdaq.positive ? "text-xs text-green-600" : "text-xs text-red-600"}>{marketStats.nasdaq.change}</span>
           </div>
         </div>
+        {/* Dow Jones */}
         <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
           <p className="text-xs text-gray-600 dark:text-gray-400">Dow Jones</p>
           <p className="font-semibold text-gray-900 dark:text-white">{marketStats.dow.value}</p>
           <div className="flex items-center gap-1">
-            <TrendingUp className="w-3 h-3 text-green-500" />
-            <span className="text-xs text-green-600">{marketStats.dow.change}</span>
+            {marketStats.dow.positive ? (
+              <TrendingUp className="w-3 h-3 text-green-500" />
+            ) : (
+              <TrendingDown className="w-3 h-3 text-red-500" />
+            )}
+            <span className={marketStats.dow.positive ? "text-xs text-green-600" : "text-xs text-red-600"}>{marketStats.dow.change}</span>
           </div>
         </div>
+        {/* VIX */}
         <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
           <p className="text-xs text-gray-600 dark:text-gray-400">VIX</p>
           <p className="font-semibold text-gray-900 dark:text-white">{marketStats.vix.value}</p>
           <div className="flex items-center gap-1">
-            <TrendingDown className="w-3 h-3 text-red-500" />
-            <span className="text-xs text-red-600">{marketStats.vix.change}</span>
+            {/* For VIX, green is down (risk-on); red is up (risk-off) */}
+            {marketStats.vix.positive ? (
+              <TrendingDown className="w-3 h-3 text-green-500" />
+            ) : (
+              <TrendingUp className="w-3 h-3 text-red-500" />
+            )}
+            <span className={marketStats.vix.positive ? "text-xs text-green-600" : "text-xs text-red-600"}>{marketStats.vix.change}</span>
           </div>
         </div>
       </div>
@@ -100,52 +178,41 @@ export default function MarketSummary() {
             {expanded ? (
               <>
                 <div>
-                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets – Earnings-Driven Rally This Week</span>
+                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets — Week of Aug 04–08, 2025</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>S&P 500: <span className="font-semibold">+2.3%</span> – strong weekly performance driven by robust Q2 earnings across multiple sectors.</li>
-                    <li>Nasdaq Composite: <span className="font-semibold">+3.1%</span> – tech sector rebounds with AMD and other chipmakers leading gains.</li>
-                    <li>Dow Jones: <span className="font-semibold">+1.8%</span> – industrial and healthcare stocks boost blue-chip index performance.</li>
-                    <li>Rally drivers: Better-than-expected Q2 earnings from Toyota, Eli Lilly, Caterpillar, AMD, and energy sector outperformance.</li>
+                    <li>Choppy tape with narrower breadth: mega caps and defensives steadied the indexes while small caps lagged and intraday swings stayed elevated.</li>
+                    <li>Rates and policy: Treasury yields drifted higher; tariff headlines and a potential Fed board nomination shaped risk appetite ahead of next week’s CPI/PPI.</li>
+                    <li>Positioning: investors rotated selectively within tech; AI/chips were volatile, software mixed; healthcare posted idiosyncratic winners.</li>
                   </ul>
                 </div>
                 <div>
-                  <span className="font-semibold">Notable individual stock movers:</span>
+                  <span className="font-semibold">Market internals & factors</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Toyota Motor surged ~8% after beating Q2 expectations with $84.77B revenue despite automotive headwinds.</li>
-                    <li>Eli Lilly gained ~6% following strong diabetes and obesity drug sales, reinforcing its pharmaceutical leadership.</li>
-                    <li>AMD jumped ~12% on better-than-expected data center and AI chip demand, revenue up to $7.68B.</li>
-                    <li>Energy sector led by BP (+9%) and Marathon Petroleum (+7%) on strong refining margins and crude oil profits.</li>
+                    <li>Quality/defensive tilt outperformed on rate sensitivity; momentum was choppy; value held up in energy and parts of financials.</li>
+                    <li>Liquidity concentrated in large platforms; equal‑weight benchmarks underperformed their cap‑weighted peers.</li>
                   </ul>
                 </div>
-                <hr className="my-4 border-gray-200 dark:border-gray-700" />
                 <div>
-                  <span className="font-semibold text-green-700 dark:text-green-400">Sectoral Performance – Energy and Healthcare Lead</span>
+                  <span className="font-semibold">Earnings & single‑name moves</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Energy: <span className="font-semibold">+8.4%</span> – best performing sector with BP, Marathon Petroleum, and Devon Energy delivering strong results.</li>
-                    <li>Healthcare: <span className="font-semibold">+4.2%</span> – pharmaceutical giants Eli Lilly and Pfizer drive sector gains with robust drug portfolios.</li>
-                    <li>Technology: <span className="font-semibold">+3.8%</span> – AMD's exceptional performance offsets concerns about cloud software valuations.</li>
-                    <li>Industrials: <span className="font-semibold">+2.9%</span> – Caterpillar and heavy machinery companies benefit from infrastructure spending.</li>
+                    <li>Adtech and internet saw outsized post‑earnings reactions on guidance revisions.</li>
+                    <li>Semiconductors traded on AI/server demand signals and tariff chatter; pharma names diverged on trial/launch updates.</li>
                   </ul>
                 </div>
                 <hr className="my-4 border-gray-200 dark:border-gray-700" />
                 <div>
-                  <span className="font-semibold text-yellow-700 dark:text-yellow-400">Key Earnings Highlights & Market Drivers</span>
+                  <span className="font-semibold text-green-700 dark:text-green-400">Commodities, FX & credit</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Q2 earnings season: Over 75% of reporting companies beat EPS estimates, with average beats of ~8% above consensus.</li>
-                    <li>Revenue growth acceleration: Healthcare (+12% YoY), Energy (+15% YoY), and Industrials (+6% YoY) showing strong fundamentals.</li>
-                    <li>Thursday focus: Cloud software earnings from Snowflake, Datadog, and CrowdStrike could determine tech sector direction.</li>
-                    <li>Fed policy stable: Markets expect rates to remain unchanged with potential September cut still on the table.</li>
+                    <li>Gold printed a fresh record on hedging demand; crude firmness supported energy sentiment.</li>
+                    <li>Dollar stayed bid at times on rate differentials; U.S. credit spreads were broadly stable to slightly wider in high yield.</li>
                   </ul>
                 </div>
                 <hr className="my-4 border-gray-200 dark:border-gray-700" />
                 <div>
-                  <span className="font-semibold">Weekly Market Performance – Sector Rotation in Focus</span>
+                  <span className="font-semibold">Global snapshot</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>S&P 500: +2.3% – broad-based gains across multiple sectors</li>
-                    <li>Nasdaq: +3.1% – tech rebound led by semiconductor strength</li>
-                    <li>Dow Jones: +1.8% – industrial and healthcare components outperform</li>
-                    <li>Russell 2000: +1.4% – small caps benefit from domestic earnings optimism</li>
-                    <li>VIX: 16.24 (+1.2%) – slight uptick reflects anticipation ahead of key Thursday earnings</li>
+                    <li>Europe traded mildly higher as investors weighed geopolitical de‑escalation signals and trade headlines.</li>
+                    <li>Asia was mixed to softer; chip complexes were sensitive to prospective U.S. tariff measures. Saudi Aramco flagged lower Q2 revenue ahead of an expected H2 demand pickup.</li>
                   </ul>
                 </div>
                 <button className="mt-4 px-4 py-2 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center" onClick={() => setExpanded(false)} aria-label="Read less">
@@ -155,18 +222,16 @@ export default function MarketSummary() {
             ) : (
               <>
                 <div>
-                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets – Earnings-Driven Rally This Week</span>
+                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets — Week of Aug 04–08, 2025</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>S&P 500: <span className="font-semibold">+2.3%</span> – strong weekly performance driven by robust Q2 earnings across multiple sectors.</li>
-                    <li>Nasdaq Composite: <span className="font-semibold">+3.1%</span> – tech sector rebounds with AMD and other chipmakers leading gains.</li>
-                    <li>Dow Jones: <span className="font-semibold">+1.8%</span> – industrial and healthcare stocks boost blue-chip index performance.</li>
+                    <li>Narrower breadth with large caps masking small‑cap volatility; policy headlines kept intraday moves lively.</li>
+                    <li>Yields up modestly; gold at record; eyes on next week’s inflation prints.</li>
                   </ul>
                 </div>
                 <div>
-                  <span className="font-semibold">Notable individual stock movers:</span>
+                  <span className="font-semibold">Global</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Toyota Motor surged ~8% after beating Q2 expectations with $84.77B revenue despite automotive headwinds.</li>
-                    <li>AMD jumped ~12% on better-than-expected data center and AI chip demand, revenue up to $7.68B.</li>
+                    <li>Europe mildly firmer; Asia mixed with chip stocks sensitive to tariff talk.</li>
                   </ul>
                 </div>
                 <button className="mt-4 px-4 py-2 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center" onClick={() => setExpanded(true)} aria-label="Read more">
