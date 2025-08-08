@@ -86,6 +86,15 @@ export function BlogCategories({ categories, activeCategory, onSelectCategory }:
 // Export blog sample articles
 export const blogPosts: BlogPost[] = [
   {
+    id: 8,
+    title: "Real Estate vs. Stocks: A Comprehensive Investor’s Guide",
+    excerpt: "An in-depth comparison of direct real estate, REITs, and equities: returns, risk, liquidity, taxes, and practical takeaways.",
+    date: "August 8, 2025",
+    image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&h=450",
+    categories: ["Investing", "Markets"],
+    slug: "real-estate-vs-stocks"
+  },
+  {
     id: 7,
     title: "Stock Market Trends 2025: January to August",
     excerpt: "Key equity market trends YTD: AI leadership, sector rotation, earnings resilience, and what to watch into Q4.",
