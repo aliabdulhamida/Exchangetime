@@ -248,7 +248,7 @@ function SimpleNavItem({ href, icon: Icon, children }: { href: string; icon: any
             <p><b>Sensitive Information.</b> We do not process sensitive information.</p>
             <p>All personal information that you provide to us must be true, complete, and accurate, and you must notify us of any changes to such personal information.</p>
             <h3>INFORMATION AUTOMATICALLY COLLECTED</h3>
-            <p><b>In Short:</b> Some information — such as your Internet Protocol (IP) address and/or browser and device characteristics — is collected automatically when you visit our Services.</p>
+            <p><b>In Short:</b> Some information, such as your Internet Protocol (IP) address and/or browser and device characteristics, is collected automatically when you visit our Services.</p>
             <p>We automatically collect certain information when you visit, use, or navigate the Services. This information does not reveal your specific identity (like your name or contact information) but may include device and usage information, such as your IP address, browser and device characteristics, operating system, language preferences, referring URLs, device name, country, location, information about how and when you use our Services, and other technical information. This information is primarily needed to maintain the security and operation of our Services, and for our internal analytics and reporting purposes.</p>
             <p>Like many businesses, we also collect information through cookies and similar technologies.</p>
             <p><b>The information we collect includes:</b></p>

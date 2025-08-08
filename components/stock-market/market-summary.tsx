@@ -110,7 +110,7 @@ export default function MarketSummary() {
     <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23]">
 
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-        Weekly Market Summary — Aug 04–08, 2025
+        Weekly Market Summary: Aug 04–08, 2025
       </h2>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -178,7 +178,7 @@ export default function MarketSummary() {
             {expanded ? (
               <>
                 <div>
-                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets — Week of Aug 04–08, 2025</span>
+                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets: Week of Aug 04–08, 2025</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
                     <li>Choppy tape with narrower breadth: mega caps and defensives steadied the indexes while small caps lagged and intraday swings stayed elevated.</li>
                     <li>Rates and policy: Treasury yields drifted higher; tariff headlines and a potential Fed board nomination shaped risk appetite ahead of next week’s CPI/PPI.</li>
@@ -222,7 +222,7 @@ export default function MarketSummary() {
             ) : (
               <>
                 <div>
-                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets — Week of Aug 04–08, 2025</span>
+                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets: Week of Aug 04–08, 2025</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
                     <li>Narrower breadth with large caps masking small‑cap volatility; policy headlines kept intraday moves lively.</li>
                     <li>Yields up modestly; gold at record; eyes on next week’s inflation prints.</li>

@@ -37,6 +37,8 @@ export function BlogCard({ post }: BlogCardProps) {
     webFallbackImage = "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=800&h=450";
   } else if (post.categories.includes("Innovation")) {
     webFallbackImage = "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=800&h=450";
+  } else if (post.categories.includes("History")) {
+    webFallbackImage = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&h=450";
   } else {
     webFallbackImage = "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&h=450";
   }

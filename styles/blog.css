@@ -180,6 +180,11 @@
   font-weight: 500;
 }
 
+.blog-category.category-history {
+  background-color: #4b5563; /* neutral gray */
+  color: #fff;
+}
+
 .dark .blog-card {
   /* Add subtle light ring + stronger dark drop shadow for dark backgrounds */
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06),
