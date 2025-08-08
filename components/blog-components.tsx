@@ -86,6 +86,15 @@ export function BlogCategories({ categories, activeCategory, onSelectCategory }:
 // Export blog sample articles
 export const blogPosts: BlogPost[] = [
   {
+    id: 9,
+    title: "Weekend Read: Lessons from the Dot-Com Bubble (1995–2002)",
+    excerpt: "Deep dive into the build-up, peak and aftermath of the internet mania: capital flows, valuations, behavior, survivors, and actionable lessons for today's thematic booms.",
+    date: "August 9, 2025",
+    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&h=450",
+    categories: ["Markets", "History", "Investing"],
+    slug: "dot-com-bubble-weekend-read"
+  },
+  {
     id: 8,
     title: "Real Estate vs. Stocks: A Comprehensive Investor’s Guide",
     excerpt: "An in-depth comparison of direct real estate, REITs, and equities: returns, risk, liquidity, taxes, and practical takeaways.",
