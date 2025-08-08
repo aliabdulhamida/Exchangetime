@@ -1,0 +1,54 @@
+/* Toggle-Button Animation Styles */
+.toggle-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.toggle-option {
+  position: relative;
+  z-index: 10;
+  transition: all 0.3s ease;
+}
+
+.toggle-option.active {
+  color: white;
+}
+
+.toggle-slide {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: calc(50% - 4px);
+  background-color: #2a2a32;
+  border-radius: 0.375rem;
+  transition: left 0.3s ease;
+  z-index: 0;
+}
+
+.toggle-slide.left {
+  left: 4px;
+}
+
+.toggle-slide.right {
+  left: calc(50% + 4px);
+}
+
+.toggle-option:hover {
+  transform: scale(1.05);
+}
+
+@keyframes subtle-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.1);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+.toggle-option.active {
+  animation: subtle-pulse 2s infinite;
+}

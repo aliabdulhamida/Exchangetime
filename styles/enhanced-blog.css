@@ -1,0 +1,336 @@
+/* Enhanced Blog Page Styling */
+
+/* Table of Contents */
+.toc {
+  background-color: var(--secondary);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.toc-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toc-list {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.toc-list li {
+  margin-bottom: 0.5rem;
+}
+
+.toc-list li a {
+  color: var(--foreground);
+  text-decoration: none;
+  transition: color 0.2s;
+  display: flex;
+  padding: 0.25rem 0;
+}
+
+.toc-list li a:hover {
+  color: var(--primary);
+}
+
+/* Article metadata */
+.article-metadata {
+  display: flex;
+  align-items: center;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.article-metadata .separator {
+  margin: 0 0.5rem;
+}
+
+.author-avatar {
+  border-radius: 50%;
+  margin-right: 0.75rem;
+}
+
+/* Enhanced categories */
+.blog-category {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+/* Category-specific styling */
+.blog-category.category-psychology {
+  background-color: #f3e8ff;
+  color: #7e22ce;
+}
+
+.blog-category.category-trading {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.blog-category.category-crypto {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.blog-category.category-innovation {
+  background-color: #fef9c3;
+  color: #ca8a04;
+}
+
+.blog-category.category-strategy {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+.blog-category.category-investing {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+.blog-category.category-esg {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.blog-category.category-trends {
+  background-color: #fae8ff;
+  color: #a21caf;
+}
+
+.blog-category.category-markets {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.blog-category.category-analysis {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.blog-category.category-education {
+  background-color: #fae8ff;
+  color: #86198f;
+}
+
+/* Share buttons */
+.share-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.share-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  transition: all 0.2s;
+}
+
+.share-button:hover {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Reading progress */
+.reading-progress-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  z-index: 50;
+  background-color: transparent;
+}
+
+.reading-progress-bar {
+  height: 100%;
+  background-color: var(--primary);
+  width: 0%;
+  transition: width 0.1s ease;
+}
+
+/* Block quotes */
+article blockquote {
+  border-left: 4px solid var(--primary);
+  padding-left: 1rem;
+  font-style: italic;
+  margin: 1.5rem 0;
+  color: var(--muted-foreground);
+}
+
+/* Image captions */
+.image-container {
+  margin: 2rem 0;
+}
+
+.image-caption {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  margin-top: 0.5rem;
+}
+
+/* Related posts section */
+.related-posts-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+.related-posts-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+/* Enhanced article headings */
+.article-heading {
+  margin-top: 2.5rem;
+  scroll-margin-top: 100px;
+}
+
+.article-heading a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.article-heading a:hover .heading-anchor {
+  opacity: 1;
+}
+
+.heading-anchor {
+  margin-left: 0.5rem;
+  opacity: 0;
+  font-size: 0.8em;
+  transition: opacity 0.2s;
+}
+
+/* Minimal refined prose styles */
+.prose {
+  line-height: 1.8;
+  color: var(--foreground);
+}
+.prose p {
+  margin-top: 1.1em;
+  margin-bottom: 1.1em;
+}
+.prose h2 {
+  margin-top: 2.2em;
+  margin-bottom: 0.8em;
+}
+.prose h3 {
+  margin-top: 1.8em;
+  margin-bottom: 0.6em;
+}
+.prose ul, .prose ol {
+  padding-left: 1.25rem;
+}
+.prose li + li { margin-top: 0.25em; }
+.prose a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Do not underline the back-to-blog link even inside prose */
+.prose a.blog-back-link,
+.prose a[data-no-underline],
+.not-prose .blog-back-link {
+  text-decoration: none !important;
+}
+
+.prose img { border-radius: 0.5rem; }
+
+/* Back to top button */
+.back-to-top {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  background: rgba(0,0,0,0.6);
+  display: grid;
+  place-items: center;
+  color: white;
+  z-index: 60;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+.back-to-top--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.back-to-top:hover { background: rgba(0,0,0,0.75); }
+.back-to-top__svg { position: absolute; inset: 0; }
+.back-to-top__track { stroke: rgba(255,255,255,0.25); }
+.back-to-top__progress { stroke: #fff; }
+.back-to-top__icon { position: relative; z-index: 1; }
+
+/* Dark mode adjustments */
+.dark .blog-category.category-psychology {
+  background-color: rgba(126, 34, 206, 0.2);
+  color: #d8b4fe;
+}
+
+.dark .blog-category.category-trading {
+  background-color: rgba(2, 132, 199, 0.2);
+  color: #7dd3fc;
+}
+
+.dark .blog-category.category-crypto {
+  background-color: rgba(22, 163, 74, 0.2);
+  color: #86efac;
+}
+
+.dark .blog-category.category-innovation {
+  background-color: rgba(202, 138, 4, 0.2);
+  color: #fef08a;
+}
+
+.dark .blog-category.category-strategy {
+  background-color: rgba(194, 65, 12, 0.2);
+  color: #fdba74;
+}
+
+.dark .blog-category.category-investing {
+  background-color: rgba(37, 99, 235, 0.2);
+  color: #93c5fd;
+}
+
+.dark .blog-category.category-esg {
+  background-color: rgba(5, 150, 105, 0.2);
+  color: #a7f3d0;
+}
+
+.dark .blog-category.category-trends {
+  background-color: rgba(162, 28, 175, 0.2);
+  color: #f5d0fe;
+}
+
+.dark .blog-category.category-markets {
+  background-color: rgba(180, 83, 9, 0.2);
+  color: #fde68a;
+}
+
+.dark .blog-category.category-analysis {
+  background-color: rgba(29, 78, 216, 0.2);
+  color: #93c5fd;
+}
+
+.dark .blog-category.category-education {
+  background-color: rgba(134, 25, 143, 0.2);
+  color: #f5d0fe;
+}

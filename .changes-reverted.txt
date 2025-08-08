@@ -1,0 +1,7 @@
+Reverted article cover images back to original static Unsplash URLs in all article pages and removed centralized article-covers mapping. Files touched:
+- app/blog/esg-investitionen/page.tsx
+- app/blog/kryptowaehrungen-neue-aera/page.tsx
+- app/blog/marktanalyse-zinspolitik/page.tsx
+- app/blog/technische-analyse-grundlagen/page.tsx
+- app/blog/psychologie-des-handels/page.tsx
+- app/blog/portfoliodiversifikation/page.tsx

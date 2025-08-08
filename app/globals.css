@@ -30,6 +30,7 @@ select {
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import '../styles/blog.css';
 
 @layer utilities {
   .text-balance {
