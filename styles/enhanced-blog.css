@@ -127,6 +127,7 @@
   display: flex;
   gap: 0.5rem;
   margin-top: 1rem;
+  width: 100%; /* allow right-aligned button via ml-auto */
 }
 
 .share-button {
