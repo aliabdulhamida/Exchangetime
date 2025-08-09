@@ -19,6 +19,66 @@
 				"$tsc"
 			],
 			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
+		},
+		{
+			"label": "Build Next.js",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": "build"
 		}
 	]
 }
