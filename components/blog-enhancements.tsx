@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { List, Share2, ArrowUp } from "lucide-react";
+import { ArrowUp, Download } from "lucide-react";
 
 interface ReadingProgressProps {
   target: React.RefObject<HTMLElement | null>;
@@ -45,6 +45,7 @@ export default function BlogEnhancements({ target }: ReadingProgressProps) {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
   
   return (
     <>
