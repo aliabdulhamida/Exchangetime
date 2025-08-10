@@ -78,6 +78,91 @@ export default function BlogPostPage() {
             dynamics, financialised buybacks, and shifting rate regimes.
           </p>
 
+          <h2>One‑Page Investor Cheat Sheet</h2>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 -mt-2 mb-4">
+            Print or copy this section and fill it in for any company you’re evaluating. It distils
+            the actionable metrics and steps so you can make a decision quickly and consistently.
+            Thresholds are rules of thumb—adapt to the business model.
+          </p>
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-5 not-prose">
+            <div className="grid md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <h3 className="font-semibold mb-2">Quality &amp; Moat</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>ROIC sustainably &gt; (WACC + 5–10pp) through a cycle.</li>
+                  <li>Pricing power: gross margin or ARPU stable-to-rising despite cost shocks.</li>
+                  <li>
+                    Retention: NRR ≥ 110% (software) or churn declining with tenure (consumer).
+                  </li>
+                  <li>
+                    Moat evidence: switching costs, network effects, brand, or cost advantage.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2">Cash &amp; Unit Economics</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Owner earnings = OCF − maintenance capex − SBC offset buybacks.</li>
+                  <li>
+                    Cash conversion: FCF/NI &gt; 80% (asset‑light) or trending up (asset‑heavy).
+                  </li>
+                  <li>Payback: &lt; 24 months for mature SaaS; cohort margins widen over time.</li>
+                  <li>Working capital: neutral/positive across a normal cycle.</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2">Capital Allocation</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    Clear hierarchy: organic ROI &gt; buybacks &gt; M&amp;A (unless accretive with
+                    moat).
+                  </li>
+                  <li>Buybacks done when IV &gt; price; report net buyback yield after SBC.</li>
+                  <li>Balance sheet: net cash or conservative leverage (Debt/FCF ≤ ~2–3×).</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2">Valuation Discipline</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Scenario DCF (bear/base/bull) with explicit drivers and sanity checks.</li>
+                  <li>Margin of safety: buy in the lower third of IV range; avoid story premia.</li>
+                  <li>Relative sanity: yield on owner earnings vs. alternatives (real rates).</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2">Risk &amp; Sell Triggers</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>What breaks the moat? Regulation, platform dependency, supplier power.</li>
+                  <li>Governance: incentive misalignment, serial value‑destructive M&amp;A.</li>
+                  <li>Pre‑commit sell rules: thesis drift, deteriorating unit economics, fraud.</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2">Position Sizing</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Start small; add on execution and widening IV‑price gap.</li>
+                  <li>
+                    Concentrate only when outcome variance is low and moat evidence is strong.
+                  </li>
+                  <li>Avoid leverage that converts volatility into solvency risk.</li>
+                </ul>
+              </div>
+            </div>
+            <div className="mt-4">
+              <h3 className="font-semibold mb-2">8‑Step Process</h3>
+              <ol className="list-decimal pl-5 space-y-1 text-sm">
+                <li>Define circle of competence; articulate the causal model in plain words.</li>
+                <li>Map unit economics and cohort behavior; confirm cash conversion.</li>
+                <li>Evidence the moat with falsifiable indicators, not narratives.</li>
+                <li>Reconstruct owner earnings; separate maintenance vs. growth capex.</li>
+                <li>Study capital allocation history; score incentives and governance.</li>
+                <li>Build scenario DCF; set an IV range and a required margin of safety.</li>
+                <li>Pre‑mortem: list failure modes and monitoring indicators.</li>
+                <li>Decide size/entry; write a one‑paragraph thesis and sell triggers.</li>
+              </ol>
+            </div>
+          </div>
+
           <h2>The Core Concepts, Precisely Defined</h2>
           <ul>
             <li>
@@ -169,6 +254,20 @@ export default function BlogPostPage() {
             intact. Evidence of advantage compounding: improving retention, durable pricing power,
             and operating leverage emerging after growth decelerates.
           </p>
+          <h3>Practical tactics to hold through narrative setbacks</h3>
+          <ul>
+            <li>
+              Replace headline‑watching with a KPI dashboard: renewal/pricing metrics, churn, gross
+              margin, and cash conversion. If these hold, sentiment noise is a feature, not a bug.
+            </li>
+            <li>
+              Pre‑commit “checkpoints” by time, not price: re‑underwrite quarterly on drivers you
+              control; avoid reacting intra‑day to narrative swings.
+            </li>
+            <li>Use a written thesis with explicit falsifiers; if none are hit, do nothing.</li>
+            <li>Separate information from opinion: read filings/transcripts before media takes.</li>
+            <li>Maintain liquidity buffers to avoid forced selling during volatility.</li>
+          </ul>
 
           <h2>What Buffett Would Likely Avoid</h2>
           <ul>
@@ -224,6 +323,41 @@ export default function BlogPostPage() {
             <li>Governance, incentives, and insider behaviour.</li>
           </ol>
 
+          <h2>Worked Example: Visa (Illustrative)</h2>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 -mt-2">
+            This condensed walkthrough applies the checklist to Visa as a mature, capital‑light
+            network business. It’s illustrative only—update with current figures from filings and
+            investor materials.
+          </p>
+          <ul>
+            <li>
+              Quality &amp; Moat: Global two‑sided network with acceptance density and brand trust;
+              high switching costs for issuers/merchants; pricing power evidenced by stable
+              take‑rates through cycles.
+            </li>
+            <li>
+              Cash &amp; Unit Economics: Asset‑light model with strong FCF conversion; capex modest;
+              working capital favorable; revenue tied to volumes rather than credit risk.
+            </li>
+            <li>
+              Capital Allocation: Consistent buybacks and growing dividend; M&amp;A targeted at
+              capabilities (risk, value‑added services); balance sheet conservative.
+            </li>
+            <li>
+              Valuation Discipline: Scenario DCF with mid‑teens operating margin resilience in base
+              case; margin of safety sought during macro‑driven sell‑offs when volume growth fears
+              are transient.
+            </li>
+            <li>
+              Risks &amp; Falsifiers: Regulatory fee caps, closed‑loop competitors, displacement by
+              alternative rails; monitor cross‑border volumes, incentives ratio, and pricing.
+            </li>
+            <li>
+              Position Sizing: Earned concentration given durable economics; add on execution and
+              when IV‑price gap widens without KPI degradation.
+            </li>
+          </ul>
+
           <h2>Bottom Line</h2>
           <p>
             Buffett’s methods are not about nostalgia; they’re about disciplined thinking under
@@ -232,6 +366,19 @@ export default function BlogPostPage() {
             Apply the principles with modern metrics—own fewer, better businesses, and let time do
             the heavy lifting.
           </p>
+
+          <h2>Key Takeaways</h2>
+          <ul>
+            <li>
+              Evidence moats with hard KPIs, not stories; prefer pricing power through cycles.
+            </li>
+            <li>Rebuild owner earnings from cash; separate maintenance vs. growth spending.</li>
+            <li>
+              Allocate based on marginal ROIC; buy back only below intrinsic value, net of SBC.
+            </li>
+            <li>Model ranges, not points; insist on a margin of safety before acting.</li>
+            <li>Write your sell triggers up front; use a KPI dashboard to outlast narratives.</li>
+          </ul>
 
           <ShareButtons
             title="Weekend Read: Warren Buffett’s Investing Lessons for Today’s Markets"
