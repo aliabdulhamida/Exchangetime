@@ -62,15 +62,20 @@ const commonPairs = [
 ];
 
 export default function CurrencyConverter() {
-  const [amount, setAmount] = useState('1000');
+  // Eingabewert als Text, damit wir Kommas/Darstellung steuern können
+  const [amount, setAmount] = useState('1,000');
   const [fromCurrency, setFromCurrency] = useState('USD');
   const [toCurrency, setToCurrency] = useState('EUR');
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<number | null>(null);
   const [rate, setRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const { theme } = useTheme();
+
+  // Helper: US-Format mit Tausendertrennzeichen
+  const formatNumber = (value: number, opts: Intl.NumberFormatOptions = {}) =>
+    new Intl.NumberFormat('en-US', opts).format(value);
 
   const handleConvert = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -79,7 +84,8 @@ export default function CurrencyConverter() {
     setResult(null);
     setRate(null);
     try {
-      const amt = parseFloat(amount);
+      // Kommas entfernen, dann parsen
+      const amt = parseFloat(amount.replace(/,/g, ''));
       if (isNaN(amt) || amt <= 0) throw new Error('Please enter a valid positive amount');
       if (fromCurrency === toCurrency)
         throw new Error('Please select different currencies for conversion');
@@ -90,9 +96,9 @@ export default function CurrencyConverter() {
       const response = await fetch(url);
       const data = await response.json();
       if (data.chart && data.chart.result && data.chart.result[0]) {
-        const rateVal = data.chart.result[0].meta.regularMarketPrice;
+        const rateVal = data.chart.result[0].meta.regularMarketPrice as number;
         setRate(rateVal);
-        setResult((amt * rateVal).toFixed(2));
+        setResult(amt * rateVal);
         setLastUpdated(new Date().toLocaleString());
       } else {
         throw new Error('Exchange rate not available');
@@ -123,9 +129,30 @@ export default function CurrencyConverter() {
             Amount
           </label>
           <Input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => {
+              // Nur Ziffern, Komma und Punkt erlauben
+              const raw = e.target.value.replace(/[^0-9.,]/g, '');
+              setAmount(raw);
+            }}
+            onBlur={() => {
+              const num = parseFloat(amount.replace(/,/g, ''));
+              if (!isNaN(num)) {
+                // Bei Verlassen formatieren (max 8 Nachkommastellen beibehalten)
+                const decimals = (() => {
+                  const m = amount.replace(/,/g, '').match(/\.(\d+)/);
+                  return m ? Math.min(m[1].length, 8) : 0;
+                })();
+                setAmount(
+                  formatNumber(num, {
+                    minimumFractionDigits: decimals,
+                    maximumFractionDigits: decimals,
+                  }),
+                );
+              }
+            }}
             placeholder="Enter amount"
           />
         </div>
@@ -305,14 +332,17 @@ export default function CurrencyConverter() {
           <div className="text-lg mb-1 mx-auto max-w-xs break-words">{error}</div>
         </Alert>
       )}
-      {result && rate !== null && (
+      {result !== null && rate !== null && (
         <div className="p-4 rounded-lg bg-gray-50 dark:bg-[#1F1F23] text-center mt-4">
           <p className="text-sm text-gray-600 dark:text-gray-400">Result</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {result} {toCurrency}
+            {formatNumber(result, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+            {toCurrency}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            1 {fromCurrency} = {rate.toFixed(4)} {toCurrency}
+            1 {fromCurrency} ={' '}
+            {formatNumber(rate, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}{' '}
+            {toCurrency}
           </p>
           <p className="text-xs text-gray-400 mt-1">Last updated: {lastUpdated}</p>
         </div>

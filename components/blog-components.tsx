@@ -88,6 +88,17 @@ export function BlogCategories({
 // Export blog sample articles
 export const blogPosts: BlogPost[] = [
   {
+    id: 10,
+    title: 'Weekend Read: Warren Buffett’s Investing Lessons for Today’s Markets',
+    excerpt:
+      'A modern, analytical take on Buffett’s playbook: moats, owner earnings, capital allocation, and practical checklists to navigate today’s markets.',
+    date: 'August 10, 2025',
+    image:
+      'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&h=450&q=80',
+    categories: ['Investing', 'Strategy', 'Markets'],
+    slug: 'warren-buffett-investing-lessons-weekend-read',
+  },
+  {
     id: 9,
     title: 'Weekend Read: Lessons from the Dot-Com Bubble (1995–2002)',
     excerpt:
