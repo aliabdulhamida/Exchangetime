@@ -67,16 +67,41 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           strategy="afterInteractive"
         />
 
-        {/* Service Worker Registrierung für PWA */}
-        <Script id="pwa-sw-register" strategy="afterInteractive">
-          {`
-            if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-              window.addEventListener("load", () => {
-                navigator.serviceWorker.register("/service-worker.js").catch(() => {});
-              });
-            }
-          `}
-        </Script>
+        {/* Service Worker: enable only in production to avoid dev HMR/cache conflicts */}
+        {process.env.NODE_ENV === 'production' && (
+          <Script id="pwa-sw-register" strategy="afterInteractive">
+            {`
+              if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+                window.addEventListener("load", () => {
+                  navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+                });
+              }
+            `}
+          </Script>
+        )}
+
+        {/* Dev-only: proactively unregister any existing service workers and clear caches */}
+        {process.env.NODE_ENV !== 'production' && (
+          <Script id="pwa-sw-dev-unregister" strategy="afterInteractive">
+            {`
+              (function(){
+                if (typeof window === 'undefined') return;
+                // Unregister all service workers in dev to prevent stale _next chunk caching
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations?.().then(regs => {
+                    regs.forEach(r => r.unregister().catch(() => {}));
+                  }).catch(() => {});
+                }
+                // Clear caches used by prior SWs
+                if (window.caches && caches.keys) {
+                  caches.keys().then(keys => {
+                    keys.forEach(k => caches.delete(k).catch(() => {}));
+                  }).catch(() => {});
+                }
+              })();
+            `}
+          </Script>
+        )}
       </body>
     </html>
   );
