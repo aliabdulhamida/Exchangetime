@@ -1,35 +1,41 @@
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer
-} from "recharts";
-import ExchangeTimes from "../stock-market/exchange-times";
-import StockAnalysis from "../stock-market/stock-analysis";
-import CurrencyConverter from "../stock-market/currency-converter";
-import BacktestTool from "../stock-market/backtest-tool";
-import PortfolioTracker from "../stock-market/portfolio-tracker";
+/* eslint-disable import/order */
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import { useTheme } from 'next-themes';
+import { X } from 'lucide-react';
+import React, { useState } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-import FearGreedIndex from "../stock-market/fear-greed-index";
-import MarketSummary from "../stock-market/market-summary";
-import InsiderTrades from "../stock-market/insider-trades";
-import EarningsCalendar from "../stock-market/earnings-calendar";
-import HolidayCalendar from "../stock-market/holiday-calendar";
-import SankeyBudget from "../stock-market/sankey-budget";
-import TradingViewWidget from "../stock-market/TradingViewWidget";
-import TradingviewEcCalendar from "../stock-market/TradingviewEc-Calendar.jsx";
-import { X } from "lucide-react";
-import React, { useState } from "react";
-import RealEstateVsStocksCalculator from "../real-estate-vs-stocks-calculator";
+import RealEstateVsStocksCalculator from '../real-estate-vs-stocks-calculator';
+import BacktestTool from '../stock-market/backtest-tool';
+import CurrencyConverter from '../stock-market/currency-converter';
+import EarningsCalendar from '../stock-market/earnings-calendar';
+import ExchangeTimes from '../stock-market/exchange-times';
+import HolidayCalendar from '../stock-market/holiday-calendar';
+import InsiderTrades from '../stock-market/insider-trades';
+import MarketSummary from '../stock-market/market-summary';
+import PortfolioTracker from '../stock-market/portfolio-tracker';
+import SankeyBudget from '../stock-market/sankey-budget';
+import StockAnalysis from '../stock-market/stock-analysis';
+import TradingviewEcCalendar from '../stock-market/TradingviewEc-Calendar.jsx';
+import TradingViewWidget from '../stock-market/TradingViewWidget';
 
 interface ContentProps {
   visibleModules?: string[];
   hideModule: (module: string) => void;
 }
 
-function ModuleWrapper({ children, onClose, onSolo }: { children: React.ReactNode; onClose: () => void; onSolo?: () => void }) {
+function ModuleWrapper({
+  children,
+  onClose,
+  onSolo,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  onSolo?: () => void;
+}) {
   return (
     <div className="relative p-2">
       <div className="absolute right-5 top-5 flex gap-2" style={{ zIndex: 10 }}>
@@ -40,7 +46,26 @@ function ModuleWrapper({ children, onClose, onSolo }: { children: React.ReactNod
             aria-label="Show only this module"
             title="Show only this module"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              />
+            </svg>
           </button>
         )}
         <button
@@ -59,26 +84,27 @@ function ModuleWrapper({ children, onClose, onSolo }: { children: React.ReactNod
 
 // Standardmäßig sichtbare Module, wenn keine explizite Steuerung erfolgt
 const DEFAULT_VISIBLE_MODULES = [
-  "TechnicalAnalysis",
-  "StockAnalysis",
-  "ExchangeTimes",
-  "MarketSummary",
-  "BacktestTool",
-  "PortfolioTracker",
-  "CurrencyConverter",
-  "CompoundInterest",
-  "PersonalBudget",
-  "RealEstateVsStocks",
-  "InsiderTrades",
-  "EarningsCalendar",
-  "HolidayCalendar",
+  'TechnicalAnalysis',
+  'StockAnalysis',
+  'ExchangeTimes',
+  'MarketSummary',
+  'BacktestTool',
+  'PortfolioTracker',
+  'CurrencyConverter',
+  'CompoundInterest',
+  'PersonalBudget',
+  'RealEstateVsStocks',
+  'InsiderTrades',
+  'EarningsCalendar',
+  'HolidayCalendar',
   // ... weitere Standardmodule falls gewünscht
 ];
 
 export default function Content(props: ContentProps) {
   const { visibleModules, hideModule } = props;
   // Wenn visibleModules nicht gesetzt oder leer ist, TechnicalAnalysis standardmäßig anzeigen
-  const modules = !visibleModules || visibleModules.length === 0 ? DEFAULT_VISIBLE_MODULES : visibleModules;
+  const modules =
+    !visibleModules || visibleModules.length === 0 ? DEFAULT_VISIBLE_MODULES : visibleModules;
   // Wenn nur ein Modul sichtbar ist, ist es "solo". Sonst nicht.
   const isSolo = modules.length === 1 ? modules[0] : null;
   // Toggle-Funktion: Solo oder alle anzeigen
@@ -101,10 +127,10 @@ export default function Content(props: ContentProps) {
       <>
         {/* Top Row - Exchange Times */}
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-          {modules.includes("ExchangeTimes") && (
+          {modules.includes('ExchangeTimes') && (
             <ModuleWrapper
-              onClose={() => hideModule("ExchangeTimes")}
-              onSolo={() => showOnlyModule("ExchangeTimes")}
+              onClose={() => hideModule('ExchangeTimes')}
+              onSolo={() => showOnlyModule('ExchangeTimes')}
             >
               <ExchangeTimes />
             </ModuleWrapper>
@@ -113,32 +139,51 @@ export default function Content(props: ContentProps) {
 
         {/* Zweite Zeile: Stock Analysis, Insider Trades und Portfolio Tracker */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {modules.includes("StockAnalysis") && (
-            <div className={(modules.length === 1 ? "w-full max-w-xl mx-auto " : "") + "flex flex-col h-full min-h-[420px]"}>
-              <ModuleWrapper onClose={() => hideModule("StockAnalysis")} onSolo={() => showOnlyModule("StockAnalysis")}> 
+          {modules.includes('StockAnalysis') && (
+            <div
+              className={
+                (modules.length === 1 ? 'w-full max-w-xl mx-auto ' : '') +
+                'flex flex-col h-full min-h-[420px]'
+              }
+            >
+              <ModuleWrapper
+                onClose={() => hideModule('StockAnalysis')}
+                onSolo={() => showOnlyModule('StockAnalysis')}
+              >
                 <div className="flex flex-col h-full min-h-[420px]">
                   <StockAnalysis />
                 </div>
               </ModuleWrapper>
             </div>
           )}
-          {modules.includes("InsiderTrades") && (
-            <div className={
-              (modules.length === 1
-                ? "w-full md:max-w-xl md:mx-auto md:mt-4 "
-                : "w-full ") +
-              "flex flex-col h-full min-h-[420px]"
-            }>
-              <ModuleWrapper onClose={() => hideModule("InsiderTrades")} onSolo={() => showOnlyModule("InsiderTrades")}> 
+          {modules.includes('InsiderTrades') && (
+            <div
+              className={
+                (modules.length === 1 ? 'w-full md:max-w-xl md:mx-auto md:mt-4 ' : 'w-full ') +
+                'flex flex-col h-full min-h-[420px]'
+              }
+            >
+              <ModuleWrapper
+                onClose={() => hideModule('InsiderTrades')}
+                onSolo={() => showOnlyModule('InsiderTrades')}
+              >
                 <div className="flex flex-col h-full min-h-[420px]">
                   <InsiderTrades />
                 </div>
               </ModuleWrapper>
             </div>
           )}
-          {modules.includes("PortfolioTracker") && (
-            <div className={(modules.length === 1 ? "w-full max-w-xl mx-auto mt-4 " : "") + "flex flex-col h-full min-h-[420px]"}>
-              <ModuleWrapper onClose={() => hideModule("PortfolioTracker")} onSolo={() => showOnlyModule("PortfolioTracker")}> 
+          {modules.includes('PortfolioTracker') && (
+            <div
+              className={
+                (modules.length === 1 ? 'w-full max-w-xl mx-auto mt-4 ' : '') +
+                'flex flex-col h-full min-h-[420px]'
+              }
+            >
+              <ModuleWrapper
+                onClose={() => hideModule('PortfolioTracker')}
+                onSolo={() => showOnlyModule('PortfolioTracker')}
+              >
                 <div className="flex flex-col h-full min-h-[420px]">
                   <PortfolioTracker />
                 </div>
@@ -149,17 +194,21 @@ export default function Content(props: ContentProps) {
 
         {/* Neue Zeile: Technical Analysis */}
         <div className="grid grid-cols-1 gap-6">
-          {modules.includes("TechnicalAnalysis") && (
-            <div className={
-              `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full ` +
-              (modules.length === 1 ? "" : "")
-            }>
-              <ModuleWrapper 
-                onClose={() => hideModule("TechnicalAnalysis")}
-                onSolo={() => showOnlyModule("TechnicalAnalysis")}
+          {modules.includes('TechnicalAnalysis') && (
+            <div
+              className={
+                `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full ` +
+                (modules.length === 1 ? '' : '')
+              }
+            >
+              <ModuleWrapper
+                onClose={() => hideModule('TechnicalAnalysis')}
+                onSolo={() => showOnlyModule('TechnicalAnalysis')}
               >
                 <div className="p-4 flex flex-col h-full">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Technical Analysis</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Technical Analysis
+                  </h2>
                   <div className="flex-1 min-h-[700px]">
                     <TradingViewWidget />
                   </div>
@@ -171,22 +220,43 @@ export default function Content(props: ContentProps) {
 
         {/* Third Row - Trading Tools */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {modules.includes("CompoundInterest") && (
+          {modules.includes('CompoundInterest') && (
             <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 min-h-[220px] border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col justify-center">
               <div className="flex items-center justify-between px-6 pt-4 pb-0">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Compound Interest</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Compound Interest
+                </h2>
                 <div className="flex gap-2 items-center">
                   {/* Augen-Button und X-Button aus ModuleWrapper */}
                   <button
-                    onClick={() => showOnlyModule("CompoundInterest")}
+                    onClick={() => showOnlyModule('CompoundInterest')}
                     className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent hover:border-blue-400 rounded p-1 transition"
                     aria-label="Show only this module"
                     title="Show only this module"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
+                    </svg>
                   </button>
                   <button
-                    onClick={() => hideModule("CompoundInterest")}
+                    onClick={() => hideModule('CompoundInterest')}
                     className="text-gray-400 hover:text-gray-700 dark:hover:text-white"
                     aria-label="Close"
                     title="Close"
@@ -202,9 +272,12 @@ export default function Content(props: ContentProps) {
               </div>
             </div>
           )}
-          {modules.includes("BacktestTool") && (
-            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto mt-4" : ""}>
-              <ModuleWrapper onClose={() => hideModule("BacktestTool")} onSolo={() => showOnlyModule("BacktestTool")}> 
+          {modules.includes('BacktestTool') && (
+            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto mt-4' : ''}>
+              <ModuleWrapper
+                onClose={() => hideModule('BacktestTool')}
+                onSolo={() => showOnlyModule('BacktestTool')}
+              >
                 <BacktestTool />
               </ModuleWrapper>
             </div>
@@ -213,16 +286,22 @@ export default function Content(props: ContentProps) {
 
         {/* Fourth Row - Market Data & Currency Converter */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {modules.includes("MarketSummary") && (
-            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto mt-4" : ""}>
-              <ModuleWrapper onClose={() => hideModule("MarketSummary")} onSolo={() => showOnlyModule("MarketSummary")}> 
+          {modules.includes('MarketSummary') && (
+            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto mt-4' : ''}>
+              <ModuleWrapper
+                onClose={() => hideModule('MarketSummary')}
+                onSolo={() => showOnlyModule('MarketSummary')}
+              >
                 <MarketSummary />
               </ModuleWrapper>
             </div>
           )}
-          {modules.includes("CurrencyConverter") && (
-            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
-              <ModuleWrapper onClose={() => hideModule("CurrencyConverter")} onSolo={() => showOnlyModule("CurrencyConverter")}> 
+          {modules.includes('CurrencyConverter') && (
+            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
+              <ModuleWrapper
+                onClose={() => hideModule('CurrencyConverter')}
+                onSolo={() => showOnlyModule('CurrencyConverter')}
+              >
                 <CurrencyConverter />
               </ModuleWrapper>
             </div>
@@ -232,29 +311,42 @@ export default function Content(props: ContentProps) {
         {/* Fifth Row - Calendar und Holiday Info */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Neues Modul links neben Earnings Calendar */}
-          {modules.includes("EconomicCalendar") && (
-            <div className={(modules.length === 1 ? "w-full max-w-xl mx-auto " : "") + "border border-gray-200 dark:border-[#23232a] rounded-xl"}>
+          {modules.includes('EconomicCalendar') && (
+            <div
+              className={
+                (modules.length === 1 ? 'w-full max-w-xl mx-auto ' : '') +
+                'border border-gray-200 dark:border-[#23232a] rounded-xl'
+              }
+            >
               <ModuleWrapper
-                onClose={() => hideModule("EconomicCalendar")}
-                onSolo={() => showOnlyModule("EconomicCalendar")}
+                onClose={() => hideModule('EconomicCalendar')}
+                onSolo={() => showOnlyModule('EconomicCalendar')}
               >
                 <div className="flex flex-col h-full min-h-[220px] items-start justify-start px-6 pb-4 mt-3">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Economic Calendar</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Economic Calendar
+                  </h2>
                   <TradingviewEcCalendar />
                 </div>
               </ModuleWrapper>
             </div>
           )}
-          {modules.includes("EarningsCalendar") && (
-            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
-              <ModuleWrapper onClose={() => hideModule("EarningsCalendar")} onSolo={() => showOnlyModule("EarningsCalendar")}> 
+          {modules.includes('EarningsCalendar') && (
+            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
+              <ModuleWrapper
+                onClose={() => hideModule('EarningsCalendar')}
+                onSolo={() => showOnlyModule('EarningsCalendar')}
+              >
                 <EarningsCalendar />
               </ModuleWrapper>
             </div>
           )}
-          {modules.includes("HolidayCalendar") && (
-            <div className={modules.length === 1 ? "w-full max-w-xl mx-auto" : ""}>
-              <ModuleWrapper onClose={() => hideModule("HolidayCalendar")} onSolo={() => showOnlyModule("HolidayCalendar")}> 
+          {modules.includes('HolidayCalendar') && (
+            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
+              <ModuleWrapper
+                onClose={() => hideModule('HolidayCalendar')}
+                onSolo={() => showOnlyModule('HolidayCalendar')}
+              >
                 <HolidayCalendar />
               </ModuleWrapper>
             </div>
@@ -262,11 +354,16 @@ export default function Content(props: ContentProps) {
         </div>
 
         {/* Sixth Row - Personal Budget Sankey Diagramm */}
-        <div className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}> 
+        <div
+          className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}
+        >
           {/* Personal Budget Sankey Diagramm */}
-          {modules.includes("PersonalBudget") && (
+          {modules.includes('PersonalBudget') && (
             <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full">
-              <ModuleWrapper onClose={() => hideModule("PersonalBudget") } onSolo={() => showOnlyModule("PersonalBudget") }>
+              <ModuleWrapper
+                onClose={() => hideModule('PersonalBudget')}
+                onSolo={() => showOnlyModule('PersonalBudget')}
+              >
                 <div className="flex-1 flex flex-col h-full">
                   <SankeyBudget />
                 </div>
@@ -276,10 +373,15 @@ export default function Content(props: ContentProps) {
         </div>
 
         {/* Seventh Row - Real Estate vs. Stocks Calculator */}
-        <div className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}>
-          {modules.includes("RealEstateVsStocks") && (
+        <div
+          className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}
+        >
+          {modules.includes('RealEstateVsStocks') && (
             <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full border border-gray-200 dark:border-[#23232a] rounded-xl">
-              <ModuleWrapper onClose={() => hideModule("RealEstateVsStocks")} onSolo={() => showOnlyModule("RealEstateVsStocks")}>
+              <ModuleWrapper
+                onClose={() => hideModule('RealEstateVsStocks')}
+                onSolo={() => showOnlyModule('RealEstateVsStocks')}
+              >
                 <div className="flex-1 flex flex-col h-full">
                   <RealEstateVsStocksCalculator />
                 </div>
@@ -293,11 +395,6 @@ export default function Content(props: ContentProps) {
 }
 
 // --- Zinseszins-Rechner Komponente ---
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import InputLabel from '@mui/material/InputLabel';
-import FormControl from '@mui/material/FormControl';
-import { useTheme } from "next-themes";
 
 function CompoundInterestCalculator() {
   const [start, setStart] = useState(1000);
@@ -313,21 +410,17 @@ function CompoundInterestCalculator() {
   const r = rate / 100;
   const n = interval;
   const t = years;
-  const PMT = monthly * 12 / n; // monatliche Einzahlung auf Zinsperiode umgerechnet
+  const PMT = (monthly * 12) / n; // monatliche Einzahlung auf Zinsperiode umgerechnet
 
   const result =
     start * Math.pow(1 + r / n, n * t) +
-    (PMT > 0 && r > 0
-      ? PMT * (Math.pow(1 + r / n, n * t) - 1) / (r / n)
-      : PMT * n * t);
+    (PMT > 0 && r > 0 ? (PMT * (Math.pow(1 + r / n, n * t) - 1)) / (r / n) : PMT * n * t);
 
   // Chart data: calculate capital for each year
   const chartData = Array.from({ length: years + 1 }, (_, i) => {
     const base = start * Math.pow(1 + r / n, n * i);
     const pmtPart =
-      PMT > 0 && r > 0
-        ? PMT * (Math.pow(1 + r / n, n * i) - 1) / (r / n)
-        : PMT * n * i;
+      PMT > 0 && r > 0 ? (PMT * (Math.pow(1 + r / n, n * i) - 1)) / (r / n) : PMT * n * i;
     return { year: i, capital: base + pmtPart };
   });
 
@@ -342,7 +435,7 @@ function CompoundInterestCalculator() {
             className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition"
             value={start}
             min={0}
-            onChange={e => setStart(Number(e.target.value))}
+            onChange={(e) => setStart(Number(e.target.value))}
           />
         </label>
         <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -352,7 +445,7 @@ function CompoundInterestCalculator() {
             className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition"
             value={monthly}
             min={0}
-            onChange={e => setMonthly(Number(e.target.value))}
+            onChange={(e) => setMonthly(Number(e.target.value))}
           />
         </label>
         <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -363,7 +456,7 @@ function CompoundInterestCalculator() {
             value={rate}
             min={0}
             step={0.01}
-            onChange={e => setRate(Number(e.target.value))}
+            onChange={(e) => setRate(Number(e.target.value))}
           />
         </label>
         <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -373,75 +466,88 @@ function CompoundInterestCalculator() {
             className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition"
             value={years}
             min={1}
-            onChange={e => setYears(Number(e.target.value))}
+            onChange={(e) => setYears(Number(e.target.value))}
           />
         </label>
         <div className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200 mt-4">
           <FormControl size="small" fullWidth>
             <InputLabel
               id="interval-label"
-              sx={theme === 'dark' ? {
-                color: '#fff',
-                fontSize: 14,
-                top: 2,
-                backgroundColor: '#23232a',
-                px: 0.5,
-              } : {
-                color: '#222',
-                fontSize: 14,
-                top: 2,
-                backgroundColor: '#fff',
-                px: 0.5,
-              }}
-            >Payout Interval</InputLabel>
+              sx={
+                theme === 'dark'
+                  ? {
+                      color: '#fff',
+                      fontSize: 14,
+                      top: 2,
+                      backgroundColor: '#23232a',
+                      px: 0.5,
+                    }
+                  : {
+                      color: '#222',
+                      fontSize: 14,
+                      top: 2,
+                      backgroundColor: '#fff',
+                      px: 0.5,
+                    }
+              }
+            >
+              Payout Interval
+            </InputLabel>
             <Select
               labelId="interval-label"
               id="interval-select"
               value={interval}
               label="Payout Interval"
-              onChange={e => setInterval(Number(e.target.value))}
-              sx={theme === 'dark' ? {
-                backgroundColor: '#23232a',
-                color: '#fff',
-                fontSize: 14,
-                '.MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#444',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#fff',
-                },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#fff',
-                },
-                '.MuiSvgIcon-root': {
-                  color: '#fff',
-                },
-              } : {
-                backgroundColor: '#fff',
-                color: '#000',
-                fontSize: 14,
-                '.MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#ccc',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#222',
-                },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#222',
-                },
-                '.MuiSvgIcon-root': {
-                  color: '#000',
-                },
-              }}
+              onChange={(e) => setInterval(Number(e.target.value))}
+              sx={
+                theme === 'dark'
+                  ? {
+                      backgroundColor: '#23232a',
+                      color: '#fff',
+                      fontSize: 14,
+                      '.MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#444',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#fff',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#fff',
+                      },
+                      '.MuiSvgIcon-root': {
+                        color: '#fff',
+                      },
+                    }
+                  : {
+                      backgroundColor: '#fff',
+                      color: '#000',
+                      fontSize: 14,
+                      '.MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#ccc',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#222',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#222',
+                      },
+                      '.MuiSvgIcon-root': {
+                        color: '#000',
+                      },
+                    }
+              }
               MenuProps={{
                 PaperProps: {
-                  sx: theme === 'dark' ? {
-                    backgroundColor: '#23232a',
-                    color: '#fff',
-                  } : {
-                    backgroundColor: '#fff',
-                    color: '#000',
-                  },
+                  sx:
+                    theme === 'dark'
+                      ? {
+                          backgroundColor: '#23232a',
+                          color: '#fff',
+                        }
+                      : {
+                          backgroundColor: '#fff',
+                          color: '#000',
+                        },
                 },
               }}
             >
@@ -455,24 +561,41 @@ function CompoundInterestCalculator() {
       {/* Rechte Spalte: Ergebnisse und Chart */}
       <div className="flex flex-col gap-2 md:w-1/2 w-full justify-center">
         <div className="text-base font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-[#23232a] rounded-md px-3 py-2">
-          Final Capital: {result.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} €
+          Final Capital:{' '}
+          {result.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+          €
         </div>
         <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-[#23232a] rounded-md px-3 py-2">
-          Initial Capital: {start.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} €<br />
-          Total Deposits: {(monthly * 12 * years).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} €<br />
-          Return: {(result - start - (monthly * 12 * years)).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} €
+          Initial Capital:{' '}
+          {start.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+          €<br />
+          Total Deposits:{' '}
+          {(monthly * 12 * years).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}{' '}
+          €<br />
+          Return:{' '}
+          {(result - start - monthly * 12 * years).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}{' '}
+          €
         </div>
         <div className="w-full h-80 mt-2">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="year" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#a1a1aa', fontSize: 12 }} tickFormatter={v => v.toLocaleString()} />
+              <YAxis
+                tick={{ fill: '#a1a1aa', fontSize: 12 }}
+                tickFormatter={(v) => v.toLocaleString()}
+              />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload || !payload.length) return null;
@@ -480,13 +603,26 @@ function CompoundInterestCalculator() {
                     <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-4 py-2 shadow-lg text-xs min-w-[120px]">
                       {/* Jahreszahl entfernt, nur noch Capital anzeigen */}
                       <div>
-                        <span className="text-gray-300">Capital:</span> {typeof payload[0]?.value === 'number' ? payload[0].value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '-'} €
+                        <span className="text-gray-300">Capital:</span>{' '}
+                        {typeof payload[0]?.value === 'number'
+                          ? payload[0].value.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })
+                          : '-'}{' '}
+                        €
                       </div>
                     </div>
                   );
                 }}
               />
-              <Area type="monotone" dataKey="capital" stroke="#2563eb" fillOpacity={1} fill="url(#colorCapital)" />
+              <Area
+                type="monotone"
+                dataKey="capital"
+                stroke="#2563eb"
+                fillOpacity={1}
+                fill="url(#colorCapital)"
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>

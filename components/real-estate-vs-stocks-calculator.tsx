@@ -1,15 +1,18 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { useMemo, useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 function formatCurrencyEUR(value: number) {
-  return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
-    isFinite(value) ? value : 0
-  );
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(isFinite(value) ? value : 0);
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -91,7 +94,17 @@ export default function RealEstateVsStocksCalculator() {
       equity,
       capitalDiff: downPayment - S0,
     };
-  }, [years, capital, stockReturnPct, propertyPrice, ltvPct, interestPct, amortYears, capRatePct, noiGrowthPct]);
+  }, [
+    years,
+    capital,
+    stockReturnPct,
+    propertyPrice,
+    ltvPct,
+    interestPct,
+    amortYears,
+    capRatePct,
+    noiGrowthPct,
+  ]);
 
   function resetDefaults() {
     setYears(10);
@@ -110,60 +123,137 @@ export default function RealEstateVsStocksCalculator() {
       <CardHeader>
         <CardTitle>Real Estate vs Stocks</CardTitle>
         <CardDescription>
-          Compare a simple stock investment with a levered rental property assuming constant cap rate and NOI growth.
+          Compare a simple stock investment with a levered rental property assuming constant cap
+          rate and NOI growth.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
         <div className="grid md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="years">Horizon (years)</Label>
-            <Input id="years" type="number" min={1} max={50} value={years} onChange={(e) => setYears(Number(e.target.value))} />
+            <Input
+              id="years"
+              type="number"
+              min={1}
+              max={50}
+              value={years}
+              onChange={(e) => setYears(Number(e.target.value))}
+            />
           </div>
           <div>
             <Label htmlFor="capital">Starting capital (€)</Label>
-            <Input id="capital" type="number" min={0} step={100} value={capital} onChange={(e) => setCapital(Number(e.target.value))} />
+            <Input
+              id="capital"
+              type="number"
+              min={0}
+              step={100}
+              value={capital}
+              onChange={(e) => setCapital(Number(e.target.value))}
+            />
           </div>
           <div>
             <Label htmlFor="stockReturnPct">Stocks total return (% p.a.)</Label>
-            <Input id="stockReturnPct" type="number" min={-50} max={50} step={0.1} value={stockReturnPct} onChange={(e) => setStockReturnPct(Number(e.target.value))} />
+            <Input
+              id="stockReturnPct"
+              type="number"
+              min={-50}
+              max={50}
+              step={0.1}
+              value={stockReturnPct}
+              onChange={(e) => setStockReturnPct(Number(e.target.value))}
+            />
           </div>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="propertyPrice">Property price (€)</Label>
-            <Input id="propertyPrice" type="number" min={10000} step={1000} value={propertyPrice} onChange={(e) => setPropertyPrice(Number(e.target.value))} />
+            <Input
+              id="propertyPrice"
+              type="number"
+              min={10000}
+              step={1000}
+              value={propertyPrice}
+              onChange={(e) => setPropertyPrice(Number(e.target.value))}
+            />
           </div>
           <div>
             <Label htmlFor="ltvPct">Loan-to-Value (%)</Label>
-            <Input id="ltvPct" type="number" min={0} max={95} step={1} value={ltvPct} onChange={(e) => setLtvPct(Number(e.target.value))} />
+            <Input
+              id="ltvPct"
+              type="number"
+              min={0}
+              max={95}
+              step={1}
+              value={ltvPct}
+              onChange={(e) => setLtvPct(Number(e.target.value))}
+            />
           </div>
           <div>
             <Label htmlFor="interestPct">Interest rate (% p.a.)</Label>
-            <Input id="interestPct" type="number" min={0} max={20} step={0.1} value={interestPct} onChange={(e) => setInterestPct(Number(e.target.value))} />
+            <Input
+              id="interestPct"
+              type="number"
+              min={0}
+              max={20}
+              step={0.1}
+              value={interestPct}
+              onChange={(e) => setInterestPct(Number(e.target.value))}
+            />
           </div>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="amortYears">Amortization (years)</Label>
-            <Input id="amortYears" type="number" min={1} max={50} value={amortYears} onChange={(e) => setAmortYears(Number(e.target.value))} />
+            <Input
+              id="amortYears"
+              type="number"
+              min={1}
+              max={50}
+              value={amortYears}
+              onChange={(e) => setAmortYears(Number(e.target.value))}
+            />
           </div>
           <div>
             <Label htmlFor="capRatePct">Cap rate (% net)</Label>
-            <Input id="capRatePct" type="number" min={1} max={20} step={0.1} value={capRatePct} onChange={(e) => setCapRatePct(Number(e.target.value))} />
+            <Input
+              id="capRatePct"
+              type="number"
+              min={1}
+              max={20}
+              step={0.1}
+              value={capRatePct}
+              onChange={(e) => setCapRatePct(Number(e.target.value))}
+            />
           </div>
           <div>
             <Label htmlFor="noiGrowthPct">NOI growth (% p.a.)</Label>
-            <Input id="noiGrowthPct" type="number" min={-20} max={20} step={0.1} value={noiGrowthPct} onChange={(e) => setNoiGrowthPct(Number(e.target.value))} />
+            <Input
+              id="noiGrowthPct"
+              type="number"
+              min={-20}
+              max={20}
+              step={0.1}
+              value={noiGrowthPct}
+              onChange={(e) => setNoiGrowthPct(Number(e.target.value))}
+            />
           </div>
         </div>
 
         <div className="flex flex-wrap gap-3 items-center">
-          <Button variant="outline" onClick={resetDefaults}>Reset to defaults</Button>
-          <span className="text-sm text-muted-foreground">Down payment required: <strong>{formatCurrencyEUR(result.downPayment)}</strong></span>
-          <span className="text-sm text-muted-foreground">Difference vs. capital: <strong>{formatCurrencyEUR(result.capitalDiff)}</strong></span>
-          <span className="text-sm text-muted-foreground">Year 1 DSCR: <strong>{result.dscrYear1.toFixed(2)}</strong></span>
+          <Button variant="outline" onClick={resetDefaults}>
+            Reset to defaults
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Down payment required: <strong>{formatCurrencyEUR(result.downPayment)}</strong>
+          </span>
+          <span className="text-sm text-muted-foreground">
+            Difference vs. capital: <strong>{formatCurrencyEUR(result.capitalDiff)}</strong>
+          </span>
+          <span className="text-sm text-muted-foreground">
+            Year 1 DSCR: <strong>{result.dscrYear1.toFixed(2)}</strong>
+          </span>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
@@ -173,7 +263,9 @@ export default function RealEstateVsStocksCalculator() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-semibold">{formatCurrencyEUR(result.stocksFV)}</div>
-              <div className="text-sm text-muted-foreground mt-1">Assumes reinvestment at {stockReturnPct}% p.a.</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Assumes reinvestment at {stockReturnPct}% p.a.
+              </div>
             </CardContent>
           </Card>
 
@@ -182,17 +274,33 @@ export default function RealEstateVsStocksCalculator() {
               <CardTitle className="text-lg">Real Estate (end of year {result.n})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-1">
-              <div><span className="text-muted-foreground">Property value:</span> <strong>{formatCurrencyEUR(result.value)}</strong></div>
-              <div><span className="text-muted-foreground">Debt outstanding:</span> <strong>{formatCurrencyEUR(result.balance)}</strong></div>
-              <div><span className="text-muted-foreground">Equity:</span> <strong>{formatCurrencyEUR(result.equity)}</strong></div>
-              <div><span className="text-muted-foreground">Cumulative cash flow:</span> <strong>{formatCurrencyEUR(result.cumCash)}</strong></div>
-              <div className="pt-2 border-t text-sm text-muted-foreground">Total wealth (equity + cash flow): <strong>{formatCurrencyEUR(result.equity + result.cumCash)}</strong></div>
+              <div>
+                <span className="text-muted-foreground">Property value:</span>{' '}
+                <strong>{formatCurrencyEUR(result.value)}</strong>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Debt outstanding:</span>{' '}
+                <strong>{formatCurrencyEUR(result.balance)}</strong>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Equity:</span>{' '}
+                <strong>{formatCurrencyEUR(result.equity)}</strong>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Cumulative cash flow:</span>{' '}
+                <strong>{formatCurrencyEUR(result.cumCash)}</strong>
+              </div>
+              <div className="pt-2 border-t text-sm text-muted-foreground">
+                Total wealth (equity + cash flow):{' '}
+                <strong>{formatCurrencyEUR(result.equity + result.cumCash)}</strong>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <p className="text-xs text-muted-foreground">
-          This simplified model assumes constant cap rate and ignores taxes, vacancies, transaction fees and maintenance buffers. Numbers are illustrative only and not investment advice.
+          This simplified model assumes constant cap rate and ignores taxes, vacancies, transaction
+          fees and maintenance buffers. Numbers are illustrative only and not investment advice.
         </p>
       </CardContent>
     </Card>

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useRef, useEffect, useState } from 'react';
 import { List } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface TableOfContentsProps {
   articleRef: React.RefObject<HTMLElement | null>;
@@ -15,77 +15,79 @@ interface HeadingData {
 
 export default function TableOfContents({ articleRef }: TableOfContentsProps) {
   const [headings, setHeadings] = useState<HeadingData[]>([]);
-  const [activeId, setActiveId] = useState<string>("");
+  const [activeId, setActiveId] = useState<string>('');
 
   // Generate IDs for headings and collect them
   useEffect(() => {
     if (articleRef.current) {
       const article = articleRef.current;
       const elements = article.querySelectorAll('h2, h3');
-      
+
       // Process all headings
       const headingItems: HeadingData[] = [];
-      
+
       elements.forEach((element) => {
         // Create an ID if one doesn't exist
         if (!element.id) {
-          const id = element.textContent?.toLowerCase()
-            .replace(/[^\w\s]/g, '')
-            .replace(/\s+/g, '-') || `heading-${headingItems.length}`;
-          
+          const id =
+            element.textContent
+              ?.toLowerCase()
+              .replace(/[^\w\s]/g, '')
+              .replace(/\s+/g, '-') || `heading-${headingItems.length}`;
+
           element.id = id;
-          
+
           // Add anchor link
-          const anchor = document.createElement("a");
-          anchor.className = "heading-anchor";
+          const anchor = document.createElement('a');
+          anchor.className = 'heading-anchor';
           anchor.href = `#${id}`;
-          anchor.innerHTML = "#";
+          anchor.innerHTML = '#';
           element.appendChild(anchor);
         }
-        
+
         const level = parseInt(element.tagName[1]);
-        
+
         headingItems.push({
           id: element.id,
           text: element.textContent?.replace('#', '') || '',
-          level: level
+          level: level,
         });
       });
-      
+
       setHeadings(headingItems);
     }
   }, [articleRef]);
-  
+
   // Intersection observer for active heading
   useEffect(() => {
     const observerCallback = (entries: IntersectionObserverEntry[]) => {
-      entries.forEach(entry => {
+      entries.forEach((entry) => {
         if (entry.isIntersecting && entry.intersectionRatio > 0) {
           setActiveId(entry.target.id);
         }
       });
     };
-    
+
     const observerOptions = {
       rootMargin: '0px 0px -80% 0px',
-      threshold: 0.1
+      threshold: 0.1,
     };
-    
+
     const observer = new IntersectionObserver(observerCallback, observerOptions);
-    
+
     // Observe headings
     if (articleRef.current) {
       const elements = articleRef.current.querySelectorAll('h2, h3');
-      elements.forEach(element => observer.observe(element));
+      elements.forEach((element) => observer.observe(element));
     }
-    
+
     return () => observer.disconnect();
   }, [articleRef, headings]);
-  
+
   if (headings.length === 0) {
     return null;
   }
-  
+
   return (
     <nav className="toc">
       <div className="toc-title">
@@ -94,22 +96,22 @@ export default function TableOfContents({ articleRef }: TableOfContentsProps) {
       </div>
       <ul className="toc-list">
         {headings.map((heading) => (
-          <li 
+          <li
             key={heading.id}
-            style={{ 
+            style={{
               paddingLeft: `${(heading.level - 2) * 1}rem`,
-              fontWeight: activeId === heading.id ? '600' : '400'
+              fontWeight: activeId === heading.id ? '600' : '400',
             }}
           >
-            <a 
+            <a
               href={`#${heading.id}`}
-              style={{ 
-                color: activeId === heading.id ? 'var(--primary)' : 'inherit'
+              style={{
+                color: activeId === heading.id ? 'var(--primary)' : 'inherit',
               }}
               onClick={(e) => {
                 e.preventDefault();
                 document.getElementById(heading.id)?.scrollIntoView({
-                  behavior: 'smooth'
+                  behavior: 'smooth',
                 });
                 window.history.pushState(null, '', `#${heading.id}`);
               }}

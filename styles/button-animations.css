@@ -34,7 +34,7 @@
 }
 
 .dark .animated-blog-button .button-bg {
-  background: #1F1F23;
+  background: #1f1f23;
 }
 
 .dark .animated-blog-button:hover .button-bg {
@@ -96,7 +96,9 @@
     box-shadow: 0 0 5px rgba(76, 76, 255, 0.5);
   }
   50% {
-    box-shadow: 0 0 20px rgba(76, 76, 255, 0.8), 0 0 30px rgba(76, 76, 255, 0.6);
+    box-shadow:
+      0 0 20px rgba(76, 76, 255, 0.8),
+      0 0 30px rgba(76, 76, 255, 0.6);
   }
   100% {
     box-shadow: 0 0 5px rgba(76, 76, 255, 0.5);

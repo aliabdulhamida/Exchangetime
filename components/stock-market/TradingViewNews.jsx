@@ -10,9 +10,9 @@ function TradingViewNews() {
     while (node.firstChild) {
       node.removeChild(node.firstChild);
     }
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-timeline.js";
-    script.type = "text/javascript";
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-timeline.js';
+    script.type = 'text/javascript';
     script.async = true;
     script.innerHTML = `
       {

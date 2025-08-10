@@ -1,84 +1,81 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"type": "shell",
-			"label": "Start Next.js Development Server",
-			"command": "pnpm dev",
-			"group": "build",
-			"isBackground": true,
-			"problemMatcher": [
-				"$tsc"
-			]
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"problemMatcher": [
-				"$tsc"
-			],
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		},
-		{
-			"label": "Build Next.js",
-			"type": "shell",
-			"command": "pnpm build",
-			"group": "build"
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "label": "Start Next.js Development Server",
+      "command": "pnpm dev",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Build Next.js",
+      "type": "shell",
+      "command": "node",
+      "args": ["node_modules/next/dist/bin/next", "build"],
+      "problemMatcher": ["$tsc"],
+      "group": "build"
+    },
+    {
+      "label": "Build Next.js (pnpm)",
+      "type": "shell",
+      "command": "pnpm build",
+      "problemMatcher": ["$tsc"],
+      "group": "build",
+      "options": {
+        "env": {
+          "PNPM_REPORTER": "silent"
+        }
+      }
+    },
+    {
+      "label": "Lint (next)",
+      "type": "shell",
+      "command": "pnpm next lint",
+      "group": "build"
+    },
+    {
+      "label": "Lint (next) - recheck",
+      "type": "shell",
+      "command": "pnpm next lint",
+      "group": "build"
+    },
+    {
+      "label": "Lint (next) - final recheck",
+      "type": "shell",
+      "command": "pnpm next lint",
+      "group": "build"
+    },
+    {
+      "label": "Lint (next) - cleanup recheck",
+      "type": "shell",
+      "command": "pnpm next lint",
+      "group": "build"
+    },
+    {
+      "label": "Lint (next) - quick pass",
+      "type": "shell",
+      "command": "pnpm next lint",
+      "group": "build"
+    },
+    {
+      "label": "Lint (next) - one more pass",
+      "type": "shell",
+      "command": "pnpm next lint",
+      "group": "build"
+    },
+    {
+      "label": "Lint (next) - strict pass",
+      "type": "shell",
+      "command": "pnpm next lint",
+      "group": "build"
+    },
+    {
+      "label": "Lint (next) - zero warnings attempt",
+      "type": "shell",
+      "command": "pnpm next lint",
+      "group": "build"
+    }
+  ]
 }

@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
-
-import { Download, Trash2 } from "lucide-react";
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
+import { Download, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface RevenueInput {
   name: string;
@@ -18,19 +17,27 @@ interface ExpenseInput {
 }
 
 const defaultRevenues: RevenueInput[] = [
-  { name: "Salary", amount: 3000 },
-  { name: "Freelance", amount: 1200 },
+  { name: 'Salary', amount: 3000 },
+  { name: 'Freelance', amount: 1200 },
 ];
 const defaultExpenses: ExpenseInput[] = [
-  { name: "Rent", amount: 1200, subcategories: [
-    { name: "Base rent", amount: 600 },
-    { name: "Utilities", amount: 600 },
-  ] },
-  { name: "Groceries", amount: 400, subcategories: [
-    { name: "Supermarkt", amount: 300 },
-    { name: "Restaurant", amount: 100 },
-  ] },
-  { name: "Savings", amount: 800, subcategories: [] },
+  {
+    name: 'Rent',
+    amount: 1200,
+    subcategories: [
+      { name: 'Base rent', amount: 600 },
+      { name: 'Utilities', amount: 600 },
+    ],
+  },
+  {
+    name: 'Groceries',
+    amount: 400,
+    subcategories: [
+      { name: 'Supermarkt', amount: 300 },
+      { name: 'Restaurant', amount: 100 },
+    ],
+  },
+  { name: 'Savings', amount: 800, subcategories: [] },
 ];
 
 export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
@@ -43,7 +50,10 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     const checkTheme = () => {
       if (typeof window !== 'undefined') {
-        setIsDark(document.documentElement.classList.contains('dark') || document.body.classList.contains('dark'));
+        setIsDark(
+          document.documentElement.classList.contains('dark') ||
+            document.body.classList.contains('dark'),
+        );
       }
     };
     checkTheme();
@@ -57,29 +67,37 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
   const handleRevenueChange = (idx: number, field: keyof RevenueInput, value: string | number) => {
     setRevenues((prev) => {
       const updated = [...prev];
-      updated[idx] = { ...updated[idx], [field]: field === "amount" ? Number(value) : value };
+      updated[idx] = { ...updated[idx], [field]: field === 'amount' ? Number(value) : value };
       return updated;
     });
   };
-  const addRevenue = () => setRevenues((prev) => [...prev, { name: "", amount: 0 }]);
+  const addRevenue = () => setRevenues((prev) => [...prev, { name: '', amount: 0 }]);
   const removeRevenue = (idx: number) => setRevenues((prev) => prev.filter((_, i) => i !== idx));
 
   // Expense Handlers
   const handleExpenseChange = (idx: number, field: keyof ExpenseInput, value: string | number) => {
     setExpenses((prev) => {
       const updated = [...prev];
-      updated[idx] = { ...updated[idx], [field]: field === "amount" ? Number(value) : value };
+      updated[idx] = { ...updated[idx], [field]: field === 'amount' ? Number(value) : value };
       return updated;
     });
   };
 
   // Subcategory Handlers
-  const handleSubcategoryChange = (expenseIdx: number, subIdx: number, field: keyof ExpenseSubcategory, value: string | number) => {
+  const handleSubcategoryChange = (
+    expenseIdx: number,
+    subIdx: number,
+    field: keyof ExpenseSubcategory,
+    value: string | number,
+  ) => {
     setExpenses((prev) => {
       const updated = [...prev];
       const expense = { ...updated[expenseIdx] };
       const subcategories = expense.subcategories ? [...expense.subcategories] : [];
-      subcategories[subIdx] = { ...subcategories[subIdx], [field]: field === "amount" ? Number(value) : value };
+      subcategories[subIdx] = {
+        ...subcategories[subIdx],
+        [field]: field === 'amount' ? Number(value) : value,
+      };
       expense.subcategories = subcategories;
       updated[expenseIdx] = expense;
       return updated;
@@ -89,7 +107,9 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
     setExpenses((prev) => {
       const updated = [...prev];
       const expense = { ...updated[expenseIdx] };
-      expense.subcategories = expense.subcategories ? [...expense.subcategories, { name: "", amount: 0 }] : [{ name: "", amount: 0 }];
+      expense.subcategories = expense.subcategories
+        ? [...expense.subcategories, { name: '', amount: 0 }]
+        : [{ name: '', amount: 0 }];
       updated[expenseIdx] = expense;
       return updated;
     });
@@ -103,46 +123,59 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
       return updated;
     });
   };
-  const addExpense = () => setExpenses((prev) => [...prev, { name: "", amount: 0, subcategories: [] }]);
+  const addExpense = () =>
+    setExpenses((prev) => [...prev, { name: '', amount: 0, subcategories: [] }]);
   const removeExpense = (idx: number) => setExpenses((prev) => prev.filter((_, i) => i !== idx));
 
   // D3 Sankey Daten vorbereiten
   const nodeNames: string[] = [];
-  nodeNames.push("Budget");
-  const mainCategories = expenses.map(e => e.name).filter(Boolean);
-  mainCategories.forEach(name => nodeNames.push(name));
+  nodeNames.push('Budget');
+  const mainCategories = expenses.map((e) => e.name).filter(Boolean);
+  mainCategories.forEach((name) => nodeNames.push(name));
   const subCategories: string[] = [];
-  expenses.forEach(e => {
+  expenses.forEach((e) => {
     if (e.subcategories && e.subcategories.length > 0) {
-      e.subcategories.forEach(s => {
+      e.subcategories.forEach((s) => {
         if (s.name && !subCategories.includes(s.name)) subCategories.push(s.name);
       });
     }
   });
-  subCategories.forEach(name => nodeNames.push(name));
-  revenues.forEach(r => {
+  subCategories.forEach((name) => nodeNames.push(name));
+  revenues.forEach((r) => {
     if (r.name && !nodeNames.includes(r.name)) nodeNames.push(r.name);
   });
 
   const nodeIndex = (name: string) => nodeNames.indexOf(name);
   const links: { source: number; target: number; value: number }[] = [];
-  revenues.filter(r => r.name && r.amount > 0).forEach(r => {
-    links.push({ source: nodeIndex(r.name), target: nodeIndex("Budget"), value: r.amount });
-  });
-  expenses.forEach(e => {
+  revenues
+    .filter((r) => r.name && r.amount > 0)
+    .forEach((r) => {
+      links.push({ source: nodeIndex(r.name), target: nodeIndex('Budget'), value: r.amount });
+    });
+  expenses.forEach((e) => {
     if (e.name && e.amount > 0) {
-      links.push({ source: nodeIndex("Budget"), target: nodeIndex(e.name), value: e.amount });
+      links.push({ source: nodeIndex('Budget'), target: nodeIndex(e.name), value: e.amount });
     }
     if (e.subcategories && e.subcategories.length > 0) {
-      e.subcategories.filter(s => s.name && s.amount > 0).forEach(s => {
-        links.push({ source: nodeIndex(e.name), target: nodeIndex(s.name), value: s.amount });
-      });
+      e.subcategories
+        .filter((s) => s.name && s.amount > 0)
+        .forEach((s) => {
+          links.push({ source: nodeIndex(e.name), target: nodeIndex(s.name), value: s.amount });
+        });
     }
   });
-  const nodes = nodeNames.map(name => ({ name }));
+  const nodes = nodeNames.map((name) => ({ name }));
 
   // D3 Sankey Diagramm als Komponente
-  function SankeyD3({ width = 700, height = 400, textSize }: { width?: number; height?: number; textSize?: number }) {
+  function SankeyD3({
+    width = 700,
+    height = 400,
+    textSize,
+  }: {
+    width?: number;
+    height?: number;
+    textSize?: number;
+  }) {
     // Responsive Werte berechnen
     // SVG skaliert mit Container, Textgröße und nodeWidth passen sich an
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -160,9 +193,15 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
     // Werte für nodeWidth und Textgröße dynamisch
     const effectiveWidth = containerWidth || width;
     const nodeW = Math.max(12, Math.round(effectiveWidth / 50));
-    const fontSz = textSize !== undefined ? textSize : Math.max(10, Math.round(effectiveWidth / 60));
+    const fontSz =
+      textSize !== undefined ? textSize : Math.max(10, Math.round(effectiveWidth / 60));
     // Tooltip State
-    const [tooltip, setTooltip] = useState<{ x: number; y: number; content: React.ReactNode; visible: boolean }>({ x: 0, y: 0, content: '', visible: false });
+    const [tooltip, setTooltip] = useState<{
+      x: number;
+      y: number;
+      content: React.ReactNode;
+      visible: boolean;
+    }>({ x: 0, y: 0, content: '', visible: false });
     const svgRef = useRef<SVGSVGElement | null>(null);
     // Theme detection jetzt in der Elternkomponente
 
@@ -185,10 +224,13 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
     const sankeyGen = d3Sankey()
       .nodeWidth(nodeW)
       .nodePadding(Math.max(16, Math.round(effectiveWidth / 30)))
-      .extent([[0, 0], [effectiveWidth, height]]);
+      .extent([
+        [0, 0],
+        [effectiveWidth, height],
+      ]);
     const graph = sankeyGen({
       nodes: nodes.map((d, i) => ({ ...d, index: i })),
-      links: links.map(l => ({ ...l }))
+      links: links.map((l) => ({ ...l })),
     });
     // Hilfsfunktion: Ist Endknoten (kein outgoing link)?
     function isEndNode(node: any) {
@@ -205,13 +247,16 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
         x: evt.clientX - (svgRect?.left || 0) + 10,
         y: evt.clientY - (svgRect?.top || 0) + 10,
         content,
-        visible: true
+        visible: true,
       });
     };
-    const handleHideTooltip = () => setTooltip(t => ({ ...t, visible: false }));
+    const handleHideTooltip = () => setTooltip((t) => ({ ...t, visible: false }));
 
     return (
-      <div ref={containerRef} style={{ width: '100%', maxWidth: width, overflowX: 'auto', position: 'relative' }}>
+      <div
+        ref={containerRef}
+        style={{ width: '100%', maxWidth: width, overflowX: 'auto', position: 'relative' }}
+      >
         <svg
           ref={svgRef}
           width={effectiveWidth}
@@ -221,57 +266,82 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
           style={{ background: 'none', display: 'block', width: '100%', height: height }}
         >
           <g>
-          {/* Minimalistische Links */}
-          {graph.links.map((link: any, i: number) => (
-            <path
-              key={i}
-              d={sankeyLinkHorizontal()(link) || undefined}
-              style={{
-                fill: "none",
-                stroke: colors.link,
-                strokeOpacity: colors.linkOpacity,
-                strokeWidth: link.width // D3 berechnet die Breite proportional zum Wert
-              }}
-              onMouseMove={evt => handleShowTooltip(evt, <div><b>{link.source.name} → {link.target.name}</b><br />{link.value}</div>)}
-              onMouseLeave={handleHideTooltip}
-              cursor="pointer"
-            />
-          ))}
-          {/* Minimalistische Knoten */}
-          {graph.nodes.map((node: any, i: number) => {
-            const endNode = isEndNode(node);
-            const startNode = isStartNode(node);
-            // Wert für Tooltip berechnen (Summe aller eingehenden oder ausgehenden Links)
-            const nodeValue = graph.links
-              .filter((l: any) => l.source.index === node.index || l.target.index === node.index)
-              .reduce((sum: number, l: any) => sum + l.value, 0);
-            return (
-              <g key={i} transform={`translate(${node.x0},${node.y0})`}>
-                <rect
-                  height={node.y1 - node.y0} // D3 berechnet die Höhe proportional zum Wert
-                  width={node.x1 - node.x0}
-                  fill={colors.node}
-                  opacity={1}
-                  rx={2}
-                  stroke="none"
-                  onMouseMove={evt => handleShowTooltip(evt, <div><b>{node.name}</b><br />{nodeValue}</div>)}
-                  onMouseLeave={handleHideTooltip}
-                  cursor="pointer"
-                />
-                <text
-                  x={endNode ? -8 : node.x1 - node.x0 + 8}
-                  y={(node.y1 - node.y0) / 2}
-                  dy="0.35em"
-                  fontSize={fontSz}
-                  fill={colors.text}
-                  textAnchor={endNode ? "end" : "start"}
-                  style={{ pointerEvents: 'none', userSelect: 'none', fontWeight: 400, letterSpacing: 0.1 }}
-                >
-                  {node.name}
-                </text>
-              </g>
-            );
-          })}
+            {/* Minimalistische Links */}
+            {graph.links.map((link: any, i: number) => (
+              <path
+                key={i}
+                d={sankeyLinkHorizontal()(link) || undefined}
+                style={{
+                  fill: 'none',
+                  stroke: colors.link,
+                  strokeOpacity: colors.linkOpacity,
+                  strokeWidth: link.width, // D3 berechnet die Breite proportional zum Wert
+                }}
+                onMouseMove={(evt) =>
+                  handleShowTooltip(
+                    evt,
+                    <div>
+                      <b>
+                        {link.source.name} → {link.target.name}
+                      </b>
+                      <br />
+                      {link.value}
+                    </div>,
+                  )
+                }
+                onMouseLeave={handleHideTooltip}
+                cursor="pointer"
+              />
+            ))}
+            {/* Minimalistische Knoten */}
+            {graph.nodes.map((node: any, i: number) => {
+              const endNode = isEndNode(node);
+              const startNode = isStartNode(node);
+              // Wert für Tooltip berechnen (Summe aller eingehenden oder ausgehenden Links)
+              const nodeValue = graph.links
+                .filter((l: any) => l.source.index === node.index || l.target.index === node.index)
+                .reduce((sum: number, l: any) => sum + l.value, 0);
+              return (
+                <g key={i} transform={`translate(${node.x0},${node.y0})`}>
+                  <rect
+                    height={node.y1 - node.y0} // D3 berechnet die Höhe proportional zum Wert
+                    width={node.x1 - node.x0}
+                    fill={colors.node}
+                    opacity={1}
+                    rx={2}
+                    stroke="none"
+                    onMouseMove={(evt) =>
+                      handleShowTooltip(
+                        evt,
+                        <div>
+                          <b>{node.name}</b>
+                          <br />
+                          {nodeValue}
+                        </div>,
+                      )
+                    }
+                    onMouseLeave={handleHideTooltip}
+                    cursor="pointer"
+                  />
+                  <text
+                    x={endNode ? -8 : node.x1 - node.x0 + 8}
+                    y={(node.y1 - node.y0) / 2}
+                    dy="0.35em"
+                    fontSize={fontSz}
+                    fill={colors.text}
+                    textAnchor={endNode ? 'end' : 'start'}
+                    style={{
+                      pointerEvents: 'none',
+                      userSelect: 'none',
+                      fontWeight: 400,
+                      letterSpacing: 0.1,
+                    }}
+                  >
+                    {node.name}
+                  </text>
+                </g>
+              );
+            })}
           </g>
         </svg>
         {/* Tooltip-Element */}
@@ -303,38 +373,41 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
   }
 
   const downloadChart = () => {
-    const chart = document.querySelector("#sankey-chart");
+    const chart = document.querySelector('#sankey-chart');
     if (!chart) return;
     // SVG klonen, damit keine Änderungen im UI sichtbar sind
     const clone = chart.cloneNode(true);
     if (!(clone instanceof SVGSVGElement)) return;
     // Farben für White-Theme setzen
     // Knoten (rect)
-    clone.querySelectorAll('rect').forEach(rect => {
+    clone.querySelectorAll('rect').forEach((rect) => {
       rect.setAttribute('fill', '#111');
     });
     // Text
-    clone.querySelectorAll('text').forEach(text => {
+    clone.querySelectorAll('text').forEach((text) => {
       text.setAttribute('fill', '#263238');
     });
     // Links (Pfad)
-    clone.querySelectorAll('path').forEach(path => {
+    clone.querySelectorAll('path').forEach((path) => {
       path.setAttribute('stroke', '#90A4AE');
       path.setAttribute('stroke-opacity', '0.18');
     });
     // SVG serialisieren und downloaden
     const svgData = new XMLSerializer().serializeToString(clone);
-    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(svgBlob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = "personal-budget-sankey.svg";
+    a.download = 'personal-budget-sankey.svg';
     a.click();
     URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-xl border border-gray-200 dark:border-[#1F1F23] max-w-full w-full" id="personal-budget-container">
+    <div
+      className="bg-white dark:bg-[#0F0F12] rounded-xl border border-gray-200 dark:border-[#1F1F23] max-w-full w-full"
+      id="personal-budget-container"
+    >
       <div className="flex items-center justify-between p-6 pb-0">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Personal Budget</h2>
         {onClose && (
@@ -344,9 +417,32 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
             aria-label="Schließen"
             style={{ zIndex: 10 }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line
+                x1="18"
+                y1="6"
+                x2="6"
+                y2="18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <line
+                x1="6"
+                y1="6"
+                x2="18"
+                y2="18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
         )}
@@ -361,19 +457,22 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
             <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Income Streams</h3>
             <div className="space-y-3 mb-6">
               {revenues.map((input, idx) => (
-                <div key={idx} className="flex flex-col sm:flex-row items-center gap-2 mb-2 sm:gap-2 sm:items-center sm:justify-start w-full">
+                <div
+                  key={idx}
+                  className="flex flex-col sm:flex-row items-center gap-2 mb-2 sm:gap-2 sm:items-center sm:justify-start w-full"
+                >
                   <div className="flex flex-row items-center w-full">
                     <input
                       className="border rounded px-2 py-1 w-full sm:w-60 bg-transparent"
                       value={input.name}
-                      onChange={e => handleRevenueChange(idx, "name", e.target.value)}
+                      onChange={(e) => handleRevenueChange(idx, 'name', e.target.value)}
                       placeholder="Income Source"
                     />
                     <input
                       type="number"
                       className="border rounded px-2 py-1 w-full sm:w-32 bg-transparent ml-2"
                       value={input.amount}
-                      onChange={e => handleRevenueChange(idx, "amount", e.target.value)}
+                      onChange={(e) => handleRevenueChange(idx, 'amount', e.target.value)}
                       min={0}
                       placeholder="Amount"
                     />
@@ -404,14 +503,14 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
                     <input
                       className="border rounded px-2 py-1 w-full sm:w-60 bg-transparent"
                       value={input.name}
-                      onChange={e => handleExpenseChange(idx, "name", e.target.value)}
+                      onChange={(e) => handleExpenseChange(idx, 'name', e.target.value)}
                       placeholder="Expense Name"
                     />
                     <input
                       type="number"
                       className="border rounded px-2 py-1 w-full sm:w-32 bg-transparent ml-2"
                       value={input.amount}
-                      onChange={e => handleExpenseChange(idx, "amount", e.target.value)}
+                      onChange={(e) => handleExpenseChange(idx, 'amount', e.target.value)}
                       min={0}
                       placeholder="Amount"
                     />
@@ -431,14 +530,18 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
                         <input
                           className="border rounded px-2 py-1 w-full sm:w-48 bg-transparent"
                           value={sub.name}
-                          onChange={e => handleSubcategoryChange(idx, subIdx, "name", e.target.value)}
+                          onChange={(e) =>
+                            handleSubcategoryChange(idx, subIdx, 'name', e.target.value)
+                          }
                           placeholder="Subcategory Name"
                         />
                         <input
                           type="number"
                           className="border rounded px-2 py-1 w-full sm:w-28 bg-transparent ml-2"
                           value={sub.amount}
-                          onChange={e => handleSubcategoryChange(idx, subIdx, "amount", e.target.value)}
+                          onChange={(e) =>
+                            handleSubcategoryChange(idx, subIdx, 'amount', e.target.value)
+                          }
                           min={0}
                           placeholder="Amount"
                         />
@@ -458,7 +561,9 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
                       onClick={() => addSubcategory(idx)}
                       aria-label="Add subcategory"
                     >
-                      <span className="text-base leading-none transition-colors duration-150">＋</span>
+                      <span className="text-base leading-none transition-colors duration-150">
+                        ＋
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -473,7 +578,9 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
           </div>
           {/* Rechte Spalte: Sankey Diagramm */}
           <div className="flex-1 flex flex-col items-center justify-start mt-8 lg:mt-0 w-full">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 w-full text-left">Sankey Diagram</h3>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 w-full text-left">
+              Sankey Diagram
+            </h3>
             <div className="mb-2 w-full flex justify-end gap-2">
               <button
                 onClick={() => setShowSankeyOverlay(true)}
@@ -485,7 +592,26 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
                 }
                 title="Show Sankey large"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M8 8h8v8H8z" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <rect
+                    x="4"
+                    y="4"
+                    width="16"
+                    height="16"
+                    rx="2"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                  />
+                  <path d="M8 8h8v8H8z" stroke="currentColor" strokeWidth="2" fill="none" />
+                </svg>
               </button>
               <button
                 onClick={downloadChart}
@@ -514,7 +640,20 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
                   style={{ background: isDark ? '#000' : '#fff' }}
                 >
                   {/* Visually hidden DialogTitle for accessibility */}
-                  <h2 id="sankey-dialog-title" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                  <h2
+                    id="sankey-dialog-title"
+                    style={{
+                      position: 'absolute',
+                      width: 1,
+                      height: 1,
+                      padding: 0,
+                      margin: -1,
+                      overflow: 'hidden',
+                      clip: 'rect(0,0,0,0)',
+                      whiteSpace: 'nowrap',
+                      border: 0,
+                    }}
+                  >
                     Sankey Diagram
                   </h2>
                   <button
@@ -523,12 +662,37 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
                     aria-label="Schließen"
                     style={{ zIndex: 10 }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-6 h-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <line
+                        x1="18"
+                        y1="6"
+                        x2="6"
+                        y2="18"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1="6"
+                        y1="6"
+                        x2="18"
+                        y2="18"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
                     </svg>
                   </button>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 w-full text-left">Sankey Diagram</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 w-full text-left">
+                    Sankey Diagram
+                  </h3>
                   <div className="overflow-auto w-full flex justify-center">
                     <SankeyD3 width={1100} height={600} textSize={18} />
                   </div>

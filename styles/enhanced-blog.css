@@ -147,6 +147,67 @@
   color: var(--primary-foreground);
 }
 
+/* When copy button shows text, allow it to expand horizontally */
+.share-button.copy-expanded {
+  width: auto;
+  padding: 0 0.5rem;
+  gap: 0.35rem;
+}
+
+/* Copy success micro-interactions */
+.copy-expanded .copied-check {
+  animation: copied-pop 350ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.copy-expanded .copied-text {
+  opacity: 0;
+  transform: translateX(-4px);
+  animation: copied-text-in 300ms ease forwards;
+  animation-delay: 60ms;
+}
+
+.copy-expanded .copied-halo {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0) 70%);
+  filter: blur(2px);
+  animation: copied-ping 500ms ease-out;
+}
+
+@keyframes copied-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes copied-text-in {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes copied-ping {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
 /* Reading progress */
 .reading-progress-container {
   position: fixed;
@@ -238,11 +299,17 @@ article blockquote {
   margin-top: 1.8em;
   margin-bottom: 0.6em;
 }
-.prose ul, .prose ol {
+.prose ul,
+.prose ol {
   padding-left: 1.25rem;
 }
-.prose li + li { margin-top: 0.25em; }
-.prose a { text-decoration: underline; text-underline-offset: 2px; }
+.prose li + li {
+  margin-top: 0.25em;
+}
+.prose a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 /* Do not underline the back-to-blog link even inside prose */
 .prose a.blog-back-link,
@@ -251,7 +318,9 @@ article blockquote {
   text-decoration: none !important;
 }
 
-.prose img { border-radius: 0.5rem; }
+.prose img {
+  border-radius: 0.5rem;
+}
 
 /* Back to top button */
 .back-to-top {
@@ -261,24 +330,39 @@ article blockquote {
   width: 48px;
   height: 48px;
   border-radius: 9999px;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   display: grid;
   place-items: center;
   color: white;
   z-index: 60;
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    background 0.2s ease;
 }
 .back-to-top--visible {
   opacity: 1;
   transform: translateY(0);
 }
-.back-to-top:hover { background: rgba(0,0,0,0.75); }
-.back-to-top__svg { position: absolute; inset: 0; }
-.back-to-top__track { stroke: rgba(255,255,255,0.25); }
-.back-to-top__progress { stroke: #fff; }
-.back-to-top__icon { position: relative; z-index: 1; }
+.back-to-top:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+.back-to-top__svg {
+  position: absolute;
+  inset: 0;
+}
+.back-to-top__track {
+  stroke: rgba(255, 255, 255, 0.25);
+}
+.back-to-top__progress {
+  stroke: #fff;
+}
+.back-to-top__icon {
+  position: relative;
+  z-index: 1;
+}
 
 /* Dark mode adjustments */
 .dark .blog-category.category-psychology {

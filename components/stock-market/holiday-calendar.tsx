@@ -1,18 +1,17 @@
-"use client"
+'use client';
 
+import { CalendarX } from 'lucide-react';
+import { useState } from 'react';
 
-import { AlertCircle, CalendarX } from "lucide-react"
-import marketHours from "@/lib/exchangeinfo.js"
-import { CustomCalendar as Calendar } from "@/components/ui/calendar"
-import { useState } from "react"
-
+import { CustomCalendar as Calendar } from '@/components/ui/calendar';
+import marketHours from '@/lib/exchangeinfo.js';
 
 interface MarketHoliday {
-  name: string
-  date: string
-  markets: string[]
-  type: "full" | "early"
-  earlyCloseTime?: string
+  name: string;
+  date: string;
+  markets: string[];
+  type: 'full' | 'early';
+  earlyCloseTime?: string;
 }
 
 export default function HolidayCalendar() {
@@ -25,7 +24,7 @@ export default function HolidayCalendar() {
           name: details.reason,
           date,
           markets: [market],
-          type: details.closeEarly ? "early" : "full",
+          type: details.closeEarly ? 'early' : 'full',
           earlyCloseTime: details.earlyCloseTime ? details.earlyCloseTime : undefined,
         });
       });
@@ -35,7 +34,6 @@ export default function HolidayCalendar() {
   const isUpcoming = (date: string) => {
     return new Date(date) > new Date();
   };
-
 
   // Für Kalender: Alle Feiertage als Date-Objekte
 
@@ -47,16 +45,15 @@ export default function HolidayCalendar() {
     return `${year}-${month}-${day}`;
   }
 
-  const holidayDates = holidays.map(h => h.date);
+  const holidayDates = holidays.map((h) => h.date);
   // Wir speichern das ausgewählte Datum als String, initial auf heute
   const todayISO = toISODateString(new Date());
   const [selected, setSelected] = useState<string | undefined>(todayISO);
 
   // Finde alle Holidays für ein bestimmtes Datum
   const getHolidayForDate = (dateString: string) => {
-    return holidays.filter(h => h.date === dateString);
+    return holidays.filter((h) => h.date === dateString);
   };
-
 
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#1F1F23]">
@@ -73,24 +70,32 @@ export default function HolidayCalendar() {
             }}
             tileClassName={({ date }) =>
               holidayDates.includes(toISODateString(date))
-                ? "bg-red-200 border-red-400 border-2 text-red-700 dark:text-red-400 font-bold hover:bg-gray-300 dark:hover:bg-gray-800"
-                : "hover:bg-gray-300 dark:hover:bg-gray-800"
+                ? 'bg-red-200 border-red-400 border-2 text-red-700 dark:text-red-400 font-bold hover:bg-gray-300 dark:hover:bg-gray-800'
+                : 'hover:bg-gray-300 dark:hover:bg-gray-800'
             }
           />
         </div>
         <div className="flex-1 min-w-0 sm:min-w-[220px] pr-0 sm:pr-4 max-h-60 sm:max-h-80 overflow-y-auto flex flex-col">
           {/* Feiertagsdetails anzeigen, falls ein Feiertag ausgewählt ist */}
-          {selected && (
-            getHolidayForDate(selected).length > 0 ? (
+          {selected &&
+            (getHolidayForDate(selected).length > 0 ? (
               <div className="mb-2 sm:mb-4 p-0">
                 {getHolidayForDate(selected).map((h, i) => (
                   <div key={i} className="mb-2 last:mb-0 flex items-start gap-2">
-                    <span className="mt-1 text-xl"><i className="bi bi-dot"></i></span>
+                    <span className="mt-1 text-xl">
+                      <i className="bi bi-dot"></i>
+                    </span>
                     <div>
-                      <div className="font-medium text-sm text-gray-900 dark:text-white">{h.name}</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-300">{h.markets.join(", ")}</div>
+                      <div className="font-medium text-sm text-gray-900 dark:text-white">
+                        {h.name}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">
+                        {h.markets.join(', ')}
+                      </div>
                       {h.earlyCloseTime && (
-                        <div className="text-xs text-yellow-700 dark:text-yellow-300">Early Close: {h.earlyCloseTime}</div>
+                        <div className="text-xs text-yellow-700 dark:text-yellow-300">
+                          Early Close: {h.earlyCloseTime}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -101,8 +106,7 @@ export default function HolidayCalendar() {
                 <CalendarX className="w-5 h-5 mb-1" />
                 <span className="block text-center">No holidays for this date.</span>
               </div>
-            )
-          )}
+            ))}
         </div>
       </div>
     </div>

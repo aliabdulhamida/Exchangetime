@@ -1,6 +1,14 @@
-"use client"
+'use client';
 // Hilfsfunktion: aggregierte Dividendenzahlungen nach gehaltenen Aktien
-function calculateDividendHistory(data: any[], dividendData: any[], initialAmount: number, monthlyAmount: number, startDate: string, endDate: string, reinvestDividends = false) {
+function calculateDividendHistory(
+  data: any[],
+  dividendData: any[],
+  initialAmount: number,
+  monthlyAmount: number,
+  startDate: string,
+  endDate: string,
+  reinvestDividends = false,
+) {
   let totalShares = 0;
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -23,7 +31,10 @@ function calculateDividendHistory(data: any[], dividendData: any[], initialAmoun
       nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
     }
     // Process dividends for this date
-    while (dividendIndex < dividendData.length && new Date(dividendData[dividendIndex].date) <= currentDay) {
+    while (
+      dividendIndex < dividendData.length &&
+      new Date(dividendData[dividendIndex].date) <= currentDay
+    ) {
       const dividend = dividendData[dividendIndex];
       const dividendAmount = totalShares * dividend.amount;
       dividendHistory.push({ date: dividend.date, amount: dividendAmount });
@@ -37,161 +48,185 @@ function calculateDividendHistory(data: any[], dividendData: any[], initialAmoun
   return dividendHistory;
 }
 
-import { BarChart3, Play, Settings, AlertTriangle } from "lucide-react"
-import { useState } from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { ChartContainer } from "@/components/ui/chart"
-import { Alert } from "@/components/ui/alert"
-
+import { Play, Settings, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
   Bar,
   BarChart,
   AreaChart,
-  Area
-} from "recharts"
-import { ChartTooltipContent } from "@/components/ui/chart"
+  Area,
+} from 'recharts';
+
+import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { Input } from '@/components/ui/input';
 
 interface BacktestResult {
-  initialValue: number
-  finalValue: number
-  totalReturn: number
-  annualizedReturn: number
-  maxDrawdown: number
-  sharpeRatio: number
-  dividendsReinvested: number
-  totalShares: number
+  initialValue: number;
+  finalValue: number;
+  totalReturn: number;
+  annualizedReturn: number;
+  maxDrawdown: number;
+  sharpeRatio: number;
+  dividendsReinvested: number;
+  totalShares: number;
 }
 
 // Hilfsfunktionen für Yahoo Finance API
 function dateToUnix(date: string) {
-  return Math.floor(new Date(date).getTime() / 1000)
+  return Math.floor(new Date(date).getTime() / 1000);
 }
 
 async function fetchStockData(stockSymbol: string, startDate: string, endDate: string) {
   try {
-    const period1 = dateToUnix(startDate)
-    const period2 = dateToUnix(endDate)
-    const proxyUrl = 'https://corsproxy.io/?'
-    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stockSymbol}?period1=${period1}&period2=${period2}&interval=1d`
-    const url = proxyUrl + encodeURIComponent(yahooUrl)
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Network response was not ok')
-    const data = await response.json()
-    if (!data.chart || !data.chart.result || !data.chart.result[0]) throw new Error('Invalid data format received')
-    const timestamps = data.chart.result[0].timestamp
-    const closePrices = data.chart.result[0].indicators.quote[0].close
-    return timestamps.map((timestamp: number, index: number) => ({
-      date: new Date(timestamp * 1000).toISOString().split('T')[0],
-      close: closePrices[index]
-    })).filter((item: any) => item.close !== null)
+    const period1 = dateToUnix(startDate);
+    const period2 = dateToUnix(endDate);
+    const proxyUrl = 'https://corsproxy.io/?';
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stockSymbol}?period1=${period1}&period2=${period2}&interval=1d`;
+    const url = proxyUrl + encodeURIComponent(yahooUrl);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Network response was not ok');
+    const data = await response.json();
+    if (!data.chart || !data.chart.result || !data.chart.result[0])
+      throw new Error('Invalid data format received');
+    const timestamps = data.chart.result[0].timestamp;
+    const closePrices = data.chart.result[0].indicators.quote[0].close;
+    return timestamps
+      .map((timestamp: number, index: number) => ({
+        date: new Date(timestamp * 1000).toISOString().split('T')[0],
+        close: closePrices[index],
+      }))
+      .filter((item: any) => item.close !== null);
   } catch (error: any) {
-    return { error: error.message }
+    return { error: error.message };
   }
 }
 
 async function fetchDividendData(stockSymbol: string, startDate: string, endDate: string) {
   try {
-    const startUnix = dateToUnix(startDate)
-    const endUnix = dateToUnix(endDate)
-    const proxyUrl = 'https://corsproxy.io/?'
-    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stockSymbol}?period1=${startUnix}&period2=${endUnix}&interval=1d&events=div`
-    const url = proxyUrl + encodeURIComponent(yahooUrl)
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Network response was not ok')
-    const data = await response.json()
-    if (!data.chart || !data.chart.result || !data.chart.result[0]) return []
-    const result = data.chart.result[0]
-    const dividends = result.events?.dividends ? Object.values(result.events.dividends).sort((a: any, b: any) => a.date - b.date) : []
+    const startUnix = dateToUnix(startDate);
+    const endUnix = dateToUnix(endDate);
+    const proxyUrl = 'https://corsproxy.io/?';
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stockSymbol}?period1=${startUnix}&period2=${endUnix}&interval=1d&events=div`;
+    const url = proxyUrl + encodeURIComponent(yahooUrl);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Network response was not ok');
+    const data = await response.json();
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) return [];
+    const result = data.chart.result[0];
+    const dividends = result.events?.dividends
+      ? Object.values(result.events.dividends).sort((a: any, b: any) => a.date - b.date)
+      : [];
     return dividends.map((div: any) => ({
       date: new Date(div.date * 1000).toISOString().split('T')[0],
-      amount: div.amount
-    }))
+      amount: div.amount,
+    }));
   } catch (error: any) {
-    return []
+    return [];
   }
 }
 
-function calculateStockInvestment(data: any[], dividendData: any[], initialAmount: number, monthlyAmount: number, startDate: string, endDate: string, reinvestDividends = false) {
-  let totalShares = 0
-  let totalInvested = 0
-  let totalDividends = 0
-  let cashDividends = 0
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  const portfolioHistory: { date: string; value: number }[] = []
+function calculateStockInvestment(
+  data: any[],
+  dividendData: any[],
+  initialAmount: number,
+  monthlyAmount: number,
+  startDate: string,
+  endDate: string,
+  reinvestDividends = false,
+) {
+  let totalShares = 0;
+  let totalInvested = 0;
+  let totalDividends = 0;
+  let cashDividends = 0;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const portfolioHistory: { date: string; value: number }[] = [];
   // Initial investment at start date
-  const startPrice = data[0].close
+  const startPrice = data[0].close;
   if (initialAmount > 0) {
-    const initialShares = initialAmount / startPrice
-    totalShares += initialShares
-    totalInvested += initialAmount
+    const initialShares = initialAmount / startPrice;
+    totalShares += initialShares;
+    totalInvested += initialAmount;
   }
-  let nextInvestmentDate = new Date(start)
-  nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1)
-  nextInvestmentDate.setDate(1)
-  let dividendIndex = 0
+  let nextInvestmentDate = new Date(start);
+  nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
+  nextInvestmentDate.setDate(1);
+  let dividendIndex = 0;
   for (const day of data) {
-    const currentDay = new Date(day.date)
+    const currentDay = new Date(day.date);
     // Add monthly investment if it's the first trading day of the month
     if (monthlyAmount > 0 && currentDay >= nextInvestmentDate && currentDay <= end) {
-      const sharesBought = monthlyAmount / day.close
-      totalShares += sharesBought
-      totalInvested += monthlyAmount
-      nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1)
+      const sharesBought = monthlyAmount / day.close;
+      totalShares += sharesBought;
+      totalInvested += monthlyAmount;
+      nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
     }
     // Process dividends for this date
-    while (dividendIndex < dividendData.length && new Date(dividendData[dividendIndex].date) <= currentDay) {
-      const dividend = dividendData[dividendIndex]
-      const dividendAmount = totalShares * dividend.amount
-      totalDividends += dividendAmount
+    while (
+      dividendIndex < dividendData.length &&
+      new Date(dividendData[dividendIndex].date) <= currentDay
+    ) {
+      const dividend = dividendData[dividendIndex];
+      const dividendAmount = totalShares * dividend.amount;
+      totalDividends += dividendAmount;
       if (reinvestDividends) {
-        const additionalShares = dividendAmount / day.close
-        totalShares += additionalShares
+        const additionalShares = dividendAmount / day.close;
+        totalShares += additionalShares;
       } else {
-        cashDividends += dividendAmount
+        cashDividends += dividendAmount;
       }
-      dividendIndex++
+      dividendIndex++;
     }
     // Portfolio-Wert für diesen Tag berechnen
-    const value = totalShares * day.close + cashDividends
-    portfolioHistory.push({ date: day.date, value })
+    const value = totalShares * day.close + cashDividends;
+    portfolioHistory.push({ date: day.date, value });
   }
-  const finalPrice = data[data.length - 1].close
-  const finalValue = totalShares * finalPrice + cashDividends
-  return { totalInvested, finalValue, totalShares, totalDividends, cashDividends, portfolioHistory }
+  const finalPrice = data[data.length - 1].close;
+  const finalValue = totalShares * finalPrice + cashDividends;
+  return {
+    totalInvested,
+    finalValue,
+    totalShares,
+    totalDividends,
+    cashDividends,
+    portfolioHistory,
+  };
 }
 
 export default function BacktestTool() {
-  const [symbol, setSymbol] = useState("SPY")
-  const [initialAmount, setInitialAmount] = useState("10000")
-  const [monthlyAmount, setMonthlyAmount] = useState("0")
-  const [startDate, setStartDate] = useState("2020-01-01")
-  const [endDate, setEndDate] = useState("2024-01-01")
-  const [reinvestDividends, setReinvestDividends] = useState(true)
-  const [result, setResult] = useState<BacktestResult | null>(null)
-  const [portfolioHistory, setPortfolioHistory] = useState<{ date: string; value: number }[] | null>(null)
-  const [isRunning, setIsRunning] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [dividendHistory, setDividendHistory] = useState<{ date: string; amount: number }[] | null>(null)
+  const [symbol, setSymbol] = useState('SPY');
+  const [initialAmount, setInitialAmount] = useState('10000');
+  const [monthlyAmount, setMonthlyAmount] = useState('0');
+  const [startDate, setStartDate] = useState('2020-01-01');
+  const [endDate, setEndDate] = useState('2024-01-01');
+  const [reinvestDividends, setReinvestDividends] = useState(true);
+  const [result, setResult] = useState<BacktestResult | null>(null);
+  const [portfolioHistory, setPortfolioHistory] = useState<
+    { date: string; value: number }[] | null
+  >(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dividendHistory, setDividendHistory] = useState<{ date: string; amount: number }[] | null>(
+    null,
+  );
 
   const runBacktest = async () => {
-    setIsRunning(true)
-    setError(null)
-    setResult(null)
-    const stockData = await fetchStockData(symbol, startDate, endDate)
+    setIsRunning(true);
+    setError(null);
+    setResult(null);
+    const stockData = await fetchStockData(symbol, startDate, endDate);
     if (!Array.isArray(stockData) || stockData.length < 2) {
-      setError("Error loading price data.")
-      setIsRunning(false)
-      return
+      setError('Error loading price data.');
+      setIsRunning(false);
+      return;
     }
-    const dividendData = await fetchDividendData(symbol, startDate, endDate)
+    const dividendData = await fetchDividendData(symbol, startDate, endDate);
     // dividendHistory jetzt aggregiert berechnen
     const dividendHistoryAgg = calculateDividendHistory(
       stockData,
@@ -200,21 +235,34 @@ export default function BacktestTool() {
       parseFloat(monthlyAmount),
       startDate,
       endDate,
-      reinvestDividends
+      reinvestDividends,
     );
-    setDividendHistory(dividendHistoryAgg)
-    const { totalInvested, finalValue, totalShares, totalDividends, cashDividends, portfolioHistory } = calculateStockInvestment(
+    setDividendHistory(dividendHistoryAgg);
+    const {
+      totalInvested,
+      finalValue,
+      totalShares,
+      totalDividends,
+      cashDividends,
+      portfolioHistory,
+    } = calculateStockInvestment(
       stockData,
       dividendData,
       parseFloat(initialAmount),
       parseFloat(monthlyAmount),
       startDate,
       endDate,
-      reinvestDividends
-    )
+      reinvestDividends,
+    );
     // Kennzahlen berechnen
-    const totalReturn = ((finalValue - totalInvested) / totalInvested) * 100
-    const annualizedReturn = ((Math.pow(finalValue / totalInvested, 1 / ((new Date(endDate).getFullYear() - new Date(startDate).getFullYear() || 1))) - 1) * 100)
+    const totalReturn = ((finalValue - totalInvested) / totalInvested) * 100;
+    const annualizedReturn =
+      (Math.pow(
+        finalValue / totalInvested,
+        1 / (new Date(endDate).getFullYear() - new Date(startDate).getFullYear() || 1),
+      ) -
+        1) *
+      100;
     // Max Drawdown und Sharpe Ratio können später ergänzt werden
     setResult({
       initialValue: totalInvested,
@@ -224,11 +272,11 @@ export default function BacktestTool() {
       maxDrawdown: 0,
       sharpeRatio: 0,
       dividendsReinvested: reinvestDividends ? totalDividends : cashDividends,
-      totalShares
-    })
-    setPortfolioHistory(portfolioHistory)
-    setIsRunning(false)
-  }
+      totalShares,
+    });
+    setPortfolioHistory(portfolioHistory);
+    setIsRunning(false);
+  };
 
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23] flex flex-col">
@@ -240,11 +288,19 @@ export default function BacktestTool() {
           <div className="space-y-4 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Symbol</label>
-                <Input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="Enter ticker (e.g. AAPL)" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Symbol
+                </label>
+                <Input
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  placeholder="Enter ticker (e.g. AAPL)"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Initial Amount</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Initial Amount
+                </label>
                 <Input
                   type="number"
                   value={initialAmount}
@@ -253,7 +309,9 @@ export default function BacktestTool() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Monthly Amount</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Monthly Amount
+                </label>
                 <Input
                   type="number"
                   value={monthlyAmount}
@@ -263,17 +321,28 @@ export default function BacktestTool() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Start Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">End Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    End Date
+                  </label>
                   <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <label htmlFor="reinvest" className="flex items-center cursor-pointer select-none gap-3">
+              <label
+                htmlFor="reinvest"
+                className="flex items-center cursor-pointer select-none gap-3"
+              >
                 <span className="text-sm text-gray-700 dark:text-gray-300">Reinvest Dividends</span>
                 <span className="relative">
                   <input
@@ -321,80 +390,164 @@ export default function BacktestTool() {
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
                 <p className="text-xs text-gray-600 dark:text-gray-400">Total Investment</p>
-                <p className="font-semibold text-gray-900 dark:text-white">${result.initialValue.toLocaleString()}</p>
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  ${result.initialValue.toLocaleString()}
+                </p>
               </div>
               <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
                 <p className="text-xs text-gray-600 dark:text-gray-400">Final Value</p>
-                <p className="font-semibold text-gray-900 dark:text-white">${result.finalValue.toLocaleString()}</p>
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  ${result.finalValue.toLocaleString()}
+                </p>
               </div>
               <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
                 <p className="text-xs text-gray-600 dark:text-gray-400">Total Return</p>
-                <p className={`font-semibold ${result.totalReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>{result.totalReturn.toFixed(2)}%</p>
+                <p
+                  className={`font-semibold ${result.totalReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                >
+                  {result.totalReturn.toFixed(2)}%
+                </p>
               </div>
               <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
                 <p className="text-xs text-gray-600 dark:text-gray-400">Annualized Return</p>
-                <p className={`font-semibold ${result.annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>{result.annualizedReturn.toFixed(2)}%</p>
+                <p
+                  className={`font-semibold ${result.annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                >
+                  {result.annualizedReturn.toFixed(2)}%
+                </p>
               </div>
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                <p className="text-xs text-blue-600 dark:text-blue-400">Dividends {reinvestDividends ? "Reinvested" : "(Cash)"}</p>
-                <p className="font-semibold text-blue-700 dark:text-blue-300">${result.dividendsReinvested.toFixed(2)}</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  Dividends {reinvestDividends ? 'Reinvested' : '(Cash)'}
+                </p>
+                <p className="font-semibold text-blue-700 dark:text-blue-300">
+                  ${result.dividendsReinvested.toFixed(2)}
+                </p>
               </div>
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                 <p className="text-xs text-gray-600 dark:text-gray-400">Total Shares Held</p>
-                <p className="font-semibold text-gray-900 dark:text-white">{result.totalShares ? result.totalShares.toFixed(2) : "-"}</p>
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {result.totalShares ? result.totalShares.toFixed(2) : '-'}
+                </p>
               </div>
             </div>
-            {(portfolioHistory && portfolioHistory.length > 0) || (dividendHistory && dividendHistory.length > 0) ? (
+            {(portfolioHistory && portfolioHistory.length > 0) ||
+            (dividendHistory && dividendHistory.length > 0) ? (
               <div className="mt-6 flex flex-col md:flex-row gap-6 w-full">
-                {portfolioHistory && portfolioHistory.length > 0 && (() => {
-                  let chartColor = "#2563eb";
-                  if (portfolioHistory.length > 1) {
-                    const first = portfolioHistory[0].value;
-                    const last = portfolioHistory[portfolioHistory.length - 1].value;
-                    if (last > first) chartColor = "#16a34a";
-                    else if (last < first) chartColor = "#dc2626";
-                  }
-                  return (
-                    <div className="flex-1 min-w-0">
-                      <ChartContainer config={{ value: { label: "Portfolio Value", color: chartColor } }}>
-                        <ResponsiveContainer width="100%" height={60}>
-                          <AreaChart data={portfolioHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                            <defs>
-                              <linearGradient id="colorPortfolioValue" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={chartColor} stopOpacity={0.8}/>
-                                <stop offset="95%" stopColor={chartColor} stopOpacity={0}/>
-                              </linearGradient>
-                            </defs>
-                            <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#a1a1aa' }} minTickGap={30} />
-                            <YAxis tick={{ fontSize: 12, fill: '#a1a1aa' }} width={80} domain={["auto", "auto"]} tickFormatter={(v: number) => v >= 1_000_000 ? (v/1_000_000).toFixed(1)+'M' : v >= 1_000 ? (v/1_000).toFixed(1)+'K' : v.toLocaleString()} />
-                            <Tooltip
-                              content={({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
-                                if (!active || !payload || !payload.length) return null;
-                                return (
-                                  <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]" style={{ lineHeight: 1.2 }}>
-                                    <div className="mb-0.5" style={{ color: chartColor, fontSize: '11px' }}>{label}</div>
-                                    <div><span style={{ color: chartColor, fontSize: '11px' }}>Value:</span> ${payload[0]?.payload?.value?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                                  </div>
-                                );
-                              }}
-                            />
-                            <Area type="monotone" dataKey="value" stroke={chartColor} fillOpacity={1} fill="url(#colorPortfolioValue)" name="Portfolio Value" />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </ChartContainer>
-                    </div>
-                  );
-                })()}
+                {portfolioHistory &&
+                  portfolioHistory.length > 0 &&
+                  (() => {
+                    let chartColor = '#2563eb';
+                    if (portfolioHistory.length > 1) {
+                      const first = portfolioHistory[0].value;
+                      const last = portfolioHistory[portfolioHistory.length - 1].value;
+                      if (last > first) chartColor = '#16a34a';
+                      else if (last < first) chartColor = '#dc2626';
+                    }
+                    return (
+                      <div className="flex-1 min-w-0">
+                        <ChartContainer
+                          config={{ value: { label: 'Portfolio Value', color: chartColor } }}
+                        >
+                          <ResponsiveContainer width="100%" height={60}>
+                            <AreaChart
+                              data={portfolioHistory}
+                              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                            >
+                              <defs>
+                                <linearGradient
+                                  id="colorPortfolioValue"
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop offset="5%" stopColor={chartColor} stopOpacity={0.8} />
+                                  <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <XAxis
+                                dataKey="date"
+                                tick={{ fontSize: 12, fill: '#a1a1aa' }}
+                                minTickGap={30}
+                              />
+                              <YAxis
+                                tick={{ fontSize: 12, fill: '#a1a1aa' }}
+                                width={80}
+                                domain={['auto', 'auto']}
+                                tickFormatter={(v: number) =>
+                                  v >= 1_000_000
+                                    ? (v / 1_000_000).toFixed(1) + 'M'
+                                    : v >= 1_000
+                                      ? (v / 1_000).toFixed(1) + 'K'
+                                      : v.toLocaleString()
+                                }
+                              />
+                              <Tooltip
+                                content={({
+                                  active,
+                                  payload,
+                                  label,
+                                }: {
+                                  active?: boolean;
+                                  payload?: any[];
+                                  label?: string;
+                                }) => {
+                                  if (!active || !payload || !payload.length) return null;
+                                  return (
+                                    <div
+                                      className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]"
+                                      style={{ lineHeight: 1.2 }}
+                                    >
+                                      <div
+                                        className="mb-0.5"
+                                        style={{ color: chartColor, fontSize: '11px' }}
+                                      >
+                                        {label}
+                                      </div>
+                                      <div>
+                                        <span style={{ color: chartColor, fontSize: '11px' }}>
+                                          Value:
+                                        </span>{' '}
+                                        $
+                                        {payload[0]?.payload?.value?.toLocaleString(undefined, {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        })}
+                                      </div>
+                                    </div>
+                                  );
+                                }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="value"
+                                stroke={chartColor}
+                                fillOpacity={1}
+                                fill="url(#colorPortfolioValue)"
+                                name="Portfolio Value"
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </ChartContainer>
+                      </div>
+                    );
+                  })()}
                 {dividendHistory && dividendHistory.length > 0 && (
                   <div className="flex-1 min-w-0">
-                    <ChartContainer config={{ amount: { label: "Dividende", color: "#22c55e" } }}>
+                    <ChartContainer config={{ amount: { label: 'Dividende', color: '#22c55e' } }}>
                       <ResponsiveContainer width="100%" height={60}>
-                        <BarChart data={dividendHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <BarChart
+                          data={dividendHistory}
+                          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                        >
                           <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={30} />
-                          <YAxis tick={{ fontSize: 10 }} width={60} domain={[0, "auto"]} />
+                          <YAxis tick={{ fontSize: 10 }} width={60} domain={[0, 'auto']} />
                           <Tooltip
                             content={<ChartTooltipContent />}
-                            formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                            formatter={(value: number) =>
+                              `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                            }
                             labelFormatter={(label: string) => `Date: ${label}`}
                           />
                           <Bar dataKey="amount" fill="#22c55e" name="Dividende" />
@@ -421,5 +574,5 @@ export default function BacktestTool() {
         </div>
       )}
     </div>
-  )
+  );
 }

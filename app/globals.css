@@ -31,6 +31,7 @@ select {
 @tailwind components;
 @tailwind utilities;
 @import '../styles/blog.css';
+@import '../styles/enhanced-blog.css';
 
 @layer utilities {
   .text-balance {

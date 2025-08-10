@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
-import Layout from "@/components/exchangetime/layout";
-import Sidebar from "@/components/exchangetime/sidebar";
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from 'react';
+
+import Layout from '@/components/exchangetime/layout';
+import Sidebar from '@/components/exchangetime/sidebar';
 
 interface BlogLayoutProps {
   children: ReactNode;
@@ -17,7 +18,7 @@ export default function BlogLayout({ children }: BlogLayoutProps) {
   }, []);
 
   function showModule(module: string) {
-    setVisibleModules((prev) => prev.includes(module) ? prev : [...prev, module]);
+    setVisibleModules((prev) => (prev.includes(module) ? prev : [...prev, module]));
   }
 
   function hideModule(module: string) {
@@ -30,7 +31,9 @@ export default function BlogLayout({ children }: BlogLayoutProps) {
 
   return (
     <Layout
-      sidebar={<Sidebar visibleModules={visibleModules} showModule={showModule} hideModule={hideModule} />}
+      sidebar={
+        <Sidebar visibleModules={visibleModules} showModule={showModule} hideModule={hideModule} />
+      }
     >
       {children}
     </Layout>

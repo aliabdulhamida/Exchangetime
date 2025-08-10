@@ -1,5 +1,5 @@
-import React from "react";
-import { Sankey, Tooltip, ResponsiveContainer } from "recharts";
+import React from 'react';
+import { Sankey, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface SankeyNode {
   name: string;
