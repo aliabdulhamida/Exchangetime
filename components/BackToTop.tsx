@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState, RefObject, useCallback } from "react";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp } from 'lucide-react';
+import { useEffect, useState, RefObject, useCallback } from 'react';
 
 interface BackToTopProps {
   target?: RefObject<HTMLElement | null>;
@@ -11,7 +11,7 @@ interface BackToTopProps {
 function isScrollable(el: HTMLElement) {
   const style = window.getComputedStyle(el);
   const oy = style.overflowY;
-  return oy === "auto" || oy === "scroll";
+  return oy === 'auto' || oy === 'scroll';
 }
 
 function getScrollableParent(el: HTMLElement | null): HTMLElement | Window {
@@ -33,7 +33,7 @@ export default function BackToTop({ target, threshold = 300 }: BackToTopProps) {
 
     const getScrollTop = (c: HTMLElement | Window) =>
       c === window
-        ? (window.pageYOffset || document.documentElement.scrollTop || 0)
+        ? window.pageYOffset || document.documentElement.scrollTop || 0
         : (c as HTMLElement).scrollTop;
 
     const getClientHeight = (c: HTMLElement | Window) =>
@@ -41,10 +41,7 @@ export default function BackToTop({ target, threshold = 300 }: BackToTopProps) {
 
     const getScrollHeight = (c: HTMLElement | Window) =>
       c === window
-        ? Math.max(
-            document.documentElement.scrollHeight,
-            document.body.scrollHeight
-          )
+        ? Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)
         : (c as HTMLElement).scrollHeight;
 
     const scrollTop = getScrollTop(container);
@@ -53,9 +50,10 @@ export default function BackToTop({ target, threshold = 300 }: BackToTopProps) {
     let p = 0;
 
     if (article) {
-      const containerRect = container === window ? { top: 0 } : (container as HTMLElement).getBoundingClientRect();
+      const containerRect =
+        container === window ? { top: 0 } : (container as HTMLElement).getBoundingClientRect();
       const articleRect = article.getBoundingClientRect();
-      const articleTop = (articleRect.top - (containerRect as DOMRect).top) + scrollTop;
+      const articleTop = articleRect.top - (containerRect as DOMRect).top + scrollTop;
       const articleHeight = article.scrollHeight || article.offsetHeight;
       const maxScrollable = Math.max(articleHeight - clientH, 1);
       const scrolled = Math.min(Math.max(scrollTop - articleTop, 0), maxScrollable);
@@ -77,18 +75,18 @@ export default function BackToTop({ target, threshold = 300 }: BackToTopProps) {
 
     const handler = () => onScroll();
     if (container === window) {
-      window.addEventListener("scroll", handler, { passive: true });
-      window.addEventListener("resize", handler);
+      window.addEventListener('scroll', handler, { passive: true });
+      window.addEventListener('resize', handler);
       return () => {
-        window.removeEventListener("scroll", handler);
-        window.removeEventListener("resize", handler);
+        window.removeEventListener('scroll', handler);
+        window.removeEventListener('resize', handler);
       };
     } else {
-      (container as HTMLElement).addEventListener("scroll", handler, { passive: true });
-      window.addEventListener("resize", handler);
+      (container as HTMLElement).addEventListener('scroll', handler, { passive: true });
+      window.addEventListener('resize', handler);
       return () => {
-        (container as HTMLElement).removeEventListener("scroll", handler);
-        window.removeEventListener("resize", handler);
+        (container as HTMLElement).removeEventListener('scroll', handler);
+        window.removeEventListener('resize', handler);
       };
     }
   }, [target, onScroll]);
@@ -103,14 +101,14 @@ export default function BackToTop({ target, threshold = 300 }: BackToTopProps) {
     <button
       aria-label="Back to top"
       title="Back to top"
-      className={`back-to-top ${visible ? "back-to-top--visible" : ""}`}
+      className={`back-to-top ${visible ? 'back-to-top--visible' : ''}`}
       onClick={() => {
         const article = target?.current ?? null;
         const container = getScrollableParent(article);
         if (container === window) {
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
-          (container as HTMLElement).scrollTo({ top: 0, behavior: "smooth" });
+          (container as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
         }
       }}
     >

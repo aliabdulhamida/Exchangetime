@@ -1,5 +1,3 @@
-
-
 // TradingViewWidget.jsx
 
 import React, { useEffect, useRef, memo } from 'react';
@@ -10,10 +8,11 @@ function TradingViewWidget() {
   useEffect(() => {
     if (!container.current) return;
     // Container leeren, um doppeltes Widget zu verhindern
-    container.current.innerHTML = '<div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>';
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.type = "text/javascript";
+    container.current.innerHTML =
+      '<div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>';
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.type = 'text/javascript';
     script.async = true;
     script.innerHTML = `
         {
@@ -47,8 +46,15 @@ function TradingViewWidget() {
   }, []);
 
   return (
-    <div className="tradingview-widget-container" ref={container} style={{ height: "100%", width: "100%" }}>
-      <div className="tradingview-widget-container__widget" style={{ height: "calc(100% - 32px)", width: "100%" }}></div>
+    <div
+      className="tradingview-widget-container"
+      ref={container}
+      style={{ height: '100%', width: '100%' }}
+    >
+      <div
+        className="tradingview-widget-container__widget"
+        style={{ height: 'calc(100% - 32px)', width: '100%' }}
+      ></div>
     </div>
   );
 }

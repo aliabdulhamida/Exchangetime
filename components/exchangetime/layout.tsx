@@ -1,11 +1,12 @@
-"use client"
+'use client';
 
-import type { ReactNode } from "react"
-import Sidebar from "./sidebar"
-import TopNav from "./top-nav"
-import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
-import DownloadAppOverlay from "@/components/DownloadAppOverlay"
+import { useTheme } from 'next-themes';
+import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+
+import DownloadAppOverlay from '@/components/DownloadAppOverlay';
+
+import TopNav from './top-nav';
 
 interface LayoutProps {
   children: ReactNode;
@@ -27,7 +28,7 @@ export default function Layout({ children, sidebar }: LayoutProps) {
   return (
     <>
       <DownloadAppOverlay />
-      <div className={`flex h-screen ${theme === "dark" ? "dark" : ""}`}> 
+      <div className={`flex h-screen ${theme === 'dark' ? 'dark' : ''}`}>
         {sidebar}
         <div className="w-full flex flex-1 flex-col">
           {/* Sticky/fixed Header */}
@@ -35,7 +36,9 @@ export default function Layout({ children, sidebar }: LayoutProps) {
             <TopNav />
           </header>
           {/* Kein Padding-Top mehr, damit Content ganz oben steht */}
-          <main className="flex-1 overflow-auto p-6 bg-white dark:bg-[#0F0F12] mt-16">{children}</main>
+          <main className="flex-1 overflow-auto p-6 bg-white dark:bg-[#0F0F12] mt-16">
+            {children}
+          </main>
         </div>
       </div>
     </>

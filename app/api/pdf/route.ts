@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import puppeteer from "puppeteer";
+import { NextRequest, NextResponse } from 'next/server';
 
 // Contract:
 // GET /api/pdf?url=<absolute_url>
@@ -16,9 +15,14 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Missing or invalid url', { status: 400 });
     }
 
+    // Lazy-load puppeteer to avoid issues during Next.js build time
+    const puppeteerMod: any = await import('puppeteer');
+    const launch = puppeteerMod.launch ?? puppeteerMod.default?.launch;
+    const getExecutablePath = puppeteerMod.executablePath ?? puppeteerMod.default?.executablePath;
+
     const tryPaths = [
       process.env.PUPPETEER_EXECUTABLE_PATH,
-      (puppeteer as any).executablePath ? (puppeteer as any).executablePath() : undefined,
+      typeof getExecutablePath === 'function' ? getExecutablePath() : undefined,
       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       '/Applications/Chromium.app/Contents/MacOS/Chromium',
       '/usr/bin/google-chrome',
@@ -30,12 +34,8 @@ export async function GET(req: NextRequest) {
     // Try explicit executable paths first
     for (const p of tryPaths) {
       try {
-        browser = await puppeteer.launch({
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-          ],
+        browser = await launch({
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
           headless: true,
           executablePath: p,
         });
@@ -48,12 +48,8 @@ export async function GET(req: NextRequest) {
     // Fallback: use installed Chrome channel if available
     if (!browser) {
       try {
-        browser = await puppeteer.launch({
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-          ],
+        browser = await launch({
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
           headless: true,
           channel: 'chrome',
         } as any);
@@ -68,22 +64,24 @@ export async function GET(req: NextRequest) {
         process.env.NODE_ENV !== 'production'
           ? `Failed to launch Chrome for PDF. Install Google Chrome or set PUPPETEER_EXECUTABLE_PATH. Error: ${String(lastError)}`
           : 'Failed to generate PDF',
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     const page = await browser.newPage();
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  // give the page a short moment to settle for client-side rendered parts
-  await new Promise((r) => setTimeout(r, 500));
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // give the page a short moment to settle for client-side rendered parts
+    await new Promise((r) => setTimeout(r, 500));
 
     // Prefer printing only the article area if present
     // Ensure print CSS
-    await page.addStyleTag({ content: `
+    await page.addStyleTag({
+      content: `
       @page { size: A4; margin: 10mm; }
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       .no-print, .reading-progress-container, .back-to-top { display: none !important; }
-    `});
+    `,
+    });
 
     // Try to focus article
     const hasArticle = await page.$('article');
@@ -100,23 +98,31 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const pdf = await page.pdf({
+    const pdf = (await page.pdf({
       format: 'A4',
       printBackground: true,
       margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
-    });
+    })) as unknown as Uint8Array | Buffer | ArrayBuffer;
 
     await browser.close();
-  return new NextResponse(Buffer.from(pdf), {
+    if (!pdf) {
+      throw new Error('Failed to generate PDF (empty result)');
+    }
+    // NextResponse accepts Uint8Array/Buffer directly
+    const body: any = pdf instanceof ArrayBuffer ? new Uint8Array(pdf) : (pdf as any);
+    return new NextResponse(body, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="article.pdf"'
-      }
+        'Content-Disposition': 'attachment; filename="article.pdf"',
+      },
     });
   } catch (e: any) {
-  console.error('PDF API error', e);
-  const message = process.env.NODE_ENV !== 'production' && e ? String(e?.message || e) : 'Failed to generate PDF';
-  return new NextResponse(message, { status: 500 });
+    console.error('PDF API error', e);
+    const message =
+      process.env.NODE_ENV !== 'production' && e
+        ? String(e?.message || e)
+        : 'Failed to generate PDF';
+    return new NextResponse(message, { status: 500 });
   }
 }

@@ -1,7 +1,4 @@
-
 import React, { useEffect, useRef, memo } from 'react';
-
-
 
 function TradingviewEcCalendar() {
   const container = useRef();
@@ -14,7 +11,7 @@ function TradingviewEcCalendar() {
     if (window.matchMedia('(max-width: 600px)').matches) {
       // Breitenberechnung für mobile Geräte verbessern
       // 48px Abstand für Sicherheit (24px auf jeder Seite)
-      width = window.innerWidth - 48; 
+      width = window.innerWidth - 48;
       width = Math.min(width, 320); // Begrenze maximale Breite auf 320px
       height = 420;
     } else if (window.matchMedia('(max-width: 900px)').matches) {
@@ -22,9 +19,9 @@ function TradingviewEcCalendar() {
       height = 480;
     }
     container.current.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
-    script.type = "text/javascript";
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-events.js';
+    script.type = 'text/javascript';
     script.async = true;
     script.innerHTML = `
       {

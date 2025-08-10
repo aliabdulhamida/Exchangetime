@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
-import { blogPosts, allCategories } from "@/components/blog-components";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+
+import { blogPosts, allCategories } from '@/components/blog-components';
 
 export default function BlogSidebar() {
   // Sortiere Beiträge nach Datum (neueste zuerst)
@@ -16,9 +17,9 @@ export default function BlogSidebar() {
       <div className="mb-8">
         <h3 className="text-lg font-semibold mb-4">Neueste Artikel</h3>
         <div className="space-y-4">
-          {latestPosts.map(post => (
-            <Link 
-              key={post.id} 
+          {latestPosts.map((post) => (
+            <Link
+              key={post.id}
               href={`/blog/${post.slug}`}
               className="flex flex-col space-y-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
@@ -33,14 +34,12 @@ export default function BlogSidebar() {
       <div>
         <h3 className="text-lg font-semibold mb-4">Kategorien</h3>
         <div className="flex flex-wrap gap-2">
-          {allCategories.map(category => {
+          {allCategories.map((category) => {
             // Zähle Beiträge pro Kategorie
-            const count = blogPosts.filter(post => 
-              post.categories.includes(category)
-            ).length;
-            
+            const count = blogPosts.filter((post) => post.categories.includes(category)).length;
+
             return (
-              <Link 
+              <Link
                 key={category}
                 href={`/blog?category=${encodeURIComponent(category)}`}
                 className="px-3 py-1 text-sm rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -51,7 +50,7 @@ export default function BlogSidebar() {
           })}
         </div>
       </div>
-      
+
       {/* Newsletter-Anmeldung */}
       <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
         <h3 className="text-lg font-semibold mb-2">Newsletter abonnieren</h3>
@@ -59,14 +58,12 @@ export default function BlogSidebar() {
           Erhalten Sie die neuesten Marktanalysen und Finanztrends direkt in Ihr Postfach.
         </p>
         <div className="space-y-2">
-          <input 
-            type="email" 
-            placeholder="Ihre E-Mail-Adresse" 
+          <input
+            type="email"
+            placeholder="Ihre E-Mail-Adresse"
             className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
           />
-          <button 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center justify-center"
-          >
+          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center justify-center">
             Abonnieren <ArrowRight className="ml-2 h-4 w-4" />
           </button>
         </div>

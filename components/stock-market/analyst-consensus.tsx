@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 type ConsensusData = {
   analystRecommendation: string;
@@ -10,7 +11,7 @@ type ConsensusData = {
 };
 
 export default function AnalystConsensus() {
-  const [symbol, setSymbol] = useState("");
+  const [symbol, setSymbol] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [consensus, setConsensus] = useState<ConsensusData | null>(null);
@@ -61,19 +62,33 @@ export default function AnalystConsensus() {
         <Input
           placeholder="Enter stock symbol (e.g., AAPL)"
           value={symbol}
-          onChange={e => setSymbol(e.target.value)}
+          onChange={(e) => setSymbol(e.target.value)}
           className="flex-1"
         />
         <Button onClick={fetchConsensus} disabled={loading}>
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
         </Button>
       </div>
       {loading && <div className="text-gray-500 dark:text-gray-400">Loading...</div>}
       {error && <div className="text-red-500 dark:text-red-400">{error}</div>}
       {consensus && (
         <div className="space-y-2 mt-2">
-          <div><span className="font-semibold">Analyst Consensus:</span> {consensus.analystRecommendation}</div>
-          <div><span className="font-semibold">Price Target:</span> {consensus.targetPrice}</div>
+          <div>
+            <span className="font-semibold">Analyst Consensus:</span>{' '}
+            {consensus.analystRecommendation}
+          </div>
+          <div>
+            <span className="font-semibold">Price Target:</span> {consensus.targetPrice}
+          </div>
         </div>
       )}
     </div>

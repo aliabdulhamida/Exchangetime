@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { ArrowUp, Download } from "lucide-react";
+import { ArrowUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface ReadingProgressProps {
   target: React.RefObject<HTMLElement | null>;
@@ -10,53 +10,49 @@ interface ReadingProgressProps {
 export default function BlogEnhancements({ target }: ReadingProgressProps) {
   const [readingProgress, setReadingProgress] = useState(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  
+
   // Reading progress
   useEffect(() => {
     const article = target.current;
-    
+
     const scrollListener = () => {
       if (!article) return;
-      
+
       // Calculate reading progress
       const totalHeight = article.clientHeight;
       const windowHeight = window.innerHeight;
       const scrollTop = window.scrollY;
-      
+
       // How much can be scrolled (total height - window height)
       const scrollable = totalHeight - windowHeight;
-      
+
       // Progress as a percentage
       const progress = scrollable > 0 ? (scrollTop / scrollable) * 100 : 0;
       setReadingProgress(progress);
-      
+
       // Show scroll to top button when user has scrolled down a bit
       setShowScrollTop(scrollTop > 500);
     };
-    
+
     // Add scroll event listener
-    window.addEventListener("scroll", scrollListener);
-    
+    window.addEventListener('scroll', scrollListener);
+
     return () => {
-      window.removeEventListener("scroll", scrollListener);
+      window.removeEventListener('scroll', scrollListener);
     };
   }, [target]);
-  
+
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  
   return (
     <>
       {/* Reading progress bar */}
       <div className="reading-progress-container">
-        <div 
-          className="reading-progress-bar" 
-          style={{ width: `${readingProgress}%` }}
-        />
+        <div className="reading-progress-bar" style={{ width: `${readingProgress}%` }} />
       </div>
-      
+
       {/* Scroll to top button */}
       {showScrollTop && (
         <button

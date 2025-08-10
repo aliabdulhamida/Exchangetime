@@ -1,27 +1,27 @@
-"use client";
+'use client';
 
-import React from "react"
-import { Newspaper, TrendingUp, TrendingDown, ChevronDown, ChevronUp } from "lucide-react"
+import { TrendingUp, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface MarketNews {
-  title: string
-  summary: string
-  impact: "positive" | "negative" | "neutral"
-  time: string
+  title: string;
+  summary: string;
+  impact: 'positive' | 'negative' | 'neutral';
+  time: string;
 }
 
 export default function MarketSummary() {
-  const [expanded, setExpanded] = React.useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   // Dynamische Marktwerte für die letzte abgeschlossene Woche (Mo–Fr)
-  const [marketStats, setMarketStats] = React.useState({
-    sp500: { value: "—", change: "—", positive: true },
-    nasdaq: { value: "—", change: "—", positive: true },
-    dow: { value: "—", change: "—", positive: true },
-    vix: { value: "—", change: "—", positive: false },
+  const [marketStats, setMarketStats] = useState({
+    sp500: { value: '—', change: '—', positive: true },
+    nasdaq: { value: '—', change: '—', positive: true },
+    dow: { value: '—', change: '—', positive: true },
+    vix: { value: '—', change: '—', positive: false },
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     function getLastCompletedWeek() {
       const today = new Date();
       const end = new Date(today);
@@ -44,25 +44,30 @@ export default function MarketSummary() {
       const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d&includePrePost=false`;
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error("Fetch failed");
+        if (!res.ok) throw new Error('Fetch failed');
         const json: any = await res.json();
         const result = json?.chart?.result?.[0];
         const ts: number[] = result?.timestamp || [];
         const closes: number[] = result?.indicators?.quote?.[0]?.close || [];
-        const points = (ts || []).map((t, i) => ({ date: new Date(t * 1000), close: closes[i] })).filter(p => typeof p.close === 'number' && !isNaN(p.close));
+        const points = (ts || [])
+          .map((t, i) => ({ date: new Date(t * 1000), close: closes[i] }))
+          .filter((p) => typeof p.close === 'number' && !isNaN(p.close));
         // Filter auf Wochenbereich
         const { start: s, end: e } = getLastCompletedWeek();
-        const inWeek = points.filter(p => p.date >= s && p.date <= e);
-        if (inWeek.length < 2) return { value: "—", change: "—", positive: !invertPositive };
+        const inWeek = points.filter((p) => p.date >= s && p.date <= e);
+        if (inWeek.length < 2) return { value: '—', change: '—', positive: !invertPositive };
         const first = inWeek[0].close;
         const last = inWeek[inWeek.length - 1].close;
         const changePct = first ? ((last - first) / first) * 100 : 0;
-        const valueStr = typeof last === 'number' ? last.toLocaleString('en-US', { maximumFractionDigits: 2 }) : "—";
-        const changeStr = `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`;
+        const valueStr =
+          typeof last === 'number'
+            ? last.toLocaleString('en-US', { maximumFractionDigits: 2 })
+            : '—';
+        const changeStr = `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`;
         const positive = invertPositive ? changePct < 0 : changePct >= 0;
         return { value: valueStr, change: changeStr, positive };
       } catch (e) {
-        return { value: "—", change: "—", positive: !invertPositive };
+        return { value: '—', change: '—', positive: !invertPositive };
       }
     }
 
@@ -84,31 +89,30 @@ export default function MarketSummary() {
 
   const weeklyNews: MarketNews[] = [
     {
-      title: "Wall Street ended a choppy week with mega caps masking weak breadth",
+      title: 'Wall Street ended a choppy week with mega caps masking weak breadth',
       summary:
-        "Large-cap tech and defensives underpinned the indexes while small caps remained more volatile amid policy headlines.",
-      impact: "neutral",
-      time: "Yesterday",
+        'Large-cap tech and defensives underpinned the indexes while small caps remained more volatile amid policy headlines.',
+      impact: 'neutral',
+      time: 'Yesterday',
     },
     {
-      title: "Gold set a record as hedging demand rose; Treasury yields edged higher",
+      title: 'Gold set a record as hedging demand rose; Treasury yields edged higher',
       summary:
-        "A firmer dollar and higher real rates pressured some growth pockets while gold benefitted from risk hedging.",
-      impact: "neutral",
-      time: "This week",
+        'A firmer dollar and higher real rates pressured some growth pockets while gold benefitted from risk hedging.',
+      impact: 'neutral',
+      time: 'This week',
     },
     {
-      title: "Tariff rhetoric and a Fed board nomination steered intraday swings",
+      title: 'Tariff rhetoric and a Fed board nomination steered intraday swings',
       summary:
-        "Traders positioned ahead of next week’s U.S. inflation data; September cut odds remain in focus.",
-      impact: "neutral",
-      time: "This week",
+        'Traders positioned ahead of next week’s U.S. inflation data; September cut odds remain in focus.',
+      impact: 'neutral',
+      time: 'This week',
     },
-  ]
+  ];
 
   return (
     <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23]">
-
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
         Weekly Market Summary: Aug 04–08, 2025
       </h2>
@@ -124,7 +128,13 @@ export default function MarketSummary() {
             ) : (
               <TrendingDown className="w-3 h-3 text-red-500" />
             )}
-            <span className={marketStats.sp500.positive ? "text-xs text-green-600" : "text-xs text-red-600"}>{marketStats.sp500.change}</span>
+            <span
+              className={
+                marketStats.sp500.positive ? 'text-xs text-green-600' : 'text-xs text-red-600'
+              }
+            >
+              {marketStats.sp500.change}
+            </span>
           </div>
         </div>
         {/* NASDAQ */}
@@ -137,7 +147,13 @@ export default function MarketSummary() {
             ) : (
               <TrendingDown className="w-3 h-3 text-red-500" />
             )}
-            <span className={marketStats.nasdaq.positive ? "text-xs text-green-600" : "text-xs text-red-600"}>{marketStats.nasdaq.change}</span>
+            <span
+              className={
+                marketStats.nasdaq.positive ? 'text-xs text-green-600' : 'text-xs text-red-600'
+              }
+            >
+              {marketStats.nasdaq.change}
+            </span>
           </div>
         </div>
         {/* Dow Jones */}
@@ -150,7 +166,13 @@ export default function MarketSummary() {
             ) : (
               <TrendingDown className="w-3 h-3 text-red-500" />
             )}
-            <span className={marketStats.dow.positive ? "text-xs text-green-600" : "text-xs text-red-600"}>{marketStats.dow.change}</span>
+            <span
+              className={
+                marketStats.dow.positive ? 'text-xs text-green-600' : 'text-xs text-red-600'
+              }
+            >
+              {marketStats.dow.change}
+            </span>
           </div>
         </div>
         {/* VIX */}
@@ -164,7 +186,13 @@ export default function MarketSummary() {
             ) : (
               <TrendingUp className="w-3 h-3 text-red-500" />
             )}
-            <span className={marketStats.vix.positive ? "text-xs text-green-600" : "text-xs text-red-600"}>{marketStats.vix.change}</span>
+            <span
+              className={
+                marketStats.vix.positive ? 'text-xs text-green-600' : 'text-xs text-red-600'
+              }
+            >
+              {marketStats.vix.change}
+            </span>
           </div>
         </div>
       </div>
@@ -178,63 +206,119 @@ export default function MarketSummary() {
             {expanded ? (
               <>
                 <div>
-                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets: Week of Aug 04–08, 2025</span>
+                  <span className="font-semibold text-blue-700 dark:text-blue-400">
+                    U.S. Markets: Week of Aug 04–08, 2025
+                  </span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Choppy tape with narrower breadth: mega caps and defensives steadied the indexes while small caps lagged and intraday swings stayed elevated.</li>
-                    <li>Rates and policy: Treasury yields drifted higher; tariff headlines and a potential Fed board nomination shaped risk appetite ahead of next week’s CPI/PPI.</li>
-                    <li>Positioning: investors rotated selectively within tech; AI/chips were volatile, software mixed; healthcare posted idiosyncratic winners.</li>
+                    <li>
+                      Choppy tape with narrower breadth: mega caps and defensives steadied the
+                      indexes while small caps lagged and intraday swings stayed elevated.
+                    </li>
+                    <li>
+                      Rates and policy: Treasury yields drifted higher; tariff headlines and a
+                      potential Fed board nomination shaped risk appetite ahead of next week’s
+                      CPI/PPI.
+                    </li>
+                    <li>
+                      Positioning: investors rotated selectively within tech; AI/chips were
+                      volatile, software mixed; healthcare posted idiosyncratic winners.
+                    </li>
                   </ul>
                 </div>
                 <div>
                   <span className="font-semibold">Market internals & factors</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Quality/defensive tilt outperformed on rate sensitivity; momentum was choppy; value held up in energy and parts of financials.</li>
-                    <li>Liquidity concentrated in large platforms; equal‑weight benchmarks underperformed their cap‑weighted peers.</li>
+                    <li>
+                      Quality/defensive tilt outperformed on rate sensitivity; momentum was choppy;
+                      value held up in energy and parts of financials.
+                    </li>
+                    <li>
+                      Liquidity concentrated in large platforms; equal‑weight benchmarks
+                      underperformed their cap‑weighted peers.
+                    </li>
                   </ul>
                 </div>
                 <div>
                   <span className="font-semibold">Earnings & single‑name moves</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Adtech and internet saw outsized post‑earnings reactions on guidance revisions.</li>
-                    <li>Semiconductors traded on AI/server demand signals and tariff chatter; pharma names diverged on trial/launch updates.</li>
+                    <li>
+                      Adtech and internet saw outsized post‑earnings reactions on guidance
+                      revisions.
+                    </li>
+                    <li>
+                      Semiconductors traded on AI/server demand signals and tariff chatter; pharma
+                      names diverged on trial/launch updates.
+                    </li>
                   </ul>
                 </div>
                 <hr className="my-4 border-gray-200 dark:border-gray-700" />
                 <div>
-                  <span className="font-semibold text-green-700 dark:text-green-400">Commodities, FX & credit</span>
+                  <span className="font-semibold text-green-700 dark:text-green-400">
+                    Commodities, FX & credit
+                  </span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Gold printed a fresh record on hedging demand; crude firmness supported energy sentiment.</li>
-                    <li>Dollar stayed bid at times on rate differentials; U.S. credit spreads were broadly stable to slightly wider in high yield.</li>
+                    <li>
+                      Gold printed a fresh record on hedging demand; crude firmness supported energy
+                      sentiment.
+                    </li>
+                    <li>
+                      Dollar stayed bid at times on rate differentials; U.S. credit spreads were
+                      broadly stable to slightly wider in high yield.
+                    </li>
                   </ul>
                 </div>
                 <hr className="my-4 border-gray-200 dark:border-gray-700" />
                 <div>
                   <span className="font-semibold">Global snapshot</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Europe traded mildly higher as investors weighed geopolitical de‑escalation signals and trade headlines.</li>
-                    <li>Asia was mixed to softer; chip complexes were sensitive to prospective U.S. tariff measures. Saudi Aramco flagged lower Q2 revenue ahead of an expected H2 demand pickup.</li>
+                    <li>
+                      Europe traded mildly higher as investors weighed geopolitical de‑escalation
+                      signals and trade headlines.
+                    </li>
+                    <li>
+                      Asia was mixed to softer; chip complexes were sensitive to prospective U.S.
+                      tariff measures. Saudi Aramco flagged lower Q2 revenue ahead of an expected H2
+                      demand pickup.
+                    </li>
                   </ul>
                 </div>
-                <button className="mt-4 px-4 py-2 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center" onClick={() => setExpanded(false)} aria-label="Read less">
+                <button
+                  className="mt-4 px-4 py-2 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center"
+                  onClick={() => setExpanded(false)}
+                  aria-label="Read less"
+                >
                   <ChevronUp className="w-5 h-5" />
                 </button>
               </>
             ) : (
               <>
                 <div>
-                  <span className="font-semibold text-blue-700 dark:text-blue-400">U.S. Markets: Week of Aug 04–08, 2025</span>
+                  <span className="font-semibold text-blue-700 dark:text-blue-400">
+                    U.S. Markets: Week of Aug 04–08, 2025
+                  </span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Narrower breadth with large caps masking small‑cap volatility; policy headlines kept intraday moves lively.</li>
-                    <li>Yields up modestly; gold at record; eyes on next week’s inflation prints.</li>
+                    <li>
+                      Narrower breadth with large caps masking small‑cap volatility; policy
+                      headlines kept intraday moves lively.
+                    </li>
+                    <li>
+                      Yields up modestly; gold at record; eyes on next week’s inflation prints.
+                    </li>
                   </ul>
                 </div>
                 <div>
                   <span className="font-semibold">Global</span>
                   <ul className="list-disc ml-7 mt-2 text-gray-700 dark:text-gray-300">
-                    <li>Europe mildly firmer; Asia mixed with chip stocks sensitive to tariff talk.</li>
+                    <li>
+                      Europe mildly firmer; Asia mixed with chip stocks sensitive to tariff talk.
+                    </li>
                   </ul>
                 </div>
-                <button className="mt-4 px-4 py-2 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center" onClick={() => setExpanded(true)} aria-label="Read more">
+                <button
+                  className="mt-4 px-4 py-2 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center"
+                  onClick={() => setExpanded(true)}
+                  aria-label="Read more"
+                >
                   <ChevronDown className="w-5 h-5" />
                 </button>
               </>
@@ -243,5 +327,5 @@ export default function MarketSummary() {
         </section>
       </div>
     </div>
-  )
+  );
 }
