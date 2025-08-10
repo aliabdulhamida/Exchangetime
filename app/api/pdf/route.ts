@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+// Allow more time on serverless (where supported)
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,44 +17,74 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Missing or invalid url', { status: 400 });
     }
 
-    // Lazy-load puppeteer to avoid issues during Next.js build time
-    const puppeteerMod: any = await import('puppeteer');
-    const launch = puppeteerMod.launch ?? puppeteerMod.default?.launch;
-    const getExecutablePath = puppeteerMod.executablePath ?? puppeteerMod.default?.executablePath;
+    // Decide environment: production serverless vs local/dev
+    const isProd = process.env.NODE_ENV === 'production';
 
-    const tryPaths = [
-      process.env.PUPPETEER_EXECUTABLE_PATH,
-      typeof getExecutablePath === 'function' ? getExecutablePath() : undefined,
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      '/Applications/Chromium.app/Contents/MacOS/Chromium',
-      '/usr/bin/google-chrome',
-      '/usr/bin/chromium-browser',
-    ].filter(Boolean) as string[];
-
-    let browser;
+    // We'll try a production-safe Chromium first when in prod (e.g., Vercel serverless)
+    // using @sparticuz/chromium with puppeteer-core. Fallback to full puppeteer locally.
+    let browser: any = null;
     let lastError: any = null;
-    // Try explicit executable paths first
-    for (const p of tryPaths) {
+
+    if (isProd) {
       try {
-        browser = await launch({
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        const chromium: any = await import('@sparticuz/chromium');
+        const puppeteerCore: any = await import('puppeteer-core');
+        // Ensure headless mode
+        if (typeof chromium.setHeadlessMode === 'function') chromium.setHeadlessMode = true as any;
+        const executablePath = await (chromium.executablePath?.() ?? chromium.executablePath);
+        browser = await puppeteerCore.launch({
+          args: chromium.args,
+          defaultViewport: chromium.defaultViewport,
+          executablePath,
           headless: true,
-          executablePath: p,
         });
-        break;
       } catch (e) {
         lastError = e;
       }
     }
 
-    // Fallback: use installed Chrome channel if available
+    // Dev or fallback: try full puppeteer with common executable paths
     if (!browser) {
       try {
-        browser = await launch({
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-          headless: true,
-          channel: 'chrome',
-        } as any);
+        const puppeteerMod: any = await import('puppeteer');
+        const launch = puppeteerMod.launch ?? puppeteerMod.default?.launch;
+        const getExecutablePath =
+          puppeteerMod.executablePath ?? puppeteerMod.default?.executablePath;
+
+        const tryPaths = [
+          process.env.PUPPETEER_EXECUTABLE_PATH,
+          typeof getExecutablePath === 'function' ? getExecutablePath() : undefined,
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+          '/Applications/Chromium.app/Contents/MacOS/Chromium',
+          '/usr/bin/google-chrome',
+          '/usr/bin/chromium-browser',
+        ].filter(Boolean) as string[];
+
+        for (const p of tryPaths) {
+          try {
+            browser = await launch({
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+              headless: true,
+              executablePath: p,
+            });
+            break;
+          } catch (e) {
+            lastError = e;
+          }
+        }
+
+        // Fallback: use installed Chrome channel if available
+        if (!browser) {
+          try {
+            browser = await launch({
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+              headless: true,
+              channel: 'chrome',
+            } as any);
+          } catch (e) {
+            lastError = e;
+          }
+        }
       } catch (e) {
         lastError = e;
       }
@@ -61,9 +93,9 @@ export async function GET(req: NextRequest) {
     if (!browser) {
       console.error('Failed to launch browser', lastError);
       return new NextResponse(
-        process.env.NODE_ENV !== 'production'
-          ? `Failed to launch Chrome for PDF. Install Google Chrome or set PUPPETEER_EXECUTABLE_PATH. Error: ${String(lastError)}`
-          : 'Failed to generate PDF',
+        isProd
+          ? 'Failed to generate PDF'
+          : `Failed to launch Chrome for PDF. Install Google Chrome or set PUPPETEER_EXECUTABLE_PATH. Error: ${String(lastError)}`,
         { status: 500 },
       );
     }
