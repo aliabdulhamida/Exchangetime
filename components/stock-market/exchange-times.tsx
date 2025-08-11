@@ -4,11 +4,18 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
-import { Heart } from 'lucide-react';
+import { Heart, ExternalLink } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 
-import marketHours from '@/lib/exchangeinfo.js';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import marketHours, { exchangeInfo } from '@/lib/exchangeinfo.js';
 
 type Exchange = {
   name: string;
@@ -28,6 +35,8 @@ export default function ExchangeTimes() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string>('All');
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoExchange, setInfoExchange] = useState<string | null>(null);
   // Mapping marketHours to Exchange[]
 
   function getExchangesFromMarketHours(): Exchange[] {
@@ -309,7 +318,18 @@ export default function ExchangeTimes() {
                     </div>
                     <div className="h-5" />
                     <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
-                      {exchange.name}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInfoExchange(exchange.name);
+                          setInfoOpen(true);
+                        }}
+                        className="underline decoration-dotted underline-offset-4 hover:decoration-solid focus:outline-none"
+                        aria-label={`More info about ${exchange.name}`}
+                      >
+                        {exchange.name}
+                      </button>
                     </div>
                     <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
                       Open:{' '}
@@ -405,7 +425,18 @@ export default function ExchangeTimes() {
                   </div>
                   <div className="h-5" />
                   <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
-                    {exchange.name}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setInfoExchange(exchange.name);
+                        setInfoOpen(true);
+                      }}
+                      className="underline decoration-dotted underline-offset-4 hover:decoration-solid focus:outline-none"
+                      aria-label={`More info about ${exchange.name}`}
+                    >
+                      {exchange.name}
+                    </button>
                   </div>
                   <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
                     Open:{' '}
@@ -526,7 +557,18 @@ export default function ExchangeTimes() {
                 </div>
                 <div className="h-5" />
                 <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
-                  {exchange.name}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setInfoExchange(exchange.name);
+                      setInfoOpen(true);
+                    }}
+                    className="underline decoration-dotted underline-offset-4 hover:decoration-solid focus:outline-none"
+                    aria-label={`More info about ${exchange.name}`}
+                  >
+                    {exchange.name}
+                  </button>
                 </div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
                   Open:{' '}
@@ -559,6 +601,149 @@ export default function ExchangeTimes() {
           })}
         </div>
       </div>
+      {/* Info Modal */}
+      <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {(infoExchange && (exchangeInfo as any)[infoExchange]?.name) || infoExchange}
+            </DialogTitle>
+            <DialogDescription>
+              {(infoExchange && (exchangeInfo as any)[infoExchange]?.location) || ''}
+            </DialogDescription>
+          </DialogHeader>
+          {infoExchange ? (
+            <div className="space-y-3 text-sm leading-6">
+              <p className="text-muted-foreground">
+                {(exchangeInfo as any)[infoExchange]?.description || 'No description available.'}
+              </p>
+              {/* Map */}
+              {(() => {
+                const coords =
+                  (infoExchange && (exchangeInfo as any)[infoExchange]?.coords) ||
+                  (null as null | { lat: number; lng: number });
+                if (!coords) return null;
+                const { lat, lng } = coords;
+                // Build a small bbox around the point to reduce context and clutter
+                const dLng = 0.02;
+                const dLat = 0.01;
+                const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - dLng}%2C${lat - dLat}%2C${lng + dLng}%2C${lat + dLat}&layer=mapnik`;
+                return (
+                  <div className="relative rounded-md overflow-hidden border bg-black/70">
+                    <iframe
+                      title={`Map of ${infoExchange}`}
+                      src={src}
+                      className="w-full h-56"
+                      style={
+                        theme === 'dark'
+                          ? {
+                              filter:
+                                'invert(0.92) hue-rotate(180deg) brightness(0.85) contrast(1.0) saturate(0) opacity(0.9)',
+                            }
+                          : {
+                              filter: 'grayscale(1) brightness(1.05) contrast(0.9) opacity(0.95)',
+                            }
+                      }
+                      loading="lazy"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white/80 dark:ring-black/80 shadow"
+                    />
+                  </div>
+                );
+              })()}
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(
+                  [
+                    ['Founded', 'founded'],
+                    ['Trading hours', 'tradingHours'],
+                    ['Major indices', 'majorIndices'],
+                    ['Listed companies', 'listedCompanies'],
+                    ['Market cap', 'marketCap'],
+                    ['Regulatory body', 'regulatoryBody'],
+                  ] as const
+                ).map(([label, key]) => {
+                  const val = (exchangeInfo as any)[infoExchange]?.[key];
+                  if (!val) return null;
+                  return (
+                    <li key={key} className="flex flex-col">
+                      <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                        {label}
+                      </span>
+                      <span className="text-foreground">{val}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {Boolean((exchangeInfo as any)[infoExchange]?.website) && (
+                <a
+                  href={(exchangeInfo as any)[infoExchange].website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex mt-1 items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  aria-label={`Open ${String((exchangeInfo as any)[infoExchange]?.name || 'exchange')} website in a new tab`}
+                >
+                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  Visit website
+                </a>
+              )}
+              {/* Holidays */}
+              {(() => {
+                const mh = (marketHours as any)[infoExchange];
+                type HolidayInfo = {
+                  reason?: string;
+                  closeEarly?: boolean;
+                  earlyCloseTime?: string;
+                };
+                const holidaysObj: Record<string, HolidayInfo> = (mh?.holidays || {}) as Record<
+                  string,
+                  HolidayInfo
+                >;
+                const entries = Object.entries(holidaysObj).sort(([a], [b]) => a.localeCompare(b));
+                if (!entries.length) return null;
+                const years = Array.from(new Set(entries.map(([d]) => d.slice(0, 4))));
+                return (
+                  <div className="mt-3">
+                    <div className="mb-1 flex items-baseline gap-2">
+                      <h3 className="text-sm font-semibold">Holidays</h3>
+                      <span className="text-xs text-muted-foreground">{years.join(', ')}</span>
+                    </div>
+                    <ul className="max-h-48 overflow-auto pr-1 divide-y divide-border rounded-md border">
+                      {entries.map(([date, info]) => {
+                        const tag = info.closeEarly
+                          ? `Early close${info.earlyCloseTime ? ` ${info.earlyCloseTime}` : ''}`
+                          : 'Closed';
+                        const isEarly = Boolean(info.closeEarly);
+                        return (
+                          <li
+                            key={date}
+                            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{info.reason || 'Holiday'}</div>
+                              <div className="text-xs text-muted-foreground">{date}</div>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold shadow-sm ${
+                                isEarly
+                                  ? 'bg-amber-500 text-black dark:bg-amber-600 dark:text-white'
+                                  : 'bg-red-600 text-white dark:bg-red-700'
+                              }`}
+                            >
+                              {tag}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
