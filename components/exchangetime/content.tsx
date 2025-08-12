@@ -1,3 +1,4 @@
+'use client';
 /* eslint-disable import/order */
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
@@ -9,6 +10,7 @@ import React, { useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 import RealEstateVsStocksCalculator from '../real-estate-vs-stocks-calculator';
+import TaxCalculator from '../tax-calculator';
 import BacktestTool from '../stock-market/backtest-tool';
 import CurrencyConverter from '../stock-market/currency-converter';
 import EarningsCalendar from '../stock-market/earnings-calendar';
@@ -94,6 +96,7 @@ const DEFAULT_VISIBLE_MODULES = [
   'CompoundInterest',
   'PersonalBudget',
   'RealEstateVsStocks',
+  'TaxCalculator',
   'InsiderTrades',
   'EarningsCalendar',
   'HolidayCalendar',
@@ -384,6 +387,24 @@ export default function Content(props: ContentProps) {
               >
                 <div className="flex-1 flex flex-col h-full">
                   <RealEstateVsStocksCalculator />
+                </div>
+              </ModuleWrapper>
+            </div>
+          )}
+        </div>
+
+        {/* Eighth Row - Tax Calculator */}
+        <div
+          className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}
+        >
+          {modules.includes('TaxCalculator') && (
+            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full rounded-xl">
+              <ModuleWrapper
+                onClose={() => hideModule('TaxCalculator')}
+                onSolo={() => showOnlyModule('TaxCalculator')}
+              >
+                <div className="flex-1 flex flex-col h-full">
+                  <TaxCalculator />
                 </div>
               </ModuleWrapper>
             </div>

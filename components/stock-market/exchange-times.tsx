@@ -627,7 +627,7 @@ export default function ExchangeTimes() {
                 // Build a small bbox around the point to reduce context and clutter
                 const dLng = 0.02;
                 const dLat = 0.01;
-                const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - dLng}%2C${lat - dLat}%2C${lng + dLng}%2C${lat + dLat}&layer=mapnik`;
+                const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - dLng}%2C${lat - dLat}%2C${lng + dLng}%2C${lat + dLat}&layer=mapnik&marker=${lat}%2C${lng}`;
                 return (
                   <div className="relative rounded-md overflow-hidden border bg-black/70">
                     <iframe
@@ -645,10 +645,6 @@ export default function ExchangeTimes() {
                             }
                       }
                       loading="lazy"
-                    />
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white/80 dark:ring-black/80 shadow"
                     />
                   </div>
                 );
