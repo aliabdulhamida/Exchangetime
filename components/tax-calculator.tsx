@@ -2,6 +2,7 @@
 
 import { Info, RotateCcw } from 'lucide-react';
 import { useMemo, useState, type InputHTMLAttributes } from 'react';
+import type React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,8 +48,6 @@ function Segmented({
     </div>
   );
 }
-
-// Small input with prefix/suffix adorners
 function InputAdornment({
   id,
   value,
@@ -74,6 +73,34 @@ function InputAdornment({
   placeholder?: string;
   className?: string;
 }) {
+  const handleChange: InputHTMLAttributes<HTMLInputElement>['onChange'] = (e) => {
+    // Allow users to type commas as decimal separators; convert to dot for numeric parsing
+    if (typeof e.target.value === 'string' && e.target.value.includes(',')) {
+      e.target.value = e.target.value.replace(/,/g, '.');
+    }
+    onChange?.(e as any);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (e.target.value === '') return;
+    let normalized = e.target.value.replace(/,/g, '.');
+    normalized = normalized.replace(/[^0-9.+-]/g, '');
+    if ((normalized.match(/\./g) || []).length > 1) {
+      const first = normalized.indexOf('.');
+      normalized = normalized.slice(0, first + 1) + normalized.slice(first + 1).replace(/\./g, '');
+    }
+    if (normalized === '') return;
+    const num = Number(normalized);
+    if (!Number.isNaN(num)) {
+      const trimmed = String(num);
+      if (trimmed !== e.target.value) {
+        e.target.value = trimmed;
+        const evt = new Event('input', { bubbles: true });
+        e.target.dispatchEvent(evt);
+      }
+    }
+  };
+
   return (
     <div className="relative">
       {prefix && (
@@ -84,24 +111,8 @@ function InputAdornment({
       <Input
         id={id}
         value={value as any}
-        onChange={onChange}
-        onBlur={(e) => {
-          // Normalize to number if not empty; strip leading zeros
-          if (e.target.value === '') return; // allow empty to be handled by caller
-          const normalized = e.target.value.replace(/[^0-9.+-]/g, '');
-          if (normalized === '') return;
-          const num = Number(normalized);
-          if (!Number.isNaN(num)) {
-            // Manually set value to trimmed version without leading zeros (except before decimal)
-            const trimmed = String(num);
-            if (trimmed !== e.target.value) {
-              e.target.value = trimmed;
-              // trigger change for parent state sync if differs
-              const evt = new Event('input', { bubbles: true });
-              e.target.dispatchEvent(evt);
-            }
-          }
-        }}
+        onChange={handleChange}
+        onBlur={handleBlur}
         step={step as any}
         min={min as any}
         max={max as any}
@@ -120,7 +131,6 @@ function InputAdornment({
     </div>
   );
 }
-
 function currency(value: number, locale = 'en-US', currency = 'USD') {
   const v = Number.isFinite(value) ? value : 0;
   return new Intl.NumberFormat(locale, {
@@ -257,6 +267,81 @@ function deSoliOnIncomeTax2025(incomeTaxAmount: number, status: FilingStatus) {
   return Math.min(cap, full);
 }
 
+// Payroll withholding approximation by Steuerklasse
+// Note: This is an approximation for monthly Lohnsteuer following the logic of §39b EStG in broad strokes.
+// We annualize salary and compute using deIncomeTax2025 with status depending on class rules, then de-annualize monthly withholding.
+function dePayrollWithholdingByClass(
+  annualSalary: number,
+  taxClass: 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI',
+  opts: {
+    spouseAnnualSalary?: number;
+    childrenCount?: number; // used to suppress PV childless surcharge and class II relief approximation
+  },
+) {
+  const income = Math.max(0, annualSalary);
+  const spouse = Math.max(0, opts.spouseAnnualSalary ?? 0);
+  const kids = Math.max(0, Math.floor(opts.childrenCount ?? 0));
+
+  // Basic class handling
+  // - I/IV: taxed as single for withholding; IV for married spouse working
+  // - II: like I but include a small fixed relief (Entlastungsbetrag) approximation per year
+  // - III/V: split combined income with advantage to III
+  // - VI: higher withholding (second job) – approximate with a 10% surcharge on computed ESt
+
+  // Helper: compute annual tax via deIncomeTax2025 given a zvE approx; we exclude allowances here
+  const computeAnnualESt = (zve: number, filing: FilingStatus) =>
+    deIncomeTax2025(Math.max(0, zve), filing);
+
+  let annualESt = 0;
+  let filingForSoli: FilingStatus = 'single';
+
+  switch (taxClass) {
+    case 'I':
+      filingForSoli = 'single';
+      annualESt = computeAnnualESt(income, 'single');
+      break;
+    case 'II': {
+      filingForSoli = 'single';
+      const relief = 4260; // 2025 Entlastungsbetrag (approx) for single parents
+      annualESt = Math.max(0, computeAnnualESt(income, 'single') - Math.floor(relief));
+      break;
+    }
+    case 'IV':
+      filingForSoli = 'married';
+      // Withholding like married with no splitting advantage per person (approx)
+      // We compute tax on each spouse income and sum (both class IV); here we approximate using this person's income only
+      annualESt = computeAnnualESt(income, 'single');
+      break;
+    case 'III': {
+      filingForSoli = 'married';
+      // Favorable splitting: tax on combined income with splitting method, allocate majority to class III holder
+      const combined = income + spouse;
+      const totalTax = computeAnnualESt(combined, 'married');
+      // Allocate by income share, but skew 60/40 to III/V for realism
+      const share = combined > 0 ? income / combined : 1;
+      const skewed = Math.min(1, Math.max(0, 0.6 + 0.4 * share));
+      annualESt = totalTax * skewed;
+      break;
+    }
+    case 'V': {
+      filingForSoli = 'married';
+      const combined = income + spouse;
+      const totalTax = computeAnnualESt(combined, 'married');
+      const share = combined > 0 ? income / combined : 0;
+      const skewed = Math.max(0, Math.min(1, 0.4 * share));
+      annualESt = totalTax * skewed;
+      break;
+    }
+    case 'VI':
+      filingForSoli = 'single';
+      annualESt = Math.floor(computeAnnualESt(income, 'single') * 1.1);
+      break;
+  }
+
+  const soli = deSoliOnIncomeTax2025(annualESt, filingForSoli);
+  return { annualESt, annualSoli: soli, filingForSoli };
+}
+
 export default function TaxCalculator() {
   const [country, setCountry] = useState<Country>('USA');
   const [status, setStatus] = useState<FilingStatus>('single');
@@ -296,6 +381,21 @@ export default function TaxCalculator() {
   // Germany specific
   const [deAllowance, setDeAllowance] = useState(() => (status === 'single' ? 1000 : 2000)); // Sparer-Pauschbetrag
   const [deChurchTaxPct, setDeChurchTaxPct] = useState<0 | 8 | 9>(0);
+  // Germany: Steuerklasse (payroll withholding class)
+  type DeTaxClass = 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI';
+  const [deTaxClass, setDeTaxClass] = useState<DeTaxClass>(() =>
+    status === 'married' ? 'IV' : 'I',
+  );
+  // Germany: children count (affects class II relief and PV childless surcharge)
+  const [deChildrenCount, setDeChildrenCount] = useState(0);
+  // Germany: spouse salary (for III/V allocation when married)
+  const [deSpouseSalary, setDeSpouseSalary] = useState(0);
+  // Germany: Residence flag for Saxony (employee pays higher PV share)
+  const [deResidenceSaxony, setDeResidenceSaxony] = useState(false);
+  // Germany: Payroll precision and IV/IV Faktor (stub)
+  const [dePayrollPrecision, setDePayrollPrecision] = useState<'simple' | 'detailed'>('simple');
+  const [deIVFaktor, setDeIVFaktor] = useState(1.0);
+  const [deIVFaktorAuto, setDeIVFaktorAuto] = useState(true);
   // Germany Vorabpauschale inputs
   const [deVorabEnabled, setDeVorabEnabled] = useState(false);
   const [deVorabStartValue, setDeVorabStartValue] = useState(0); // fund value at Jan 1 of the year
@@ -306,26 +406,27 @@ export default function TaxCalculator() {
   const [deVorabTeilfreistellungPct, setDeVorabTeilfreistellungPct] = useState<
     0 | 15 | 30 | 60 | 80
   >(30);
-  // Always include income Soli and use payroll-style calculations (toggles removed from UI)
-  // Social insurance rates (total, employee pays roughly half; PV may have childless surcharge)
-  const [deRvTotalPct, setDeRvTotalPct] = useState(18.6); // pension total
-  const [deAlvTotalPct, setDeAlvTotalPct] = useState(2.6); // unemployment total
-  const [deKvTotalPct, setDeKvTotalPct] = useState(17.1); // health total (incl. Zusatzbeitrag avg.)
-  const [dePvTotalPct, setDePvTotalPct] = useState(4.2); // long-term care total
-  const [dePvChildlessSurchargePct, setDePvChildlessSurchargePct] = useState(0.3); // tweakable to match calculators
+  // Always include income Soli and use payroll-style calculations (constants; employer pays ~half)
+  // Social insurance rates (totals); employee share ≈ half. PV childless surcharge paid by employee.
+  const deRvTotalPct = 18.6; // pension total
+  const deAlvTotalPct = 2.6; // unemployment total
+  const deKvTotalPct = 17.1; // health total (incl. Zusatzbeitrag avg.)
+  const dePvTotalPct = 4.2; // long-term care total
+  const dePvChildlessSurchargePct = 0.3; // employee-only surcharge
   // Simple BBGs (only apply if salary exceeds; for 55k they don’t bind, so defaults are fine)
   const DE_RV_BBG = 90600;
   const DE_ALV_BBG = 90600;
   const DE_KV_PV_BBG = 62100;
   // Basic allowances in payroll approx
-  const [deWerbungskostenPauschale, setDeWerbungskostenPauschale] = useState(1230);
-  const [deSonderausgabenPauschbetrag, setDeSonderausgabenPauschbetrag] = useState(36);
+  const deWerbungskostenPauschale = 1230;
+  const deSonderausgabenPauschbetrag = 36;
 
   // Keep deductions/allowances in sync with filing status when country changes filing context
   function onStatusChange(next: FilingStatus) {
     setStatus(next);
     if (country === 'USA') setUsStandardDeduction(getUsStandardDeduction(next));
     if (country === 'Germany') setDeAllowance(next === 'single' ? 1000 : 2000);
+    if (country === 'Germany') setDeTaxClass(next === 'married' ? 'IV' : 'I');
   }
 
   const result = useMemo(() => {
@@ -502,6 +603,7 @@ export default function TaxCalculator() {
     // Compute income tax including Soli and optional church tax, plus payroll social contributions.
     let incomeTax = 0; // includes Einkommensteuer + Soli + church tax
     let taxableIncome = 0;
+    let usedFaktorForDetails: number | null = null;
     let payroll = undefined as
       | {
           rv: number;
@@ -522,7 +624,11 @@ export default function TaxCalculator() {
       const rvRate = deRvTotalPct / 2 / 100;
       const alvRate = deAlvTotalPct / 2 / 100;
       const kvRate = deKvTotalPct / 2 / 100;
-      const pvRate = dePvTotalPct / 2 / 100 + dePvChildlessSurchargePct / 100;
+      // PV childless surcharge applies only if no children
+      // Saxony: employee PV share is approx. +0.5 percentage points vs the employer
+      const pvEmployeeSharePct = dePvTotalPct / 2 + (deResidenceSaxony ? 0.5 : 0);
+      const pvRate =
+        pvEmployeeSharePct / 100 + (deChildrenCount > 0 ? 0 : dePvChildlessSurchargePct / 100);
 
       const rv = Math.min(salaryIncome, DE_RV_BBG) * rvRate;
       const alv = Math.min(salaryIncome, DE_ALV_BBG) * alvRate;
@@ -546,7 +652,34 @@ export default function TaxCalculator() {
       const vpPart2b = (kvPvBase * (vpKvRate + vpPvRate)) / 100;
       const vorsorgePauschale = vpPart1 + Math.max(vpPart2a, vpPart2b);
 
-      // Taxable wage for payroll income tax
+      // Helper: approximate zvE from a given salary using same structure (used for spouse in Faktor)
+      const approxZveFromSalary = (gross: number) => {
+        const rv2 = Math.min(gross, DE_RV_BBG) * rvRate;
+        const alv2 = Math.min(gross, DE_ALV_BBG) * alvRate;
+        const kv2 = Math.min(gross, DE_KV_PV_BBG) * kvRate;
+        const pv2 = Math.min(gross, DE_KV_PV_BBG) * pvRate;
+        const rvBase2 = Math.min(gross, DE_RV_BBG);
+        const kvPvBase2 = Math.min(gross, DE_KV_PV_BBG);
+        const vpPart1_2 = rvBase2 * 0.093;
+        const cap2a_2 = status === 'married' ? 3000 : 1900;
+        const vpPart2a_2 = Math.min(gross * 0.12, cap2a_2);
+        const kvBaseRate2 = 7.3; // %
+        const kvZusatzHalf2 = Math.max(0, deKvTotalPct - 14.6) / 2;
+        const vpKvRate2 = kvBaseRate2 + kvZusatzHalf2; // %
+        const vpPvRate2 = dePvTotalPct / 2; // exclude childless surcharge
+        const vpPart2b_2 = (kvPvBase2 * (vpKvRate2 + vpPvRate2)) / 100;
+        const vorsorge2 = vpPart1_2 + Math.max(vpPart2a_2, vpPart2b_2);
+        const out = Math.max(
+          0,
+          gross -
+            Math.max(0, deWerbungskostenPauschale) -
+            Math.max(0, deSonderausgabenPauschbetrag) -
+            vorsorge2,
+        );
+        return out;
+      };
+
+      // Taxable wage for payroll income tax (this taxpayer)
       const zvE = Math.max(
         0,
         salaryIncome -
@@ -555,8 +688,32 @@ export default function TaxCalculator() {
           vorsorgePauschale,
       );
 
-      const eSt = deIncomeTax2025(zvE, status);
-      const soliOnIncome = deSoliOnIncomeTax2025(eSt, status);
+      // Compute income tax via Steuerklasse-based withholding approximation (annualized)
+      // We use zvE as the base for tax function by class; provide spouse salary where relevant
+      const baseWithholding = dePayrollWithholdingByClass(zvE, deTaxClass, {
+        spouseAnnualSalary: deSpouseSalary,
+        childrenCount: deChildrenCount,
+      });
+      // Optional detailed mode: IV/IV mit Faktor – auto or manual factor scaling
+      let eSt = baseWithholding.annualESt;
+      let soliOnIncome = baseWithholding.annualSoli;
+      let usedFaktor: number | null = null;
+      if (dePayrollPrecision === 'detailed' && deTaxClass === 'IV') {
+        if (deIVFaktorAuto && deSpouseSalary > 0) {
+          const zvE_spouse = approxZveFromSalary(deSpouseSalary);
+          const estMarried = deIncomeTax2025(zvE + zvE_spouse, 'married');
+          const estSingles = deIncomeTax2025(zvE, 'single') + deIncomeTax2025(zvE_spouse, 'single');
+          const f = estSingles > 0 ? estMarried / estSingles : 1.0;
+          usedFaktor = Math.min(2, Math.max(0.1, f));
+        } else if (Number.isFinite(deIVFaktor) && deIVFaktor > 0) {
+          usedFaktor = deIVFaktor;
+        }
+        if (usedFaktor && usedFaktor > 0) {
+          eSt = Math.max(0, baseWithholding.annualESt * usedFaktor);
+          soliOnIncome = deSoliOnIncomeTax2025(eSt, baseWithholding.filingForSoli);
+        }
+        usedFaktorForDetails = usedFaktor ?? deIVFaktor;
+      }
       const churchTax = eSt * (deChurchTaxPct / 100);
       const netSalary = Math.max(0, salaryIncome - socialSum - eSt - soliOnIncome - churchTax);
 
@@ -581,8 +738,15 @@ export default function TaxCalculator() {
         taxableIncome,
         capAfterAllowance,
         churchTaxPct: deChurchTaxPct,
+        taxClass: deTaxClass,
+        spouseSalary: deSpouseSalary,
+        childrenCount: deChildrenCount,
         incomeSoliIncluded: true,
         payroll,
+        saxony: deResidenceSaxony,
+        payrollPrecision: dePayrollPrecision,
+        ivFaktor: usedFaktorForDetails ?? deIVFaktor,
+        ivFaktorAuto: deIVFaktorAuto,
         vorab,
       },
     };
@@ -602,6 +766,13 @@ export default function TaxCalculator() {
     usStateTaxRate,
     deAllowance,
     deChurchTaxPct,
+    deTaxClass,
+    deChildrenCount,
+    deSpouseSalary,
+    deResidenceSaxony,
+    dePayrollPrecision,
+    deIVFaktor,
+    deIVFaktorAuto,
     includeNIIT,
     deRvTotalPct,
     deAlvTotalPct,
@@ -708,6 +879,13 @@ export default function TaxCalculator() {
                       setUsAMTRate('26');
                       setDeAllowance(1000);
                       setDeChurchTaxPct(0);
+                      setDeTaxClass('I');
+                      setDeChildrenCount(0);
+                      setDeSpouseSalary(0);
+                      setDeResidenceSaxony(false);
+                      setDePayrollPrecision('simple');
+                      setDeIVFaktor(1.0);
+                      setDeIVFaktorAuto(true);
                     }}
                   >
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
@@ -832,6 +1010,66 @@ export default function TaxCalculator() {
                       onChange={(e) => setUsStandardDeduction(Number(e.target.value))}
                       prefix="$"
                     />
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1 block">Residence: Saxony</Label>
+                    <div className="flex items-center justify-between h-8 rounded-md border border-input px-2">
+                      <span className="text-[11px] text-muted-foreground">Sachsen PV share</span>
+                      <div className="scale-90 origin-right">
+                        <Switch
+                          checked={deResidenceSaxony}
+                          onCheckedChange={(v) => setDeResidenceSaxony(Boolean(v))}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      Employee PV share +0.5pp; childless surcharge unchanged.
+                    </div>
+                  </div>
+                  <div className="col-span-full">
+                    <Label className="text-xs mb-1 block">Payroll precision</Label>
+                    <div className="flex items-center gap-2">
+                      <Segmented
+                        value={dePayrollPrecision}
+                        onChange={(v: string) => setDePayrollPrecision(v as 'simple' | 'detailed')}
+                        options={[
+                          { label: 'Simple', value: 'simple' },
+                          { label: 'Detailed', value: 'detailed' },
+                        ]}
+                      />
+                      {dePayrollPrecision === 'detailed' && (
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] opacity-80">IV Faktor auto</span>
+                            <div className="scale-90">
+                              <Switch
+                                checked={deIVFaktorAuto}
+                                onCheckedChange={(v) => setDeIVFaktorAuto(Boolean(v))}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="ivFaktor" className="text-xs">
+                              IV Faktor
+                            </Label>
+                            <InputAdornment
+                              id="ivFaktor"
+                              min={0.1}
+                              step={0.01}
+                              value={deIVFaktor}
+                              onChange={(e) => setDeIVFaktor(Number(e.target.value))}
+                              className={deIVFaktorAuto ? 'opacity-60' : ''}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {dePayrollPrecision === 'detailed' && (
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        For class IV with Faktor, withholding ESt is scaled by the factor. In auto
+                        mode, the factor is estimated from combined vs separate tax.
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -1150,6 +1388,63 @@ export default function TaxCalculator() {
                     </select>
                   </div>
                   <div>
+                    <Label
+                      htmlFor="steuerklasse"
+                      className="text-xs mb-1 block"
+                      title="German payroll withholding class"
+                    >
+                      Steuerklasse
+                    </Label>
+                    <select
+                      id="steuerklasse"
+                      className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
+                      value={deTaxClass}
+                      onChange={(e) => setDeTaxClass(e.target.value as any)}
+                    >
+                      <option value="I">I</option>
+                      <option value="II">II</option>
+                      <option value="III">III</option>
+                      <option value="IV">IV</option>
+                      <option value="V">V</option>
+                      <option value="VI">VI</option>
+                    </select>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      Note: Affects payroll withholding in reality; this tool estimates annual tax.
+                    </div>
+                  </div>
+                  {status === 'married' && (
+                    <div>
+                      <Label htmlFor="spouseSalary" className="text-xs mb-1 block">
+                        Spouse salary (annual)
+                      </Label>
+                      <InputAdornment
+                        id="spouseSalary"
+                        min={0}
+                        step={1000}
+                        value={deSpouseSalary}
+                        onChange={(e) => setDeSpouseSalary(Number(e.target.value))}
+                        prefix="€"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor="childrenCount" className="text-xs mb-1 block">
+                      Children
+                    </Label>
+                    <InputAdornment
+                      id="childrenCount"
+                      min={0}
+                      step={1}
+                      value={deChildrenCount}
+                      onChange={(e) =>
+                        setDeChildrenCount(Math.max(0, Math.floor(Number(e.target.value))))
+                      }
+                    />
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      Affects PV childless surcharge and class II relief.
+                    </div>
+                  </div>
+                  <div>
                     <Label className="text-xs mb-1 block">Vorabpauschale</Label>
                     <div className="flex items-center justify-between h-8 rounded-md border border-input px-2">
                       <span className="text-[11px] text-muted-foreground">Include</span>
@@ -1161,126 +1456,7 @@ export default function TaxCalculator() {
                       </div>
                     </div>
                   </div>
-                  {/* Advanced (Germany payroll parameters) */}
-                  <details className="col-span-full border border-border/50 rounded-lg p-2 mt-1">
-                    <summary className="cursor-pointer text-xs font-medium opacity-80 select-none">
-                      Advanced (Payroll parameters)
-                    </summary>
-                    <div className="grid md:grid-cols-3 gap-2 mt-2">
-                      <div>
-                        <Label
-                          className="text-xs mb-1 block"
-                          title="Total statutory rate (employee + employer); employee pays about half"
-                        >
-                          Pension (RV) total
-                        </Label>
-                        <InputAdornment
-                          className="h-8 text-sm"
-                          min={0}
-                          step={0.1}
-                          value={deRvTotalPct}
-                          onChange={(e) => setDeRvTotalPct(Number(e.target.value))}
-                          suffix="%"
-                        />
-                      </div>
-                      <div>
-                        <Label
-                          className="text-xs mb-1 block"
-                          title="Total statutory rate; employee pays about half"
-                        >
-                          Unemployment (ALV) total
-                        </Label>
-                        <InputAdornment
-                          className="h-8 text-sm"
-                          min={0}
-                          step={0.1}
-                          value={deAlvTotalPct}
-                          onChange={(e) => setDeAlvTotalPct(Number(e.target.value))}
-                          suffix="%"
-                        />
-                      </div>
-                      <div>
-                        <Label
-                          className="text-xs mb-1 block"
-                          title="Includes base + Zusatzbeitrag; employee pays about half"
-                        >
-                          Health (KV) total
-                        </Label>
-                        <InputAdornment
-                          className="h-8 text-sm"
-                          min={0}
-                          step={0.1}
-                          value={deKvTotalPct}
-                          onChange={(e) => setDeKvTotalPct(Number(e.target.value))}
-                          suffix="%"
-                        />
-                      </div>
-                      <div>
-                        <Label
-                          className="text-xs mb-1 block"
-                          title="Long-term care insurance; employee pays about half"
-                        >
-                          Care (PV) total
-                        </Label>
-                        <InputAdornment
-                          className="h-8 text-sm"
-                          min={0}
-                          step={0.1}
-                          value={dePvTotalPct}
-                          onChange={(e) => setDePvTotalPct(Number(e.target.value))}
-                          suffix="%"
-                        />
-                      </div>
-                      <div>
-                        <Label
-                          className="text-xs mb-1 block"
-                          title="Surcharge for childless contributors"
-                        >
-                          PV childless surcharge
-                        </Label>
-                        <InputAdornment
-                          className="h-8 text-sm"
-                          min={0}
-                          step={0.1}
-                          value={dePvChildlessSurchargePct}
-                          onChange={(e) => setDePvChildlessSurchargePct(Number(e.target.value))}
-                          suffix="%"
-                        />
-                      </div>
-                      <div>
-                        <Label
-                          className="text-xs mb-1 block"
-                          title="Standard employee expense allowance"
-                        >
-                          Werbungskosten Pauschale
-                        </Label>
-                        <InputAdornment
-                          className="h-8 text-sm"
-                          min={0}
-                          step={10}
-                          value={deWerbungskostenPauschale}
-                          onChange={(e) => setDeWerbungskostenPauschale(Number(e.target.value))}
-                          prefix="€"
-                        />
-                      </div>
-                      <div>
-                        <Label
-                          className="text-xs mb-1 block"
-                          title="Standard special expenses allowance"
-                        >
-                          Sonderausgaben Pauschbetrag
-                        </Label>
-                        <InputAdornment
-                          className="h-8 text-sm"
-                          min={0}
-                          step={10}
-                          value={deSonderausgabenPauschbetrag}
-                          onChange={(e) => setDeSonderausgabenPauschbetrag(Number(e.target.value))}
-                          prefix="€"
-                        />
-                      </div>
-                    </div>
-                  </details>
+                  {/* Advanced payroll parameters removed; using statutory constants (employee pays ~half). */}
                   {deVorabEnabled && (
                     <details
                       className="col-span-full border border-border/50 rounded-lg p-2 mt-1"
@@ -1500,6 +1676,15 @@ function Breakdown({ result, includeNIIT }: { result: any; includeNIIT: boolean 
       lines.push('Germany breakdown');
       lines.push(`Taxable income (zvE approx.): ${fmt(result._details.taxableIncome)}`);
       lines.push(`Capital income after allowance: ${fmt(result._details.capAfterAllowance)}`);
+      if (result._details.taxClass) {
+        lines.push(`Steuerklasse: ${result._details.taxClass}`);
+      }
+      if (typeof result._details.spouseSalary === 'number' && result._details.spouseSalary > 0) {
+        lines.push(`Spouse salary: ${fmt(result._details.spouseSalary)}`);
+      }
+      if (typeof result._details.childrenCount === 'number') {
+        lines.push(`Children: ${result._details.childrenCount}`);
+      }
       if (result._details.vorab?.enabled) {
         const v = result._details.vorab;
         lines.push(`Vorabpauschale:`);
@@ -1636,6 +1821,34 @@ function Breakdown({ result, includeNIIT }: { result: any; includeNIIT: boolean 
               {result._details.churchTaxPct > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
                   Church {result._details.churchTaxPct}%
+                </span>
+              )}
+              {result._details.taxClass && (
+                <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                  Tax class: {result._details.taxClass}
+                </span>
+              )}
+              {result._details.saxony && (
+                <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                  Saxony PV
+                </span>
+              )}
+              {result._details.payrollPrecision === 'detailed' && (
+                <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                  IV Faktor: {result._details.ivFaktor}
+                  {result._details.ivFaktorAuto ? ' (auto)' : ''}
+                </span>
+              )}
+              {typeof result._details.spouseSalary === 'number' &&
+                result._details.spouseSalary > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                    Spouse:{' '}
+                    {currency(result._details.spouseSalary, result.locale, result.currencyCode)}
+                  </span>
+                )}
+              {typeof result._details.childrenCount === 'number' && (
+                <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                  Children: {result._details.childrenCount}
                 </span>
               )}
               <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
