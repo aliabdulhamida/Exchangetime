@@ -50,6 +50,7 @@ import {
   Receipt,
   Building2,
   CreditCard,
+  Calculator,
   Folder,
   Wallet,
   Users2,
@@ -1140,7 +1141,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         {/* Toggle Button für Collapse/Expand (nur sichtbar auf Desktop) */}
         <button
           type="button"
-          className="hidden lg:flex absolute -right-3 top-20 z-[80] p-1 rounded-md shadow-md bg-white dark:bg-[#1F1F23] border border-gray-200 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#2a2a32] transition-all duration-200 ease-in-out"
+          className="hidden lg:flex absolute -right-3 top-32 z-[80] p-1 rounded-md shadow-md bg-white dark:bg-[#1F1F23] border border-gray-200 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#2a2a32] transition-all duration-200 ease-in-out"
           onClick={toggleCollapsed}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{
@@ -1342,6 +1343,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                     icon={DollarSign}
                     label="Currency Converter"
                   />
+                  <ModuleButton module="TaxCalculator" icon={Calculator} label="Tax Calculator" />
                   <ModuleButton
                     module="CompoundInterest"
                     icon={Receipt}

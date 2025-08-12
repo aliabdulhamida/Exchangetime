@@ -19,6 +19,7 @@ const MODULES = [
   'HolidayCalendar',
   'CompoundInterest',
   'PersonalBudget',
+  'TaxCalculator',
   'RealEstateVsStocks',
   'EconomicCalendar', // EconomicCalendar immer als Standardmodul
 ];
