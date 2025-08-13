@@ -15,6 +15,34 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 type FilingStatus = 'single' | 'married';
 type Country = 'USA' | 'Germany';
 
+// DTA country presets for dividends (German calculator)
+type DeDtaCountry =
+  | 'US'
+  | 'CH'
+  | 'UK'
+  | 'FR'
+  | 'NL'
+  | 'CA'
+  | 'ES'
+  | 'IT'
+  | 'IE'
+  | 'GENERIC_15'
+  | 'NONE_0';
+
+const DTA_COUNTRY_RATES: Record<DeDtaCountry, { whtPct: number; capPct: number; label: string }> = {
+  US: { whtPct: 15, capPct: 15, label: 'United States' },
+  CH: { whtPct: 15, capPct: 15, label: 'Switzerland' },
+  UK: { whtPct: 15, capPct: 15, label: 'United Kingdom' },
+  FR: { whtPct: 12.8, capPct: 15, label: 'France' },
+  NL: { whtPct: 15, capPct: 15, label: 'Netherlands' },
+  CA: { whtPct: 15, capPct: 15, label: 'Canada' },
+  ES: { whtPct: 19, capPct: 15, label: 'Spain' },
+  IT: { whtPct: 15, capPct: 15, label: 'Italy' },
+  IE: { whtPct: 15, capPct: 15, label: 'Ireland' },
+  GENERIC_15: { whtPct: 15, capPct: 15, label: 'Treaty default (15%)' },
+  NONE_0: { whtPct: 0, capPct: 0, label: 'No treaty / 0% WHT' },
+};
+
 // Small local segmented control for two or more options
 function Segmented({
   value,
@@ -390,6 +418,11 @@ export default function TaxCalculator() {
   const [deChildrenCount, setDeChildrenCount] = useState(0);
   // Germany: spouse salary (for III/V allocation when married)
   const [deSpouseSalary, setDeSpouseSalary] = useState(0);
+  // Germany: Foreign dividends (DTA credit)
+  const [deForeignDividends, setDeForeignDividends] = useState(0); // portion of dividends from abroad
+  const [deDtaMode, setDeDtaMode] = useState<'simple' | 'advanced'>('simple');
+  // Germany: DTA by country (advanced mode)
+  const [deDtaCountry, setDeDtaCountry] = useState<DeDtaCountry>('GENERIC_15');
   // Germany: Residence flag for Saxony (employee pays higher PV share)
   const [deResidenceSaxony, setDeResidenceSaxony] = useState(false);
   // Germany: Payroll precision and IV/IV Faktor (stub)
@@ -722,7 +755,20 @@ export default function TaxCalculator() {
       payroll = { rv, alv, kv, pv, socialSum, zvE, est: eSt, soliOnIncome, churchTax, netSalary };
     }
     const capAfterAllowance = deCapitalIncomeTaxBase(capIncomeTotal, Math.max(0, deAllowance));
-    const capTax = deCapitalTax(capAfterAllowance, deChurchTaxPct);
+    let capTax = deCapitalTax(capAfterAllowance, deChurchTaxPct);
+    // Foreign dividends DTA credit (simplified): credit limited to min(withheld, treaty cap of foreign portion's base tax)
+    if (country === 'Germany' && deForeignDividends > 0) {
+      const foreignPortion = Math.min(Math.max(0, deForeignDividends), capAfterAllowance);
+      // Determine rates based on mode
+      const { whtPct, capPct } =
+        deDtaMode === 'simple' ? { whtPct: 15, capPct: 15 } : DTA_COUNTRY_RATES[deDtaCountry];
+      const treatyCap = Math.max(0, Math.min(30, capPct)) / 100;
+      const withheld = Math.max(0, Math.min(35, whtPct)) / 100;
+      const baseTaxOnForeign = foreignPortion * 0.25; // only the 25% base is creditable
+      const creditCap = baseTaxOnForeign * treatyCap;
+      const credit = Math.min(baseTaxOnForeign * withheld, creditCap);
+      capTax = Math.max(0, capTax - credit);
+    }
     const totalTax = incomeTax + capTax;
     const totalIncome = Math.max(0, salaryIncome) + capIncomeTotal;
     const effectiveRate = totalIncome > 0 ? totalTax / totalIncome : 0;
@@ -748,6 +794,21 @@ export default function TaxCalculator() {
         ivFaktor: usedFaktorForDetails ?? deIVFaktor,
         ivFaktorAuto: deIVFaktorAuto,
         vorab,
+        foreignDividends: country === 'Germany' ? deForeignDividends : 0,
+        foreignWHTPct:
+          country === 'Germany'
+            ? deDtaMode === 'simple'
+              ? 15
+              : DTA_COUNTRY_RATES[deDtaCountry].whtPct
+            : 0,
+        treatyCapPct:
+          country === 'Germany'
+            ? deDtaMode === 'simple'
+              ? 15
+              : DTA_COUNTRY_RATES[deDtaCountry].capPct
+            : 0,
+        dtaMode: country === 'Germany' ? deDtaMode : 'simple',
+        dtaCountry: country === 'Germany' ? deDtaCountry : undefined,
       },
     };
   }, [
@@ -773,6 +834,10 @@ export default function TaxCalculator() {
     dePayrollPrecision,
     deIVFaktor,
     deIVFaktorAuto,
+    deForeignDividends,
+
+    deDtaMode,
+    deDtaCountry,
     includeNIIT,
     deRvTotalPct,
     deAlvTotalPct,
@@ -886,6 +951,9 @@ export default function TaxCalculator() {
                       setDePayrollPrecision('simple');
                       setDeIVFaktor(1.0);
                       setDeIVFaktorAuto(true);
+                      setDeForeignDividends(0);
+                      setDeDtaMode('simple');
+                      setDeDtaCountry('GENERIC_15');
                     }}
                   >
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
@@ -965,6 +1033,76 @@ export default function TaxCalculator() {
                     </div>
                   )}
                 </div>
+                {country === 'Germany' && (
+                  <div>
+                    <Label className="text-xs mb-1 block">DTA mode</Label>
+                    <Segmented
+                      value={deDtaMode}
+                      onChange={(v: string) => setDeDtaMode(v as 'simple' | 'advanced')}
+                      options={[
+                        { label: 'Simple', value: 'simple' },
+                        { label: 'By country', value: 'advanced' },
+                      ]}
+                    />
+                    <div className={deDtaMode === 'simple' ? '' : 'hidden'}>
+                      <Label htmlFor="foreignDivs" className="text-xs mb-1 block">
+                        Foreign portion (default 15% credit)
+                      </Label>
+                      <InputAdornment
+                        id="foreignDivs"
+                        min={0}
+                        step={50}
+                        value={deForeignDividends}
+                        onChange={(e) => setDeForeignDividends(Number(e.target.value))}
+                        prefix="€"
+                      />
+                    </div>
+                    <div className={deDtaMode === 'advanced' ? 'space-y-2' : 'hidden'}>
+                      <div>
+                        <Label htmlFor="dtaCountry" className="text-xs mb-1 block">
+                          Source country
+                        </Label>
+                        <select
+                          id="dtaCountry"
+                          className="w-full h-9 rounded-md border bg-background text-sm px-2"
+                          value={deDtaCountry}
+                          onChange={(e) => setDeDtaCountry(e.target.value as DeDtaCountry)}
+                        >
+                          <option value="GENERIC_15">Treaty default (15%)</option>
+                          <option value="US">United States</option>
+                          <option value="CH">Switzerland</option>
+                          <option value="UK">United Kingdom</option>
+                          <option value="FR">France</option>
+                          <option value="NL">Netherlands</option>
+                          <option value="CA">Canada</option>
+                          <option value="ES">Spain</option>
+                          <option value="IT">Italy</option>
+                          <option value="IE">Ireland</option>
+                          <option value="NONE_0">No treaty / 0% WHT</option>
+                        </select>
+                        <div className="text-[11px] opacity-70 mt-1">
+                          Using {DTA_COUNTRY_RATES[deDtaCountry].whtPct}% WHT, cap{' '}
+                          {DTA_COUNTRY_RATES[deDtaCountry].capPct}%
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="foreignDivsAdv" className="text-xs mb-1 block">
+                          Foreign portion
+                        </Label>
+                        <InputAdornment
+                          id="foreignDivsAdv"
+                          min={0}
+                          step={50}
+                          value={deForeignDividends}
+                          onChange={(e) => setDeForeignDividends(Number(e.target.value))}
+                          prefix="€"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Next row starts automatically because we have three columns above */}
+                {/* Next row starts automatically */}
                 <div>
                   <Label htmlFor="interest" className="text-xs mb-1 block">
                     Interest income
@@ -978,6 +1116,26 @@ export default function TaxCalculator() {
                     prefix={country === 'USA' ? '$' : '€'}
                   />
                 </div>
+                {country === 'Germany' && (
+                  <div>
+                    <Label
+                      htmlFor="allowance-top"
+                      className="text-xs mb-1 block"
+                      title="Tax-free allowance for investment income"
+                    >
+                      Sparer-Pauschbetrag
+                    </Label>
+                    <InputAdornment
+                      id="allowance-top"
+                      className="h-8 text-sm"
+                      min={0}
+                      step={50}
+                      value={deAllowance}
+                      onChange={(e) => setDeAllowance(Number(e.target.value))}
+                      prefix="€"
+                    />
+                  </div>
+                )}
               </div>
 
               {country === 'USA' ? (
@@ -1010,66 +1168,6 @@ export default function TaxCalculator() {
                       onChange={(e) => setUsStandardDeduction(Number(e.target.value))}
                       prefix="$"
                     />
-                  </div>
-                  <div>
-                    <Label className="text-xs mb-1 block">Residence: Saxony</Label>
-                    <div className="flex items-center justify-between h-8 rounded-md border border-input px-2">
-                      <span className="text-[11px] text-muted-foreground">Sachsen PV share</span>
-                      <div className="scale-90 origin-right">
-                        <Switch
-                          checked={deResidenceSaxony}
-                          onCheckedChange={(v) => setDeResidenceSaxony(Boolean(v))}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      Employee PV share +0.5pp; childless surcharge unchanged.
-                    </div>
-                  </div>
-                  <div className="col-span-full">
-                    <Label className="text-xs mb-1 block">Payroll precision</Label>
-                    <div className="flex items-center gap-2">
-                      <Segmented
-                        value={dePayrollPrecision}
-                        onChange={(v: string) => setDePayrollPrecision(v as 'simple' | 'detailed')}
-                        options={[
-                          { label: 'Simple', value: 'simple' },
-                          { label: 'Detailed', value: 'detailed' },
-                        ]}
-                      />
-                      {dePayrollPrecision === 'detailed' && (
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] opacity-80">IV Faktor auto</span>
-                            <div className="scale-90">
-                              <Switch
-                                checked={deIVFaktorAuto}
-                                onCheckedChange={(v) => setDeIVFaktorAuto(Boolean(v))}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Label htmlFor="ivFaktor" className="text-xs">
-                              IV Faktor
-                            </Label>
-                            <InputAdornment
-                              id="ivFaktor"
-                              min={0.1}
-                              step={0.01}
-                              value={deIVFaktor}
-                              onChange={(e) => setDeIVFaktor(Number(e.target.value))}
-                              className={deIVFaktorAuto ? 'opacity-60' : ''}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {dePayrollPrecision === 'detailed' && (
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                        For class IV with Faktor, withholding ESt is scaled by the factor. In auto
-                        mode, the factor is estimated from combined vs separate tax.
-                      </div>
-                    )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -1676,6 +1774,11 @@ function Breakdown({ result, includeNIIT }: { result: any; includeNIIT: boolean 
       lines.push('Germany breakdown');
       lines.push(`Taxable income (zvE approx.): ${fmt(result._details.taxableIncome)}`);
       lines.push(`Capital income after allowance: ${fmt(result._details.capAfterAllowance)}`);
+      if (result._details.foreignDividends > 0) {
+        lines.push(
+          `Foreign dividends: ${fmt(result._details.foreignDividends)} · WHT ${result._details.foreignWHTPct}% · Treaty cap ${result._details.treatyCapPct}%`,
+        );
+      }
       if (result._details.taxClass) {
         lines.push(`Steuerklasse: ${result._details.taxClass}`);
       }
@@ -1858,6 +1961,12 @@ function Breakdown({ result, includeNIIT }: { result: any; includeNIIT: boolean 
             <Section title="Income base">
               <Row label="Taxable income (zvE)" value={fmt(result._details.taxableIncome)} />
               <Row label="Capital after allowance" value={fmt(result._details.capAfterAllowance)} />
+              {result._details.foreignDividends > 0 && (
+                <Row
+                  label="Foreign dividends"
+                  value={`${fmt(result._details.foreignDividends)} · WHT ${result._details.foreignWHTPct}% · Cap ${result._details.treatyCapPct}%${result._details.dtaMode === 'simple' ? ' (Simple 15%)' : ''}`}
+                />
+              )}
             </Section>
             {result._details.vorab?.enabled && (
               <Section title="Vorabpauschale">
