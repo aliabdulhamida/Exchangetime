@@ -109,17 +109,7 @@ export const blogPosts: BlogPost[] = [
     categories: ['Markets', 'History', 'Investing'],
     slug: 'dot-com-bubble-weekend-read',
   },
-  {
-    id: 8,
-    title: 'Real Estate vs. Stocks: A Comprehensive Investor’s Guide',
-    excerpt:
-      'An in-depth comparison of direct real estate, REITs, and equities: returns, risk, liquidity, taxes, and practical takeaways.',
-    date: 'August 8, 2025',
-    image:
-      'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&h=450',
-    categories: ['Investing', 'Markets'],
-    slug: 'real-estate-vs-stocks',
-  },
+  // Real Estate vs. Stocks post removed
   {
     id: 7,
     title: 'Stock Market Trends 2025: January to August',
