@@ -1116,26 +1116,7 @@ export default function TaxCalculator() {
                     prefix={country === 'USA' ? '$' : '€'}
                   />
                 </div>
-                {country === 'Germany' && (
-                  <div>
-                    <Label
-                      htmlFor="allowance-top"
-                      className="text-xs mb-1 block"
-                      title="Tax-free allowance for investment income"
-                    >
-                      Sparer-Pauschbetrag
-                    </Label>
-                    <InputAdornment
-                      id="allowance-top"
-                      className="h-8 text-sm"
-                      min={0}
-                      step={50}
-                      value={deAllowance}
-                      onChange={(e) => setDeAllowance(Number(e.target.value))}
-                      prefix="€"
-                    />
-                  </div>
-                )}
+                {/* Removed duplicate Sparer-Pauschbetrag field for Germany here; single field kept in Germany-specific section below */}
               </div>
 
               {country === 'USA' ? (

@@ -17,7 +17,6 @@ import EarningsCalendar from '../stock-market/earnings-calendar';
 import ExchangeTimes from '../stock-market/exchange-times';
 import HolidayCalendar from '../stock-market/holiday-calendar';
 import InsiderTrades from '../stock-market/insider-trades';
-import MarketSummary from '../stock-market/market-summary';
 import PortfolioTracker from '../stock-market/portfolio-tracker';
 import SankeyBudget from '../stock-market/sankey-budget';
 import StockAnalysis from '../stock-market/stock-analysis';
@@ -89,7 +88,6 @@ const DEFAULT_VISIBLE_MODULES = [
   'TechnicalAnalysis',
   'StockAnalysis',
   'ExchangeTimes',
-  'MarketSummary',
   'BacktestTool',
   'PortfolioTracker',
   'CurrencyConverter',
@@ -140,60 +138,80 @@ export default function Content(props: ContentProps) {
           )}
         </div>
 
-        {/* Zweite Zeile: Stock Analysis, Insider Trades und Portfolio Tracker */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {modules.includes('StockAnalysis') && (
-            <div
-              className={
-                (modules.length === 1 ? 'w-full max-w-xl mx-auto ' : '') +
-                'flex flex-col h-full min-h-[420px]'
-              }
-            >
-              <ModuleWrapper
-                onClose={() => hideModule('StockAnalysis')}
-                onSolo={() => showOnlyModule('StockAnalysis')}
+        {/* Zweite Zeile: Stock Analysis, Insider Trades, Backtest Tool (Backtest rechts von Insider Trades) */}
+        {(modules.includes('StockAnalysis') ||
+          modules.includes('InsiderTrades') ||
+          modules.includes('BacktestTool')) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {modules.includes('StockAnalysis') && (
+              <div
+                className={
+                  (modules.length === 1 ? 'w-full max-w-2xl mx-auto ' : '') + 'flex flex-col'
+                }
               >
                 <div className="flex flex-col h-full min-h-[420px]">
-                  <StockAnalysis />
+                  <ModuleWrapper
+                    onClose={() => hideModule('StockAnalysis')}
+                    onSolo={() => showOnlyModule('StockAnalysis')}
+                  >
+                    <div className="flex flex-col h-full min-h-[420px]">
+                      <StockAnalysis />
+                    </div>
+                  </ModuleWrapper>
                 </div>
-              </ModuleWrapper>
-            </div>
-          )}
-          {modules.includes('InsiderTrades') && (
-            <div
-              className={
-                (modules.length === 1 ? 'w-full md:max-w-xl md:mx-auto md:mt-4 ' : 'w-full ') +
-                'flex flex-col h-full min-h-[420px]'
-              }
-            >
-              <ModuleWrapper
-                onClose={() => hideModule('InsiderTrades')}
-                onSolo={() => showOnlyModule('InsiderTrades')}
+              </div>
+            )}
+            {modules.includes('InsiderTrades') && (
+              <div
+                className={
+                  (modules.length === 1 ? 'w-full md:max-w-xl md:mx-auto ' : 'w-full ') +
+                  'flex flex-col h-full min-h-[420px]'
+                }
               >
-                <div className="flex flex-col h-full min-h-[420px]">
-                  <InsiderTrades />
-                </div>
-              </ModuleWrapper>
-            </div>
-          )}
-          {modules.includes('PortfolioTracker') && (
+                <ModuleWrapper
+                  onClose={() => hideModule('InsiderTrades')}
+                  onSolo={() => showOnlyModule('InsiderTrades')}
+                >
+                  <div className="flex flex-col h-full min-h-[420px]">
+                    <InsiderTrades />
+                  </div>
+                </ModuleWrapper>
+              </div>
+            )}
+            {/* Backtest Tool now placed to the right of Insider Trades (3rd column) */}
+            {modules.includes('BacktestTool') && (
+              <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto ' : 'w-full '}>
+                <ModuleWrapper
+                  onClose={() => hideModule('BacktestTool')}
+                  onSolo={() => showOnlyModule('BacktestTool')}
+                >
+                  <BacktestTool />
+                </ModuleWrapper>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Full-width Portfolio Tracker Row (same sizing as Technical Analysis) */}
+        {modules.includes('PortfolioTracker') && (
+          <div className="grid grid-cols-1 gap-6">
             <div
               className={
-                (modules.length === 1 ? 'w-full max-w-xl mx-auto mt-4 ' : '') +
-                'flex flex-col h-full min-h-[420px]'
+                `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full ` +
+                (modules.length === 1 ? '' : '')
               }
             >
               <ModuleWrapper
                 onClose={() => hideModule('PortfolioTracker')}
                 onSolo={() => showOnlyModule('PortfolioTracker')}
               >
-                <div className="flex flex-col h-full min-h-[420px]">
+                <div className="p-4 flex flex-col h-full">
                   <PortfolioTracker />
                 </div>
               </ModuleWrapper>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Neue Zeile: Technical Analysis */}
         <div className="grid grid-cols-1 gap-6">
@@ -221,7 +239,7 @@ export default function Content(props: ContentProps) {
           )}
         </div>
 
-        {/* Third Row - Trading Tools */}
+        {/* Third Row - Trading Tools (Compound Interest + Currency Converter) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {modules.includes('CompoundInterest') && (
             <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 min-h-[220px] border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col justify-center">
@@ -275,41 +293,22 @@ export default function Content(props: ContentProps) {
               </div>
             </div>
           )}
-          {modules.includes('BacktestTool') && (
-            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto mt-4' : ''}>
+          {modules.includes('CurrencyConverter') && (
+            <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col">
               <ModuleWrapper
-                onClose={() => hideModule('BacktestTool')}
-                onSolo={() => showOnlyModule('BacktestTool')}
+                onClose={() => hideModule('CurrencyConverter')}
+                onSolo={() => showOnlyModule('CurrencyConverter')}
               >
-                <BacktestTool />
+                <div className="p-4 flex flex-col h-full">
+                  <CurrencyConverter />
+                </div>
               </ModuleWrapper>
             </div>
           )}
         </div>
 
-        {/* Fourth Row - Market Data & Currency Converter */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {modules.includes('MarketSummary') && (
-            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto mt-4' : ''}>
-              <ModuleWrapper
-                onClose={() => hideModule('MarketSummary')}
-                onSolo={() => showOnlyModule('MarketSummary')}
-              >
-                <MarketSummary />
-              </ModuleWrapper>
-            </div>
-          )}
-          {modules.includes('CurrencyConverter') && (
-            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
-              <ModuleWrapper
-                onClose={() => hideModule('CurrencyConverter')}
-                onSolo={() => showOnlyModule('CurrencyConverter')}
-              >
-                <CurrencyConverter />
-              </ModuleWrapper>
-            </div>
-          )}
-        </div>
+        {/* Fourth Row - Market Data (Currency Converter moved above) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{/* MarketSummary removed */}</div>
 
         {/* Fifth Row - Calendar und Holiday Info */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
