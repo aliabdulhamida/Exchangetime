@@ -9,7 +9,6 @@ import { X } from 'lucide-react';
 import React, { useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-import RealEstateVsStocksCalculator from '../real-estate-vs-stocks-calculator';
 import TaxCalculator from '../tax-calculator';
 import BacktestTool from '../stock-market/backtest-tool';
 import CurrencyConverter from '../stock-market/currency-converter';
@@ -93,7 +92,6 @@ const DEFAULT_VISIBLE_MODULES = [
   'CurrencyConverter',
   'CompoundInterest',
   'PersonalBudget',
-  'RealEstateVsStocks',
   'TaxCalculator',
   'InsiderTrades',
   'EarningsCalendar',
@@ -374,23 +372,7 @@ export default function Content(props: ContentProps) {
           )}
         </div>
 
-        {/* Seventh Row - Real Estate vs. Stocks Calculator */}
-        <div
-          className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}
-        >
-          {modules.includes('RealEstateVsStocks') && (
-            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full border border-gray-200 dark:border-[#23232a] rounded-xl">
-              <ModuleWrapper
-                onClose={() => hideModule('RealEstateVsStocks')}
-                onSolo={() => showOnlyModule('RealEstateVsStocks')}
-              >
-                <div className="flex-1 flex flex-col h-full">
-                  <RealEstateVsStocksCalculator />
-                </div>
-              </ModuleWrapper>
-            </div>
-          )}
-        </div>
+        {/* Real Estate vs. Stocks Calculator removed */}
 
         {/* Eighth Row - Tax Calculator */}
         <div

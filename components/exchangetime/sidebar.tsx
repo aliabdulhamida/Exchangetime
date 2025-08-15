@@ -1350,11 +1350,6 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   />
                   <ModuleButton module="PersonalBudget" icon={Folder} label="Personal Budget" />
                   <ModuleButton
-                    module="RealEstateVsStocks"
-                    icon={Building2}
-                    label="Real Estate vs. Stocks"
-                  />
-                  <ModuleButton
                     module="TechnicalAnalysis"
                     icon={Gauge}
                     label="Technical Analysis"
