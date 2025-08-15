@@ -119,7 +119,7 @@ export default function CurrencyConverter() {
   };
 
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23]">
+    <div className="bg-white dark:bg-[#0F0F12] rounded-xl px-6 pt-3 pb-6">
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
         Currency Converter
       </h2>

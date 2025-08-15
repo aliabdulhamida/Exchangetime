@@ -1316,7 +1316,6 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   {/* Dashboard Button entfernt */}
                   <ModuleButton module="StockAnalysis" icon={BarChart2} label="Stock Analysis" />
                   <ModuleButton module="ExchangeTimes" icon={Building2} label="Exchange Times" />
-                  <ModuleButton module="MarketSummary" icon={Folder} label="Market Summary" />
                 </div>
               </div>
 

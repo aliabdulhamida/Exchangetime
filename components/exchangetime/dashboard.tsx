@@ -14,7 +14,6 @@ const MODULES = [
   'PortfolioTracker',
   'CurrencyConverter',
   'FearGreedIndex',
-  'MarketSummary',
   'EarningsCalendar',
   'HolidayCalendar',
   'CompoundInterest',
