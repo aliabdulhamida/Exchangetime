@@ -1,16 +1,8 @@
 'use client';
 import { RefreshCw, Trash } from 'lucide-react';
 import React, { useState, useEffect, useCallback, useMemo, JSX } from 'react';
-import {
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Tooltip,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-} from 'recharts';
+// Revert: remove continuous-calendar import
+import { XAxis, YAxis, Tooltip, AreaChart, Area } from 'recharts';
 
 import { Button } from '@/components/ui/button';
 import { ChartContainer } from '@/components/ui/chart';
@@ -318,6 +310,8 @@ export default function PortfolioTracker() {
   const [search, setSearch] = useState('');
   const [shares, setShares] = useState('');
   const [buyDate, setBuyDate] = useState('');
+  // Year selection for dividends calendar (external control)
+  const [dividendYear, setDividendYear] = useState<number>(() => new Date().getFullYear());
   const [loading, setLoading] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -335,29 +329,17 @@ export default function PortfolioTracker() {
   });
   const [dividendLoading, setDividendLoading] = useState(false);
 
-  // Save trackedStocks, purchases und stockData zu localStorage, wenn sie sich ändern
+  // Batch localStorage writes for trackedStocks, purchases, stockData, dividendData
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+    const timeout = setTimeout(() => {
       localStorage.setItem('trackedStocks', JSON.stringify(trackedStocks));
-    }
-  }, [trackedStocks]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
       localStorage.setItem('purchases', JSON.stringify(purchases));
-    }
-  }, [purchases]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
       localStorage.setItem('stockData', JSON.stringify(stockData));
-    }
-  }, [stockData]);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
       localStorage.setItem('dividendData', JSON.stringify(dividendData));
-    }
-  }, [dividendData]);
+    }, 300); // batch writes every 300ms
+    return () => clearTimeout(timeout);
+  }, [trackedStocks, purchases, stockData, dividendData]);
 
   const fetchAndCacheStock = useCallback(
     async (symbol: string, force = false) => {
@@ -446,49 +428,45 @@ export default function PortfolioTracker() {
     setLoading(false);
   };
 
-  // Calculate aggregated portfolio value over time
-  let allDates: string[] = [];
-  Object.values(stockData).forEach((arr) => {
-    arr.forEach((d) => {
-      if (!allDates.includes(d.date)) allDates.push(d.date);
+  // Memoize portfolio history calculation
+  const portfolioHistory = useMemo(() => {
+    let allDates: string[] = [];
+    Object.values(stockData).forEach((arr) => {
+      arr.forEach((d) => {
+        if (!allDates.includes(d.date)) allDates.push(d.date);
+      });
     });
-  });
-  allDates.sort();
-
-  // Finde das früheste Kaufdatum
-  let earliestBuyDate = null;
-  if (purchases.length > 0) {
-    earliestBuyDate = purchases.reduce(
-      (min, p) => (min === null || p.date < min ? p.date : min),
-      null as string | null,
-    );
-  }
-
-  // Filtere allDates, sodass sie erst ab dem frühesten Kaufdatum starten
-  let filteredDates = allDates;
-  if (earliestBuyDate) {
-    filteredDates = allDates.filter((date) => date >= earliestBuyDate!);
-  }
-
-  let lastValue = 0;
-  const portfolioHistory = filteredDates.map((date) => {
-    let value = 0;
-    purchases.forEach((p) => {
-      if (stockData[p.symbol]) {
-        // Finde den letzten bekannten Kurs bis zu diesem Datum
-        const priceArr = stockData[p.symbol].filter((d) => d.date <= date && d.close !== null);
-        if (priceArr.length > 0 && date >= p.date) {
-          const lastPrice = priceArr[priceArr.length - 1].close;
-          value += p.shares * lastPrice;
-        }
-      }
-    });
-    if (value === 0 && lastValue > 0) {
-      value = lastValue;
+    allDates.sort();
+    let earliestBuyDate = null;
+    if (purchases.length > 0) {
+      earliestBuyDate = purchases.reduce(
+        (min, p) => (min === null || p.date < min ? p.date : min),
+        null as string | null,
+      );
     }
-    lastValue = value;
-    return { date, value };
-  });
+    let filteredDates = allDates;
+    if (earliestBuyDate) {
+      filteredDates = allDates.filter((date) => date >= earliestBuyDate!);
+    }
+    let lastValue = 0;
+    return filteredDates.map((date) => {
+      let value = 0;
+      purchases.forEach((p) => {
+        if (stockData[p.symbol]) {
+          const priceArr = stockData[p.symbol].filter((d) => d.date <= date && d.close !== null);
+          if (priceArr.length > 0 && date >= p.date) {
+            const lastPrice = priceArr[priceArr.length - 1].close;
+            value += p.shares * lastPrice;
+          }
+        }
+      });
+      if (value === 0 && lastValue > 0) {
+        value = lastValue;
+      }
+      lastValue = value;
+      return { date, value };
+    });
+  }, [stockData, purchases]);
 
   // Helper: get current price for symbol
   function getCurrentPrice(symbol: string): number | null {
@@ -579,6 +557,20 @@ export default function PortfolioTracker() {
       .map(([date, amount]) => ({ date, amount }))
       .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   }, [dividendData, purchases]);
+  // Aggregate dividends per calendar month for visualization (YYYY-MM)
+  const monthlyDividendHistory = useMemo(() => {
+    if (!dividendHistory.length) return [] as { date: string; month: string; amount: number }[];
+    const grouped: Record<string, number> = {};
+    dividendHistory.forEach((e) => {
+      const d = new Date(e.date + 'T00:00:00');
+      if (isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+      grouped[key] = (grouped[key] || 0) + e.amount;
+    });
+    return Object.entries(grouped)
+      .map(([month, amount]) => ({ date: `${month}-01`, month, amount }))
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  }, [dividendHistory]);
   // Trailing 12-month (TTM) dividend income and yearly yield (based on current portfolio value)
   const ttmDividendIncome = useMemo(() => {
     if (!dividendHistory.length) return 0;
@@ -617,7 +609,34 @@ export default function PortfolioTracker() {
             trend={totalReturn}
             rawPct={totalReturn.pct}
           />
-          <KpiCard label="Return" value={totalReturn.formatted} rawPct={totalReturn.pct} />
+          <KpiCard
+            label="Total Return"
+            value={
+              <div className="flex flex-row items-center gap-2">
+                <span className="text-lg text-green-500 font-normal">
+                  {(
+                    getCurrentPortfolioValue() -
+                    (() => {
+                      let totalInvested = 0;
+                      purchases.forEach((p) => {
+                        const buyPrice = getBuyPrice(p.symbol, p.date);
+                        if (buyPrice !== null) {
+                          totalInvested += buyPrice * p.shares;
+                        }
+                      });
+                      return totalInvested;
+                    })()
+                  ).toLocaleString(undefined, {
+                    style: 'currency',
+                    currency: 'USD',
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+                <span className="text-sm text-green-500 font-normal">{totalReturn.formatted}</span>
+              </div>
+            }
+            rawPct={totalReturn.pct}
+          />
           <KpiCard
             label="Total Dividends"
             value={totalDividendIncome.toLocaleString(undefined, {
@@ -640,6 +659,7 @@ export default function PortfolioTracker() {
         <div className="grid gap-5 lg:grid-cols-12">
           {/* Charts Card */}
           <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+            {/* Removed extra percentage display above chart area */}
             <div className="rounded-lg bg-transparent p-3 md:p-4 flex flex-col">
               <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
                 <nav className="flex gap-1">
@@ -658,19 +678,105 @@ export default function PortfolioTracker() {
                     </ChartTab>
                   )}
                 </nav>
-                <div className="flex gap-1 ml-auto">
-                  {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((tf) => (
-                    <TimeframeTab
-                      key={tf}
-                      active={timeframe === tf}
-                      onClick={() => setTimeframe(tf)}
-                    >
-                      {tf}
-                    </TimeframeTab>
-                  ))}
+                <div className="flex gap-2 ml-auto items-center">
+                  {activeChart === 'value' &&
+                    (() => {
+                      // Filter portfolioHistory by timeframe (same logic as chart)
+                      let filteredPortfolioHistory = portfolioHistory;
+                      if (timeframe !== 'ALL') {
+                        const now = Date.now();
+                        const daysMap: Record<string, number> = {
+                          '1M': 30,
+                          '3M': 90,
+                          '6M': 180,
+                          '1Y': 365,
+                        };
+                        const days = daysMap[timeframe] || 100000;
+                        const cutoff = now - days * 24 * 60 * 60 * 1000;
+                        filteredPortfolioHistory = portfolioHistory.filter(
+                          (p) => new Date(p.date).getTime() >= cutoff,
+                        );
+                      }
+                      if (!filteredPortfolioHistory || filteredPortfolioHistory.length < 2)
+                        return null;
+                      let displayValue;
+                      const startValue = filteredPortfolioHistory[0]?.value ?? 0;
+                      const endValue =
+                        filteredPortfolioHistory[filteredPortfolioHistory.length - 1]?.value ?? 0;
+                      if (timeframe === 'ALL') {
+                        // Show total return value (current value - total invested)
+                        const totalInvested = purchases.reduce((sum, p) => {
+                          const buyPrice = getBuyPrice(p.symbol, p.date);
+                          return buyPrice !== null ? sum + buyPrice * p.shares : sum;
+                        }, 0);
+                        displayValue = getCurrentPortfolioValue() - totalInvested;
+                      } else {
+                        // Show total return for the selected period (end - start)
+                        displayValue = endValue - startValue;
+                      }
+                      const pct =
+                        startValue !== 0 ? ((endValue - startValue) / startValue) * 100 : 0;
+                      return (
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm text-gray-300 font-normal">
+                            {displayValue.toLocaleString(undefined, {
+                              style: 'currency',
+                              currency: 'USD',
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                          <span
+                            className={`text-sm font-normal ${pct > 0 ? 'text-green-500' : pct < 0 ? 'text-red-500' : 'text-gray-400'}`}
+                          >
+                            {pct > 0 ? '+' : ''}
+                            {pct.toFixed(2)}%
+                          </span>
+                        </span>
+                      );
+                    })()}
+                  {activeChart === 'value' && (
+                    <>
+                      {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((tf) => (
+                        <TimeframeTab
+                          key={tf}
+                          active={timeframe === tf}
+                          onClick={() => setTimeframe(tf)}
+                        >
+                          {tf}
+                        </TimeframeTab>
+                      ))}
+                    </>
+                  )}
+                  {activeChart === 'dividends' && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDividendYear((y) => y - 1)}
+                        className="h-7 w-7 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-white/40 dark:hover:bg-white/10 transition"
+                        aria-label="Previous Year"
+                      >
+                        ‹
+                      </button>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200 min-w-[46px] text-center">
+                        {dividendYear}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDividendYear((y) => y + 1)}
+                        className="h-7 w-7 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-white/40 dark:hover:bg-white/10 transition"
+                        aria-label="Next Year"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="h-[220px]">
+              <div
+                className={
+                  activeChart === 'dividends' ? 'min-h-[480px] max-h-[700px] h-auto' : 'h-[400px]'
+                }
+              >
                 {activeChart === 'value' &&
                   (() => {
                     // Filter portfolioHistory by timeframe (no hook here to satisfy rules-of-hooks)
@@ -699,9 +805,11 @@ export default function PortfolioTracker() {
                     }
                     return (
                       <ChartContainer config={{ value: { label: 'Value', color: chartColor } }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <div style={{ width: 800, height: 500 }}>
                           {filteredPortfolioHistory.length ? (
                             <AreaChart
+                              width={800}
+                              height={500}
                               data={filteredPortfolioHistory}
                               margin={{ top: 4, right: 16, left: 0, bottom: 0 }}
                             >
@@ -769,72 +877,20 @@ export default function PortfolioTracker() {
                               No data.
                             </div>
                           )}
-                        </ResponsiveContainer>
+                        </div>
                       </ChartContainer>
                     );
                   })()}
-                {activeChart === 'dividends' &&
-                  dividendHistory.length > 0 &&
-                  (() => {
-                    let filteredDividendHistory = dividendHistory;
-                    if (timeframe !== 'ALL') {
-                      const now = Date.now();
-                      const daysMap: Record<string, number> = {
-                        '1M': 30,
-                        '3M': 90,
-                        '6M': 180,
-                        '1Y': 365,
-                      };
-                      const days = daysMap[timeframe] || 100000;
-                      const cutoff = now - days * 24 * 60 * 60 * 1000;
-                      filteredDividendHistory = dividendHistory.filter(
-                        (p) => new Date(p.date).getTime() >= cutoff,
-                      );
-                    }
-                    return (
-                      <ChartContainer config={{ amount: { label: 'Dividends', color: '#22c55e' } }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart
-                            data={filteredDividendHistory}
-                            margin={{ top: 4, right: 12, left: 0, bottom: 0 }}
-                          >
-                            <XAxis
-                              dataKey="date"
-                              tick={{ fontSize: 10, fill: '#a1a1aa' }}
-                              minTickGap={18}
-                            />
-                            <YAxis
-                              tick={{ fontSize: 10, fill: '#a1a1aa' }}
-                              width={52}
-                              domain={[0, 'auto']}
-                              tickFormatter={(v: number) =>
-                                v >= 1000 ? (v / 1000).toFixed(1) + 'K' : v.toFixed(0)
-                              }
-                            />
-                            <Tooltip
-                              content={({ active, payload, label }) => {
-                                if (!active || !payload || !payload.length) return null;
-                                const val = payload[0].payload.amount as number;
-                                return (
-                                  <div className="bg-gray-900 dark:bg-gray-800 text-white rounded px-2 py-1 text-[10px] shadow">
-                                    <div className="font-semibold mb-0.5">{label}</div>
-                                    <div>
-                                      {val.toLocaleString(undefined, {
-                                        style: 'currency',
-                                        currency: 'USD',
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              }}
-                            />
-                            <Bar dataKey="amount" fill="#22c55e" radius={[3, 3, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </ChartContainer>
-                    );
-                  })()}
+                {activeChart === 'dividends' && dividendHistory.length > 0 && (
+                  <div className="overflow-y-auto custom-scroll pr-1 max-h-[520px]">
+                    <DividendCalendar
+                      events={dividendHistory}
+                      timeframe={timeframe}
+                      externalYear={dividendYear}
+                      disableYearNav
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1036,5 +1092,281 @@ function TimeframeTab({
     >
       {children}
     </button>
+  );
+}
+
+// --- Dividend Calendar Component ---
+interface DividendCalendarProps {
+  events: { date: string; amount: number }[];
+  timeframe: string; // '1M' | '3M' | '6M' | '1Y' | 'ALL'
+  externalYear?: number; // if provided, calendar is controlled externally
+  disableYearNav?: boolean; // suppress internal year nav rendering
+}
+
+function DividendCalendar({
+  events,
+  timeframe,
+  externalYear,
+  disableYearNav,
+}: DividendCalendarProps) {
+  const today = useMemo(() => new Date(), []);
+
+  // Apply timeframe filter to events (so year list respects timeframe)
+  const timeframeStart = useMemo(() => {
+    if (timeframe === 'ALL') {
+      if (!events.length) return null;
+      const earliest = events.reduce((m, e) => (e.date < m ? e.date : m), events[0].date);
+      return new Date(earliest + 'T00:00:00');
+    }
+    const daysMap: Record<string, number> = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
+    const days = daysMap[timeframe] || 365;
+    return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  }, [timeframe, events]);
+
+  const filteredEvents = useMemo(
+    () =>
+      timeframeStart
+        ? events.filter((e) => new Date(e.date).getTime() >= timeframeStart.getTime())
+        : events,
+    [events, timeframeStart],
+  );
+
+  // Map for quick lookups (only filtered events)
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of filteredEvents) {
+      map[e.date] = (map[e.date] || 0) + e.amount;
+    }
+    return map;
+  }, [filteredEvents]);
+
+  const availableYears = useMemo(() => {
+    const set = new Set<number>();
+    (filteredEvents.length ? filteredEvents : events).forEach((e) => {
+      set.add(new Date(e.date + 'T00:00:00').getFullYear());
+    });
+    if (!set.size) set.add(today.getFullYear());
+    return Array.from(set).sort((a, b) => a - b);
+  }, [filteredEvents, events, today]);
+
+  const [internalYear, setInternalYear] = useState<number>(() =>
+    availableYears.length ? availableYears[availableYears.length - 1] : today.getFullYear(),
+  );
+  const selectedYear = externalYear ?? internalYear;
+
+  useEffect(() => {
+    if (externalYear === undefined) {
+      if (!availableYears.includes(internalYear)) {
+        setInternalYear(availableYears[availableYears.length - 1]);
+      }
+    }
+  }, [availableYears, internalYear, externalYear]);
+
+  const months = useMemo(() => {
+    const list: Date[] = [];
+    const startMonth =
+      timeframeStart && timeframeStart.getFullYear() === selectedYear
+        ? timeframeStart.getMonth()
+        : 0;
+    const endMonth = selectedYear === today.getFullYear() ? today.getMonth() : 11;
+    for (let m = startMonth; m <= endMonth; m++) list.push(new Date(selectedYear, m, 1));
+    return list;
+  }, [selectedYear, timeframeStart, today]);
+
+  const maxAmount = useMemo(() => {
+    let max = 0;
+    for (const [dateStr, amt] of Object.entries(eventsByDate)) {
+      if (new Date(dateStr + 'T00:00:00').getFullYear() === selectedYear && amt > max) max = amt;
+    }
+    return max || 1;
+  }, [eventsByDate, selectedYear]);
+
+  const canPrev = availableYears.indexOf(selectedYear) > 0;
+  const canNext = availableYears.indexOf(selectedYear) < availableYears.length - 1;
+  const goPrev = () => {
+    if (externalYear !== undefined) return; // controlled externally
+    if (canPrev) {
+      const idx = availableYears.indexOf(selectedYear);
+      setInternalYear(availableYears[idx - 1]);
+    }
+  };
+  const goNext = () => {
+    if (externalYear !== undefined) return;
+    if (canNext) {
+      const idx = availableYears.indexOf(selectedYear);
+      setInternalYear(availableYears[idx + 1]);
+    }
+  };
+
+  function dayColor(amt: number) {
+    if (amt <= 0) return 'bg-gray-200 dark:bg-gray-800';
+    const intensity = Math.min(1, amt / maxAmount);
+    if (intensity < 0.2) return 'bg-green-200 dark:bg-green-800/40';
+    if (intensity < 0.4) return 'bg-green-300 dark:bg-green-700/60';
+    if (intensity < 0.6) return 'bg-green-400 dark:bg-green-600/70';
+    if (intensity < 0.8) return 'bg-green-500 dark:bg-green-500/80';
+    return 'bg-green-600 dark:bg-green-400/80';
+  }
+
+  // Restore custom calendar rendering with monthly sum
+  return (
+    <div className="pb-2 space-y-4">
+      {!disableYearNav && (
+        <div className="flex items-center justify-start gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={!canPrev}
+              className={`h-7 w-7 flex items-center justify-center rounded border text-xs font-medium transition ${canPrev ? 'border-gray-300 dark:border-gray-600 hover:bg-white/40 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200' : 'border-gray-200 dark:border-gray-800 text-gray-400 cursor-not-allowed opacity-40'}`}
+              aria-label="Previous Year"
+            >
+              ‹
+            </button>
+            <div className="text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200">
+              {selectedYear}
+            </div>
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!canNext}
+              className={`h-7 w-7 flex items-center justify-center rounded border text-xs font-medium transition ${canNext ? 'border-gray-300 dark:border-gray-600 hover:bg-white/40 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200' : 'border-gray-200 dark:border-gray-800 text-gray-400 cursor-not-allowed opacity-40'}`}
+              aria-label="Next Year"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="grid gap-6 md:grid-cols-2">
+        {months.map((monthDate) => {
+          const year = monthDate.getFullYear();
+          const month = monthDate.getMonth();
+          const firstDay = new Date(year, month, 1);
+          const nextMonth = new Date(year, month + 1, 1);
+          const daysInMonth = Math.round((+nextMonth - +firstDay) / (1000 * 60 * 60 * 24));
+          const prefixBlanks = firstDay.getDay();
+          const cells: (Date | null)[] = [];
+          for (let i = 0; i < prefixBlanks; i++) cells.push(null);
+          for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+          while (cells.length % 7 !== 0) cells.push(null);
+          // Monthly sum
+          const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+          let monthSum = 0;
+          for (const [dateStr, amt] of Object.entries(eventsByDate)) {
+            if (dateStr.startsWith(monthKey)) monthSum += amt as number;
+          }
+          const monthSumFormatted = monthSum
+            ? monthSum.toLocaleString(undefined, {
+                style: 'currency',
+                currency: 'USD',
+                maximumFractionDigits: 2,
+              })
+            : '-';
+          return (
+            <div
+              key={monthDate.toISOString()}
+              className="border border-gray-200 dark:border-gray-700 rounded-md p-3"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                  {monthDate.toLocaleString(undefined, { month: 'short', year: 'numeric' })}
+                </div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                  <span>Dividends</span>
+                  <span className="font-semibold text-[10px] text-gray-600 dark:text-gray-300">
+                    {monthSumFormatted}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => (
+                  <div
+                    key={d + 'hdr'}
+                    className="text-[9px] font-medium text-center text-gray-400 dark:text-gray-600 select-none"
+                  >
+                    {d}
+                  </div>
+                ))}
+                {cells.map((cell, idx) => {
+                  if (!cell) return <div key={idx} className="h-8 rounded-sm bg-transparent" />;
+                  const dateStr = cell.toISOString().substring(0, 10);
+                  const amt = eventsByDate[dateStr] || 0;
+                  // Aggregate tickers for this date
+                  const tickers: { symbol: string; amount: number }[] = [];
+                  for (const e of filteredEvents) {
+                    if (e.date === dateStr && 'symbol' in e) {
+                      tickers.push({ symbol: (e as any).symbol, amount: e.amount });
+                    }
+                  }
+                  return (
+                    <div
+                      key={idx}
+                      className={`relative group h-8 rounded-sm flex items-center justify-center ${dayColor(amt)} transition-colors`}
+                    >
+                      <span className="text-[9px] font-semibold text-gray-700 dark:text-gray-100">
+                        {cell.getDate()}
+                      </span>
+                      {amt > 0 && (
+                        <div className="absolute z-10 bottom-full mb-1 hidden group-hover:block px-2 py-1 rounded bg-gray-900 text-white text-[10px] whitespace-nowrap shadow-lg min-w-[120px]">
+                          <div className="font-semibold mb-0.5">{dateStr}</div>
+                          <div>
+                            {amt.toLocaleString(undefined, {
+                              style: 'currency',
+                              currency: 'USD',
+                              maximumFractionDigits: 2,
+                            })}
+                          </div>
+                          <div className="mt-1">
+                            {tickers.length > 0 ? (
+                              tickers.map((t, i) => (
+                                <div key={t.symbol + '-' + i} className="flex gap-1 items-center">
+                                  <span className="font-mono text-green-300">{t.symbol}</span>
+                                  <span className="text-gray-200">
+                                    {t.amount.toLocaleString(undefined, {
+                                      style: 'currency',
+                                      currency: 'USD',
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <span className="italic text-gray-400">No ticker info</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {months.length === 0 && (
+        <div className="text-center text-xs text-gray-500 dark:text-gray-400">No dividend data</div>
+      )}
+      <div className="flex items-center gap-2 mt-2">
+        <span className="text-[10px] text-gray-500 dark:text-gray-400">Scale:</span>
+        <div className="flex items-center gap-1">
+          {[0, 0.2, 0.4, 0.6, 0.8, 1].map((t, i) => {
+            const sample = maxAmount * t;
+            return (
+              <div
+                key={i}
+                className={`w-4 h-4 rounded-sm ${dayColor(sample)}`}
+                title={`${(sample || 0).toLocaleString(undefined, {
+                  style: 'currency',
+                  currency: 'USD',
+                  maximumFractionDigits: 0,
+                })}`}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
