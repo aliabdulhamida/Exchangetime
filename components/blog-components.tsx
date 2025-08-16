@@ -88,6 +88,17 @@ export function BlogCategories({
 // Export blog sample articles
 export const blogPosts: BlogPost[] = [
   {
+    id: 12,
+    title: 'The Historic Trump-Putin Summit: A Geopolitical Gamble with Stock Market Ripples',
+    excerpt:
+      'A high-stakes summit in Alaska between Trump and Putin sends ripples through global markets, with impacts on stocks, energy, and investor sentiment.',
+    date: 'August 15, 2025',
+    image:
+      'https://images.unsplash.com/photo-1534598974068-2d51eda7628f?q=80&w=2370&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    categories: ['Markets', 'Weekly Wrap', 'Geopolitics'],
+    slug: 'the-historic-trump-putin-summit',
+  },
+  {
     id: 11,
     title: 'Weekly Market Wrap: Records, Rotations, and a Reality Check – August 11–15, 2025',
     excerpt:
