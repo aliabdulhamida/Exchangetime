@@ -7,9 +7,20 @@ import { blogPosts, allCategories } from '@/components/blog-components';
 
 export default function BlogSidebar() {
   // Sortiere Beiträge nach Datum (neueste zuerst)
-  const latestPosts = [...blogPosts]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 4);
+  // Custom order: ensure 'Weekly Market Wrap' appears before 'Warren Buffett' if both are present
+  let latestPosts = [...blogPosts].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
+  const wrapIndex = latestPosts.findIndex((post) => post.slug === 'weekly-market-wrap-aug-2025');
+  const buffettIndex = latestPosts.findIndex(
+    (post) => post.slug === 'warren-buffett-investing-lessons-weekend-read',
+  );
+  if (wrapIndex > -1 && buffettIndex > -1 && wrapIndex > buffettIndex) {
+    // Move 'Weekly Market Wrap' to just before 'Warren Buffett'
+    const [wrapPost] = latestPosts.splice(wrapIndex, 1);
+    latestPosts.splice(buffettIndex, 0, wrapPost);
+  }
+  latestPosts = latestPosts.slice(0, 4);
 
   return (
     <aside className="w-full lg:w-72 flex-shrink-0">

@@ -88,6 +88,17 @@ export function BlogCategories({
 // Export blog sample articles
 export const blogPosts: BlogPost[] = [
   {
+    id: 11,
+    title: 'Weekly Market Wrap: Records, Rotations, and a Reality Check – August 11–15, 2025',
+    excerpt:
+      'A dramatic week for U.S. stocks: record highs, inflation optimism, PPI reality check, sector rotations, and what lies ahead for investors.',
+    date: 'August 15, 2025',
+    image:
+      'https://images.unsplash.com/photo-1439434768192-c60615c1b3c8?q=80&w=2340&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    categories: ['Markets', 'Weekly Wrap', 'Trends'],
+    slug: 'weekly-market-wrap-aug-2025',
+  },
+  {
     id: 10,
     title: 'Weekend Read: Warren Buffett’s Investing Lessons for Today’s Markets',
     excerpt:
