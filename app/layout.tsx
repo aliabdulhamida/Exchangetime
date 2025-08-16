@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/next';
 import type { Metadata, Viewport } from 'next';
 // TEMP: disable next/font/google to isolate build error
 import { Inter } from 'next/font/google';
@@ -102,6 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             `}
           </Script>
         )}
+        <Analytics />
       </body>
     </html>
   );
