@@ -588,7 +588,7 @@ export default function PortfolioTracker() {
   const [timeframe, setTimeframe] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('ALL');
   const totalReturn = getTotalReturn();
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-xl flex flex-col">
+    <div className="bg-white dark:bg-[#0F0F12] rounded-xl flex flex-col w-full max-w-full">
       <header className="flex flex-col px-4 pt-2 pb-1">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white tracking-tight leading-tight">
           Portfolio Tracker
@@ -596,9 +596,9 @@ export default function PortfolioTracker() {
       </header>
 
       {/* Body Content Wrapper */}
-      <div className="flex flex-col gap-5 px-4 pb-5 md:pb-6">
+      <div className="flex flex-col gap-5 px-2 sm:px-4 pb-5 md:pb-6">
         {/* KPIs */}
-        <section className={`grid w-full gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4`}>
+        <section className="grid w-full gap-2 sm:gap-3 grid-cols-2 md:grid-cols-4">
           <KpiCard
             label="Value"
             value={getCurrentPortfolioValue().toLocaleString(undefined, {
@@ -656,86 +656,90 @@ export default function PortfolioTracker() {
         </section>
         <div className="border-t border-gray-200 dark:border-gray-800" />
 
-        <div className="grid gap-5 lg:grid-cols-12">
+        <div className="grid gap-5 grid-cols-1 lg:grid-cols-12">
           {/* Charts Card */}
-          <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+          <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4 w-full">
             {/* Removed extra percentage display above chart area */}
-            <div className="rounded-lg bg-transparent p-3 md:p-4 flex flex-col">
+            <div className="rounded-lg bg-transparent p-2 sm:p-3 md:p-4 flex flex-col w-full">
               <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
-                <nav className="flex gap-1">
-                  <ChartTab
-                    active={activeChart === 'value'}
-                    onClick={() => setActiveChart('value')}
-                  >
-                    Value
-                  </ChartTab>
-                  {dividendHistory.length > 0 && (
-                    <ChartTab
-                      active={activeChart === 'dividends'}
-                      onClick={() => setActiveChart('dividends')}
-                    >
-                      Dividends
-                    </ChartTab>
-                  )}
-                </nav>
-                <div className="flex gap-2 ml-auto items-center">
-                  {activeChart === 'value' &&
-                    (() => {
-                      // Filter portfolioHistory by timeframe (same logic as chart)
-                      let filteredPortfolioHistory = portfolioHistory;
-                      if (timeframe !== 'ALL') {
-                        const now = Date.now();
-                        const daysMap: Record<string, number> = {
-                          '1M': 30,
-                          '3M': 90,
-                          '6M': 180,
-                          '1Y': 365,
-                        };
-                        const days = daysMap[timeframe] || 100000;
-                        const cutoff = now - days * 24 * 60 * 60 * 1000;
-                        filteredPortfolioHistory = portfolioHistory.filter(
-                          (p) => new Date(p.date).getTime() >= cutoff,
-                        );
-                      }
-                      if (!filteredPortfolioHistory || filteredPortfolioHistory.length < 2)
-                        return null;
-                      let displayValue;
-                      const startValue = filteredPortfolioHistory[0]?.value ?? 0;
-                      const endValue =
-                        filteredPortfolioHistory[filteredPortfolioHistory.length - 1]?.value ?? 0;
-                      if (timeframe === 'ALL') {
-                        // Show total return value (current value - total invested)
-                        const totalInvested = purchases.reduce((sum, p) => {
-                          const buyPrice = getBuyPrice(p.symbol, p.date);
-                          return buyPrice !== null ? sum + buyPrice * p.shares : sum;
-                        }, 0);
-                        displayValue = getCurrentPortfolioValue() - totalInvested;
-                      } else {
-                        // Show total return for the selected period (end - start)
-                        displayValue = endValue - startValue;
-                      }
-                      const pct =
-                        startValue !== 0 ? ((endValue - startValue) / startValue) * 100 : 0;
-                      return (
-                        <span className="flex items-center gap-2">
-                          <span className="text-sm text-gray-300 font-normal">
-                            {displayValue.toLocaleString(undefined, {
-                              style: 'currency',
-                              currency: 'USD',
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                          <span
-                            className={`text-sm font-normal ${pct > 0 ? 'text-green-500' : pct < 0 ? 'text-red-500' : 'text-gray-400'}`}
-                          >
-                            {pct > 0 ? '+' : ''}
-                            {pct.toFixed(2)}%
-                          </span>
-                        </span>
-                      );
-                    })()}
-                  {activeChart === 'value' && (
-                    <>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-3 flex-wrap w-full">
+                  {/* Mobile-first layout: value/percentage centered, buttons below */}
+                  <div className="w-full flex flex-col items-center justify-center gap-2 mb-2 sm:hidden">
+                    <nav className="flex gap-1 mb-2">
+                      <ChartTab
+                        active={activeChart === 'value'}
+                        onClick={() => setActiveChart('value')}
+                      >
+                        Value
+                      </ChartTab>
+                      {dividendHistory.length > 0 && (
+                        <ChartTab
+                          active={activeChart === 'dividends'}
+                          onClick={() => setActiveChart('dividends')}
+                        >
+                          Dividends
+                        </ChartTab>
+                      )}
+                    </nav>
+                    <div className="flex flex-col items-center gap-1">
+                      {activeChart === 'value' ? (
+                        (() => {
+                          let filteredPortfolioHistory = portfolioHistory;
+                          if (timeframe !== 'ALL') {
+                            const now = Date.now();
+                            const daysMap: Record<string, number> = {
+                              '1M': 30,
+                              '3M': 90,
+                              '6M': 180,
+                              '1Y': 365,
+                            };
+                            const days = daysMap[timeframe] || 100000;
+                            const cutoff = now - days * 24 * 60 * 60 * 1000;
+                            filteredPortfolioHistory = portfolioHistory.filter(
+                              (p) => new Date(p.date).getTime() >= cutoff,
+                            );
+                          }
+                          if (!filteredPortfolioHistory || filteredPortfolioHistory.length < 2)
+                            return null;
+                          let displayValue;
+                          const startValue = filteredPortfolioHistory[0]?.value ?? 0;
+                          const endValue =
+                            filteredPortfolioHistory[filteredPortfolioHistory.length - 1]?.value ??
+                            0;
+                          if (timeframe === 'ALL') {
+                            const totalInvested = purchases.reduce((sum, p) => {
+                              const buyPrice = getBuyPrice(p.symbol, p.date);
+                              return buyPrice !== null ? sum + buyPrice * p.shares : sum;
+                            }, 0);
+                            displayValue = getCurrentPortfolioValue() - totalInvested;
+                          } else {
+                            displayValue = endValue - startValue;
+                          }
+                          const pct =
+                            startValue !== 0 ? ((endValue - startValue) / startValue) * 100 : 0;
+                          return (
+                            <>
+                              <span className="text-lg font-semibold text-gray-100">
+                                {displayValue.toLocaleString(undefined, {
+                                  style: 'currency',
+                                  currency: 'USD',
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                              <span
+                                className={`text-base font-normal ${pct > 0 ? 'text-green-500' : pct < 0 ? 'text-red-500' : 'text-gray-400'}`}
+                              >
+                                {pct > 0 ? '+' : ''}
+                                {pct.toFixed(2)}%
+                              </span>
+                            </>
+                          );
+                        })()
+                      ) : (
+                        <span className="text-lg font-semibold text-gray-100">Dividends</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 w-full mt-2">
                       {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((tf) => (
                         <TimeframeTab
                           key={tf}
@@ -745,8 +749,95 @@ export default function PortfolioTracker() {
                           {tf}
                         </TimeframeTab>
                       ))}
-                    </>
-                  )}
+                    </div>
+                  </div>
+                  {/* Desktop layout: original flex row */}
+                  <div className="hidden sm:flex flex-row w-full items-center justify-between gap-3">
+                    <nav className="flex gap-1">
+                      <ChartTab
+                        active={activeChart === 'value'}
+                        onClick={() => setActiveChart('value')}
+                      >
+                        Value
+                      </ChartTab>
+                      {dividendHistory.length > 0 && (
+                        <ChartTab
+                          active={activeChart === 'dividends'}
+                          onClick={() => setActiveChart('dividends')}
+                        >
+                          Dividends
+                        </ChartTab>
+                      )}
+                    </nav>
+                    <div className="flex gap-2 ml-auto items-center">
+                      {activeChart === 'value' &&
+                        (() => {
+                          let filteredPortfolioHistory = portfolioHistory;
+                          if (timeframe !== 'ALL') {
+                            const now = Date.now();
+                            const daysMap: Record<string, number> = {
+                              '1M': 30,
+                              '3M': 90,
+                              '6M': 180,
+                              '1Y': 365,
+                            };
+                            const days = daysMap[timeframe] || 100000;
+                            const cutoff = now - days * 24 * 60 * 60 * 1000;
+                            filteredPortfolioHistory = portfolioHistory.filter(
+                              (p) => new Date(p.date).getTime() >= cutoff,
+                            );
+                          }
+                          if (!filteredPortfolioHistory || filteredPortfolioHistory.length < 2)
+                            return null;
+                          let displayValue;
+                          const startValue = filteredPortfolioHistory[0]?.value ?? 0;
+                          const endValue =
+                            filteredPortfolioHistory[filteredPortfolioHistory.length - 1]?.value ??
+                            0;
+                          if (timeframe === 'ALL') {
+                            const totalInvested = purchases.reduce((sum, p) => {
+                              const buyPrice = getBuyPrice(p.symbol, p.date);
+                              return buyPrice !== null ? sum + buyPrice * p.shares : sum;
+                            }, 0);
+                            displayValue = getCurrentPortfolioValue() - totalInvested;
+                          } else {
+                            displayValue = endValue - startValue;
+                          }
+                          const pct =
+                            startValue !== 0 ? ((endValue - startValue) / startValue) * 100 : 0;
+                          return (
+                            <span className="flex items-center gap-2">
+                              <span className="text-sm text-gray-300 font-normal">
+                                {displayValue.toLocaleString(undefined, {
+                                  style: 'currency',
+                                  currency: 'USD',
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                              <span
+                                className={`text-sm font-normal ${pct > 0 ? 'text-green-500' : pct < 0 ? 'text-red-500' : 'text-gray-400'}`}
+                              >
+                                {pct > 0 ? '+' : ''}
+                                {pct.toFixed(2)}%
+                              </span>
+                            </span>
+                          );
+                        })()}
+                      {activeChart === 'value' && (
+                        <>
+                          {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((tf) => (
+                            <TimeframeTab
+                              key={tf}
+                              active={timeframe === tf}
+                              onClick={() => setTimeframe(tf)}
+                            >
+                              {tf}
+                            </TimeframeTab>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  </div>
                   {activeChart === 'dividends' && (
                     <div className="flex items-center gap-2">
                       <button
@@ -774,7 +865,9 @@ export default function PortfolioTracker() {
               </div>
               <div
                 className={
-                  activeChart === 'dividends' ? 'min-h-[480px] max-h-[700px] h-auto' : 'h-[400px]'
+                  activeChart === 'dividends'
+                    ? 'min-h-[320px] sm:min-h-[480px] max-h-[700px] h-auto w-full'
+                    : 'h-[220px] sm:h-[400px] w-full'
                 }
               >
                 {activeChart === 'value' &&
@@ -805,11 +898,18 @@ export default function PortfolioTracker() {
                     }
                     return (
                       <ChartContainer config={{ value: { label: 'Value', color: chartColor } }}>
-                        <div style={{ width: 800, height: 500 }}>
+                        <div
+                          className="w-full"
+                          style={{ maxWidth: 800, height: '100%', minWidth: 0 }}
+                        >
                           {filteredPortfolioHistory.length ? (
                             <AreaChart
-                              width={800}
-                              height={500}
+                              width={
+                                typeof window !== 'undefined' && window.innerWidth < 640 ? 340 : 800
+                              }
+                              height={
+                                typeof window !== 'undefined' && window.innerWidth < 640 ? 220 : 400
+                              }
                               data={filteredPortfolioHistory}
                               margin={{ top: 4, right: 16, left: 0, bottom: 0 }}
                             >
@@ -895,8 +995,8 @@ export default function PortfolioTracker() {
             </div>
           </div>
           {/* Right side: Form + Purchases unified */}
-          <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
-            <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#18181b] p-3 md:p-4 flex flex-col gap-3">
+          <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4 w-full">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#18181b] p-2 sm:p-3 md:p-4 flex flex-col gap-3 w-full">
               <form
                 className="flex flex-col gap-2"
                 onSubmit={(e) => {
@@ -904,7 +1004,7 @@ export default function PortfolioTracker() {
                   handleAddPurchase();
                 }}
               >
-                <div className="flex gap-2 flex-col sm:flex-row">
+                <div className="flex gap-2 flex-col sm:flex-row w-full">
                   <Input
                     type="text"
                     placeholder="Ticker (e.g. AAPL)"
@@ -957,7 +1057,7 @@ export default function PortfolioTracker() {
                   <RefreshCw className={`w-4 h-4${reloading ? ' animate-spin' : ''}`} />
                 </button>
               </div>
-              <div className="relative rounded-md border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202024] p-2 overflow-hidden h-64 md:h-[360px] xl:h-[400px]">
+              <div className="relative rounded-md border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202024] p-2 overflow-hidden h-48 sm:h-64 md:h-[360px] xl:h-[400px] w-full">
                 <div
                   className="overflow-y-auto pr-1 h-full custom-scroll"
                   style={{ WebkitOverflowScrolling: 'touch' }}
