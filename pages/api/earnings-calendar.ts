@@ -8,75 +8,448 @@ let lastFetch = 0;
 const CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
 
 async function fetchEarningsCalendar(): Promise<Record<string, any[]>> {
-  // Fetch earnings data from Nasdaq's public API
-  // Example endpoint: https://api.nasdaq.com/api/calendar/earnings?date=2025-08-18
-  // We'll fetch for the current week
-  const today = new Date();
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay());
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    return d;
-  });
-  const data: Record<string, any[]> = {};
-
-  for (const dateObj of weekDates) {
-    const dateStr = dateObj.toISOString().split('T')[0];
-    const url = `https://corsproxy.io/?https://api.nasdaq.com/api/calendar/earnings?date=${dateStr}`;
-    let rows: any[] = [];
-    try {
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          Accept: 'application/json',
-          Origin: 'https://www.nasdaq.com',
-          Referer: 'https://www.nasdaq.com/',
-          'Accept-Language': 'en-US,en;q=0.9',
+  // Use static earnings calendar data, updated manually each week
+  const staticData = {
+    data: {
+      asOf: 'Mon, Aug 18, 2025',
+      headers: {
+        time: 'Time',
+        symbol: 'Symbol',
+        name: 'Company Name',
+        marketCap: 'Market Cap',
+        fiscalQuarterEnding: 'Fiscal Quarter Ending',
+        epsForecast: 'Consensus EPS* Forecast',
+        noOfEsts: '# of Ests',
+        lastYearRptDt: "Last Year's Report Date",
+        lastYearEPS: "Last year's EPS*",
+      },
+      rows: [
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '$0.43',
+          time: 'time-after-hours',
+          symbol: 'PANW',
+          name: 'Palo Alto Networks, Inc.',
+          marketCap: '$115,723,140,000',
+          fiscalQuarterEnding: 'Jul/2025',
+          epsForecast: '$0.50',
+          noOfEsts: '16',
         },
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        console.error(`Error fetching ${url}: Status ${res.status} - ${text}`);
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '$2.22',
+          time: 'time-after-hours',
+          symbol: 'FN',
+          name: 'Fabrinet',
+          marketCap: '$11,540,337,040',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '$2.41',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: '8/13/2024',
+          lastYearEPS: '$0.39',
+          time: 'time-after-hours',
+          symbol: 'XP',
+          name: 'XP Inc.',
+          marketCap: '$9,345,793,291',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '$0.39',
+          noOfEsts: '1',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: 'N/A',
+          time: 'time-not-supplied',
+          symbol: 'SNRE',
+          name: 'Sunrise Communications AG',
+          marketCap: '$5,393,823,594',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: '8/05/2024',
+          lastYearEPS: '$0.64',
+          time: 'time-not-supplied',
+          symbol: 'TGS',
+          name: 'Transportadora De Gas Sa Ord B',
+          marketCap: '$4,230,517,157',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '$0.11',
+          noOfEsts: '1',
+        },
+        {
+          lastYearRptDt: '8/12/2024',
+          lastYearEPS: '($0.03)',
+          time: 'time-pre-market',
+          symbol: 'BTDR',
+          name: 'Bitdeer Technologies Group',
+          marketCap: '$2,711,161,933',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '($0.19)',
+          noOfEsts: '4',
+        },
+        {
+          lastYearRptDt: '8/12/2024',
+          lastYearEPS: '($0.07)',
+          time: 'time-not-supplied',
+          symbol: 'PACS',
+          name: 'PACS Group, Inc.',
+          marketCap: '$1,757,168,921',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '$0.47',
+          noOfEsts: '2',
+        },
+        {
+          lastYearRptDt: '8/12/2024',
+          lastYearEPS: '$1.03',
+          time: 'time-not-supplied',
+          symbol: 'AGRO',
+          name: 'Adecoagro S.A.',
+          marketCap: '$916,937,241',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: 'N/A',
+        },
+        {
+          lastYearRptDt: '8/14/2024',
+          lastYearEPS: '($0.04)',
+          time: 'time-pre-market',
+          symbol: 'RSKD',
+          name: 'Riskified Ltd.',
+          marketCap: '$826,207,703',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '($0.06)',
+          noOfEsts: '4',
+        },
+        {
+          lastYearRptDt: '8/12/2024',
+          lastYearEPS: '($0.08)',
+          time: 'time-not-supplied',
+          symbol: 'HIVE',
+          name: 'HIVE Digital Technologies Ltd',
+          marketCap: '$516,021,647',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '($0.08)',
+          noOfEsts: '4',
+        },
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '($0.09)',
+          time: 'time-not-supplied',
+          symbol: 'LZM',
+          name: 'Lifezone Metals Limited',
+          marketCap: '$369,459,694',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '($0.12)',
+          noOfEsts: '1',
+        },
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '($0.10)',
+          time: 'time-after-hours',
+          symbol: 'API',
+          name: 'Agora, Inc.',
+          marketCap: '$341,314,205',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: 'N/A',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: '($5.20)',
+          time: 'time-after-hours',
+          symbol: 'FFAI',
+          name: 'Faraday Future Intelligent Electric Inc.',
+          marketCap: '$292,868,262',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: '8/06/2024',
+          lastYearEPS: '($0.46)',
+          time: 'time-after-hours',
+          symbol: 'NYXH',
+          name: 'Nyxoah SA',
+          marketCap: '$254,505,402',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '($0.63)',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: '7/22/2024',
+          lastYearEPS: '$0.46',
+          time: 'time-not-supplied',
+          symbol: 'AVBH',
+          name: 'Avidbank Holdings, Inc.',
+          marketCap: '$249,901,870',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '$0.75',
+          noOfEsts: '1',
+        },
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '$0.75',
+          time: 'time-after-hours',
+          symbol: 'FLXS',
+          name: 'Flexsteel Industries, Inc.',
+          marketCap: '$188,466,062',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '$0.84',
+          noOfEsts: '1',
+        },
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '($0.11)',
+          time: 'time-not-supplied',
+          symbol: 'CRGO',
+          name: 'Freightos Limited',
+          marketCap: '$164,640,611',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '($0.09)',
+          noOfEsts: '1',
+        },
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '($0.09)',
+          time: 'time-not-supplied',
+          symbol: 'AREC',
+          name: 'American Resources Corporation',
+          marketCap: '$142,335,236',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '$0',
+          noOfEsts: '1',
+        },
+        {
+          lastYearRptDt: '8/07/2024',
+          lastYearEPS: '($0.18)',
+          time: 'time-after-hours',
+          symbol: 'BLNK',
+          name: 'Blink Charging Co.',
+          marketCap: '$96,759,537',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '($0.17)',
+          noOfEsts: '2',
+        },
+        {
+          lastYearRptDt: '8/09/2024',
+          lastYearEPS: '$0.07',
+          time: 'time-pre-market',
+          symbol: 'CBAT',
+          name: 'CBAK Energy Technology, Inc.',
+          marketCap: '$88,833,404',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '($0.04)',
+          noOfEsts: '1',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: 'N/A',
+          time: 'time-not-supplied',
+          symbol: 'TORO',
+          name: 'Toro Corp.',
+          marketCap: '$51,362,465',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: 'N/A',
+          time: 'time-not-supplied',
+          symbol: 'WGRX',
+          name: 'Wellgistics Health, Inc.',
+          marketCap: '$48,002,817',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: '($0.03)',
+          time: 'time-not-supplied',
+          symbol: 'KLTO',
+          name: 'Klotho Neurosciences, Inc.',
+          marketCap: '$25,313,129',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: '($1.47)',
+          time: 'time-not-supplied',
+          symbol: 'SEGG',
+          name: 'Lottery.com, Inc.',
+          marketCap: '$24,494,635',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: 'N/A',
+          time: 'time-not-supplied',
+          symbol: 'APUS',
+          name: 'Apimeds Pharmaceuticals US, Inc.',
+          marketCap: '$18,347,933',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: '8/05/2024',
+          lastYearEPS: '($3.30)',
+          time: 'time-not-supplied',
+          symbol: 'ALLR',
+          name: 'Allarity Therapeutics, Inc.',
+          marketCap: '$14,774,965',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '($0.21)',
+          noOfEsts: '1',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: '($0.02)',
+          time: 'time-not-supplied',
+          symbol: 'CETY',
+          name: 'Clean Energy Technologies, Inc.',
+          marketCap: '$14,370,509',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: '($0.20)',
+          time: 'time-not-supplied',
+          symbol: 'YOSH',
+          name: 'Yoshiharu Global Co.',
+          marketCap: '$12,124,246',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: '($0.90)',
+          time: 'time-not-supplied',
+          symbol: 'FTFT',
+          name: 'Future FinTech Group Inc.',
+          marketCap: '$8,853,917',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: '($0.76)',
+          time: 'time-not-supplied',
+          symbol: 'IMG',
+          name: 'CIMG Inc.',
+          marketCap: '$8,662,585',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: '($0.19)',
+          time: 'time-not-supplied',
+          symbol: 'UUU',
+          name: 'Universal Safety Products, Inc.',
+          marketCap: '$7,632,527',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '($99.99)',
+          time: 'time-not-supplied',
+          symbol: 'RIME',
+          name: 'Algorhythm Holdings, Inc.',
+          marketCap: '$6,185,845',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: 'N/A',
+        },
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '($0.03)',
+          time: 'time-not-supplied',
+          symbol: 'ECDA',
+          name: 'ECD Automotive Design, Inc.',
+          marketCap: '$5,102,612',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: 'N/A',
+        },
+        {
+          lastYearRptDt: '8/19/2024',
+          lastYearEPS: '($99.99)',
+          time: 'time-not-supplied',
+          symbol: 'WINT',
+          name: 'Windtree Therapeutics, Inc.',
+          marketCap: '$1,891,422',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: 'N/A',
+        },
+        {
+          lastYearRptDt: 'N/A',
+          lastYearEPS: '($1.81)',
+          time: 'time-not-supplied',
+          symbol: 'TNFA',
+          name: 'TNF Pharmaceuticals, Inc. ',
+          marketCap: '$1,451,032',
+          fiscalQuarterEnding: 'Jun/2025',
+          epsForecast: '',
+          noOfEsts: '3',
+        },
+      ],
+    },
+    message: null,
+    status: {
+      rCode: 200,
+      bCodeMessage: null,
+      developerMessage: null,
+    },
+  };
+
+  // Transform staticData to match previous output format
+  const rows = staticData.data.rows;
+  // Optionally, group by date if needed. For now, all data is for the week of Aug 18, 2025
+  const dateStr = '2025-08-18';
+  const data: Record<string, any[]> = {};
+  data[dateStr] = rows.map((row: any) => {
+    let release_time = row.time;
+    if (release_time && typeof release_time === 'string') {
+      if (/^time-after-hours$/i.test(release_time)) {
+        release_time = 'After Hours';
+      } else if (/^time-pre[- ]market$/i.test(release_time)) {
+        release_time = 'Pre Market';
+      } else if (/^time-not-supplied$/i.test(release_time)) {
+        release_time = 'Not Supplied';
       } else {
-        try {
-          const json = await res.json();
-          rows = json?.data?.rows || [];
-        } catch (jsonErr) {
-          const text = await res.text();
-          console.error(`Error parsing JSON from ${url}: ${jsonErr} - ${text}`);
-        }
+        release_time = release_time.replace(/-/g, ' ');
+        release_time = release_time.charAt(0).toUpperCase() + release_time.slice(1);
       }
-    } catch (fetchErr) {
-      console.error(`Fetch failed for ${url}:`, fetchErr);
     }
-    data[dateStr] = rows.map((row: any) => {
-      let release_time = row.time;
-      if (release_time && typeof release_time === 'string') {
-        if (/^time-after-hours$/i.test(release_time)) {
-          release_time = 'After Hours';
-        } else if (/^time-pre[- ]market$/i.test(release_time)) {
-          release_time = 'Pre Market';
-        } else if (/^time-not-supplied$/i.test(release_time)) {
-          release_time = 'Not Supplied';
-        } else {
-          release_time = release_time.replace(/-/g, ' ');
-          release_time = release_time.charAt(0).toUpperCase() + release_time.slice(1);
-        }
-      }
-      return {
-        ticker: row.symbol,
-        company_name: row.name || row.company,
-        release_time,
-        marketCap: row.marketCap,
-        fiscalQuarterEnding: row.fiscalQuarterEnding,
-        epsForecast: row.epsForecast,
-        noOfEsts: row.noOfEsts,
-        lastYearRptDt: row.lastYearRptDt,
-        lastYearEPS: row.lastYearEPS,
-      };
-    });
-  }
+    return {
+      ticker: row.symbol,
+      company_name: row.name,
+      release_time,
+      marketCap: row.marketCap,
+      fiscalQuarterEnding: row.fiscalQuarterEnding,
+      epsForecast: row.epsForecast,
+      noOfEsts: row.noOfEsts,
+      lastYearRptDt: row.lastYearRptDt,
+      lastYearEPS: row.lastYearEPS,
+    };
+  });
   return data;
 }
 
