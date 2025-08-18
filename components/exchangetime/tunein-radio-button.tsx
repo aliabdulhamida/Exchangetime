@@ -1,10 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 export default function TuneInRadioButton() {
-  // ...existing code...
-
-  // ...existing code...
-
   // Place this after all state declarations and before return
   const [open, setOpen] = useState(false);
   const wasDragging = useRef(false);
