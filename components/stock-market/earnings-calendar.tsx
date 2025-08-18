@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarX, Menu, Filter, DollarSign, BarChart2, X } from 'lucide-react';
+import { CalendarX, Menu, Filter, Clock, BarChart2, X, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export default function EarningsCalendar() {
@@ -35,16 +35,29 @@ export default function EarningsCalendar() {
   const key = selectedDate.toISOString().split('T')[0];
   const [earningsData, setEarningsData] = useState<Record<string, any[]>>({});
 
-  // Fetch earnings data from API
+  // Fetch earnings data from API and store in localStorage
   const fetchEarnings = () => {
     fetch('/api/earnings-calendar')
       .then((res) => res.json())
-      .then((data) => setEarningsData(data))
+      .then((data) => {
+        setEarningsData(data);
+        localStorage.setItem('earningsData', JSON.stringify(data));
+      })
       .catch(() => setEarningsData({}));
   };
 
+  // Load from localStorage on mount
   useEffect(() => {
-    fetchEarnings();
+    const cached = localStorage.getItem('earningsData');
+    if (cached) {
+      try {
+        setEarningsData(JSON.parse(cached));
+      } catch {
+        fetchEarnings();
+      }
+    } else {
+      fetchEarnings();
+    }
   }, []);
 
   let items = earningsData[key] || [];
@@ -106,19 +119,15 @@ export default function EarningsCalendar() {
     if (typeof itemEPS === 'number') {
       val = itemEPS;
     } else if (typeof itemEPS === 'string') {
-      // Remove any non-numeric characters except minus and dot
-      const cleaned = itemEPS.replace(/[^\d.-]/g, '');
-      val = cleaned ? parseFloat(cleaned) : null;
-    }
-    let cleaned = itemEPS.trim();
-    // Handle bracketed negative values e.g. (0.12) => -0.12
-    const bracketMatch = cleaned.match(/^\(([^)]+)\)$/);
-    if (bracketMatch) {
-      val = -parseFloat(bracketMatch[1].replace(/[^\d.]/g, ''));
-    } else {
-      // Remove any non-numeric characters except minus and dot
-      cleaned = cleaned.replace(/[^\d.-]/g, '');
-      val = cleaned ? parseFloat(cleaned) : null;
+      let cleaned = itemEPS.trim();
+      // Handle bracketed negative values e.g. (0.12) => -0.12
+      const bracketMatch = cleaned.match(/^\(([^)]+)\)$/);
+      if (bracketMatch) {
+        val = -parseFloat(bracketMatch[1].replace(/[^0-9.-]/g, ''));
+      } else {
+        cleaned = cleaned.replace(/[^0-9.-]/g, '');
+        val = cleaned ? parseFloat(cleaned) : null;
+      }
     }
     const filterStr = filter.trim().toLowerCase();
     if (!filterStr) return true;
@@ -132,14 +141,28 @@ export default function EarningsCalendar() {
   }
 
   const filteredItems = items.filter((item: any) => {
-    if (filters.marketCap && !marketCapMatches(item.marketCap, filters.marketCap)) return false;
+    // Pre Market / After Market filter
+    if (filters.marketCap) {
+      const hour = (item.hour || '').toLowerCase();
+      if (filters.marketCap === 'bmo' && hour !== 'bmo') return false;
+      if (filters.marketCap === 'amc' && hour !== 'amc') return false;
+    }
     if (
       filters.ticker &&
       (!item.symbol || !item.symbol.toLowerCase().includes(filters.ticker.toLowerCase()))
     )
       return false;
-    if (filters.epsForecast && !epsForecastMatches(item.epsForecast, filters.epsForecast))
+    if (filters.epsForecast && !epsForecastMatches(item.epsEstimate, filters.epsForecast))
       return false;
+    // Show company only if hour, epsEstimate, and revenueEstimate are all present (not null/undefined/empty)
+    const hasHour = !!item.hour;
+    const hasEpsEstimate =
+      item.epsEstimate !== undefined && item.epsEstimate !== null && item.epsEstimate !== '';
+    const hasRevenueEstimate =
+      item.revenueEstimate !== undefined &&
+      item.revenueEstimate !== null &&
+      item.revenueEstimate !== '';
+    if (!(hasHour && hasEpsEstimate && hasRevenueEstimate)) return false;
     return true;
   });
 
@@ -158,11 +181,13 @@ export default function EarningsCalendar() {
           Earnings Calendar
         </h2>
       </div>
-      {/* Calendar Week above Day Selector */}
-      <div className="w-full flex justify-center">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-3 text-lg text-center">
-          Calendar Week {getISOWeek(selectedDate)}
-        </h3>
+      {/* Calendar Week centered above Day Selector */}
+      <div className="w-full flex items-center mb-3 relative" style={{ minHeight: '32px' }}>
+        <div className="flex-1 flex justify-center">
+          <h3 className="font-semibold text-gray-900 dark:text-white text-lg text-center">
+            Calendar Week {getISOWeek(selectedDate)}
+          </h3>
+        </div>
       </div>
       {/* Day Selector */}
       <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
@@ -193,14 +218,22 @@ export default function EarningsCalendar() {
       <div className="pl-4">
         {/* Filter hamburger menu and company count above cards section */}
         <div className="flex items-center justify-between -mt-2 mb-2">
-          {/* Hamburger menu */}
-          <div className="relative">
+          {/* Hamburger menu and reload button */}
+          <div className="relative flex items-center gap-2">
             <button
               className="flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-black hover:bg-gray-100 dark:hover:bg-black transition-all duration-150 shadow-sm"
               onClick={() => setFilterOpen((v) => !v)}
               aria-label="Filter key metrics"
             >
               <Menu className="w-5 h-5 text-gray-700 dark:text-white" />
+            </button>
+            <button
+              onClick={fetchEarnings}
+              className="h-7 w-7 p-0 flex items-center justify-center text-gray-400 hover:text-teal-600 transition-colors"
+              title="Reload earnings data"
+              aria-label="Reload earnings data"
+            >
+              <RefreshCw className="w-4 h-4" />
             </button>
             {filterOpen && (
               <div className="absolute left-0 mt-2 z-10 bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 min-w-[240px] animate-fade-in">
@@ -226,17 +259,35 @@ export default function EarningsCalendar() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    <select
-                      className="flex-1 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#232329] text-xs"
-                      value={filters.marketCap}
-                      onChange={(e) => setFilters((f) => ({ ...f, marketCap: e.target.value }))}
-                    >
-                      <option value="">Market Cap (All)</option>
-                      <option value="small">Small (&lt;1B)</option>
-                      <option value="mid">Mid (1B-10B)</option>
-                      <option value="large">Large (&gt;10B)</option>
-                    </select>
+                    <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <div className="flex gap-2 items-center">
+                      <button
+                        type="button"
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors duration-150 focus:outline-none ${filters.marketCap === 'bmo' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-[#232329] text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                        onClick={() =>
+                          setFilters((f) => ({
+                            ...f,
+                            marketCap: f.marketCap === 'bmo' ? '' : 'bmo',
+                          }))
+                        }
+                        aria-pressed={filters.marketCap === 'bmo'}
+                      >
+                        Pre Market
+                      </button>
+                      <button
+                        type="button"
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors duration-150 focus:outline-none ${filters.marketCap === 'amc' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-[#232329] text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                        onClick={() =>
+                          setFilters((f) => ({
+                            ...f,
+                            marketCap: f.marketCap === 'amc' ? '' : 'amc',
+                          }))
+                        }
+                        aria-pressed={filters.marketCap === 'amc'}
+                      >
+                        After Market
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <BarChart2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -245,7 +296,7 @@ export default function EarningsCalendar() {
                       value={filters.epsForecast}
                       onChange={(e) => setFilters((f) => ({ ...f, epsForecast: e.target.value }))}
                     >
-                      <option value="">EPS Forecast (All)</option>
+                      <option value="">EPS Estimate (All)</option>
                       <option value="negative">Negative</option>
                       <option value="0-1">0 to 1</option>
                       <option value="1-3">1 to 3</option>
@@ -275,7 +326,7 @@ export default function EarningsCalendar() {
             className="text-gray-900 dark:text-white text-xs font-bold rounded-full px-2 py-0.5"
             title="Number of companies reporting"
           >
-            {items.length} reporting
+            {filteredItems.length} reporting
           </span>
         </div>
         <style jsx>{`
@@ -304,56 +355,62 @@ export default function EarningsCalendar() {
             {filteredItems.map((item: any, idx: number) => (
               <div
                 key={idx}
-                className="border border-gray-200 dark:border-neutral-800 rounded-lg px-6 py-4 flex flex-col md:flex-row justify-between items-center shadow hover:shadow-md transition-shadow duration-200 min-h-[200px]"
+                className="border border-gray-200 dark:border-neutral-800 rounded-lg px-4 py-4 flex flex-col items-center justify-center shadow hover:shadow-md transition-shadow duration-200 min-h-[120px] md:min-h-[150px] w-full"
+                style={{ height: 'auto' }}
               >
-                {/* Card Content: Left & Right Sections */}
-                <div className="flex flex-col justify-center text-left h-full max-w-[60%] min-w-0">
-                  <div className="text-lg font-extrabold text-teal-600 dark:text-teal-400 tracking-wide leading-tight">
+                {/* Symbol and Market Time */}
+                <div className="flex flex-col items-center w-full mb-2">
+                  <span className="text-2xl font-extrabold text-teal-600 dark:text-teal-400 tracking-wide leading-tight">
                     {item.symbol || '–'}
-                  </div>
-                  <div className="text-xs text-gray-700 dark:text-neutral-300 font-medium leading-tight mt-1">
-                    Date: {item.date || '–'}
-                  </div>
-                  <div className="text-xs text-gray-700 dark:text-neutral-300 font-medium leading-tight mt-1">
-                    Quarter: {item.quarter ?? '–'}
-                  </div>
-                  <div className="text-xs text-gray-700 dark:text-neutral-300 font-medium leading-tight mt-1">
-                    Year: {item.year ?? '–'}
-                  </div>
-                </div>
-                <div className="flex flex-col items-end ml-8 text-right h-full w-[40%] min-w-[120px]">
+                  </span>
                   {(() => {
                     const hourLabel = formatHour(item.hour);
                     if (hourLabel === 'After Market' || hourLabel === 'Pre Market') {
                       return (
-                        <div className="text-teal-600 dark:text-teal-400 text-xs font-semibold leading-tight whitespace-nowrap mb-1">
+                        <span className="text-teal-600 dark:text-teal-400 text-sm font-semibold leading-tight mt-1">
                           {hourLabel}
-                        </div>
+                        </span>
                       );
                     }
                     return null;
                   })()}
-                  <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap mb-1">
-                    EPS Estimate:{' '}
-                    <span className="text-black dark:text-white font-extrabold">
+                </div>
+                {/* Quarter and Year */}
+                <div className="flex flex-row items-center justify-center gap-4 mb-2">
+                  <span className="text-xs text-gray-700 dark:text-neutral-300 font-medium">
+                    Quarter: {item.quarter ?? '–'}
+                  </span>
+                  <span className="text-xs text-gray-700 dark:text-neutral-300 font-medium">
+                    Year: {item.year ?? '–'}
+                  </span>
+                </div>
+                {/* EPS and Revenue Info */}
+                <div className="grid grid-cols-2 gap-4 w-full">
+                  <div className="flex flex-col items-center">
+                    <span className="text-gray-700 dark:text-neutral-400 text-xs font-bold mb-1">
+                      EPS Estimate
+                    </span>
+                    <span className="text-black dark:text-white font-extrabold text-base mb-2">
                       {item.epsEstimate ?? '–'}
                     </span>
-                  </div>
-                  <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap mb-1">
-                    EPS Actual:{' '}
-                    <span className="text-black dark:text-white font-extrabold">
+                    <span className="text-gray-700 dark:text-neutral-400 text-xs font-bold mb-1">
+                      EPS Actual
+                    </span>
+                    <span className="text-black dark:text-white font-extrabold text-base">
                       {item.epsActual ?? '–'}
                     </span>
                   </div>
-                  <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap mb-1">
-                    Revenue Estimate:{' '}
-                    <span className="text-black dark:text-white font-extrabold">
+                  <div className="flex flex-col items-center">
+                    <span className="text-gray-700 dark:text-neutral-400 text-xs font-bold mb-1">
+                      Revenue Estimate
+                    </span>
+                    <span className="text-black dark:text-white font-extrabold text-base mb-2">
                       {formatNumber(item.revenueEstimate)}
                     </span>
-                  </div>
-                  <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap mb-1">
-                    Revenue Actual:{' '}
-                    <span className="text-black dark:text-white font-extrabold">
+                    <span className="text-gray-700 dark:text-neutral-400 text-xs font-bold mb-1">
+                      Revenue Actual
+                    </span>
+                    <span className="text-black dark:text-white font-extrabold text-base">
                       {formatNumber(item.revenueActual)}
                     </span>
                   </div>
