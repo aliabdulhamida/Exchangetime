@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   BarChart as BarChartComponent,
   Bar,
+  XAxis,
 } from 'recharts';
 
 import { Button } from '@/components/ui/button';
@@ -658,21 +659,65 @@ export default function PortfolioTracker() {
                   </button>
                 </div>
               </div>
-              <div className="flex gap-1 text-xs sm:text-sm">
-                {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((period) => (
-                  <button
-                    key={period}
-                    onClick={() => setActiveTimeframe(period)}
-                    className={`px-2 py-1 text-xs rounded transition-colors ${
-                      activeTimeframe === period
-                        ? 'bg-muted text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {period}
-                  </button>
-                ))}
-              </div>
+              {activeChart === 'dividends' ? (
+                <div className="flex items-center gap-2 text-xs sm:text-sm">
+                  <div className="relative">
+                    <select
+                      id="dividend-year-select"
+                      value={dividendYear}
+                      onChange={(e) => setDividendYear(Number(e.target.value))}
+                      className="appearance-none px-2 py-1 pr-6 rounded-md border border-border bg-background text-foreground shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                    >
+                      {Array.from(
+                        new Set(
+                          Object.values(dividendData)
+                            .flat()
+                            .map((d) => new Date(d.date).getFullYear()),
+                        ),
+                      )
+                        .sort((a, b) => b - a)
+                        .map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                    </select>
+                    <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-muted-foreground">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M6 8L10 12L14 8"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-1 text-xs sm:text-sm">
+                  {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setActiveTimeframe(period)}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                        activeTimeframe === period
+                          ? 'bg-muted text-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {period}
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <div className="h-48 sm:h-64 md:h-80 w-full">
@@ -688,7 +733,11 @@ export default function PortfolioTracker() {
                     {(() => {
                       if (activeChart === 'dividends') {
                         let filteredDividendHistory = monthlyDividendHistory;
-                        if (activeTimeframe !== 'ALL') {
+                        if (activeChart === 'dividends') {
+                          filteredDividendHistory = monthlyDividendHistory.filter(
+                            (d) => new Date(d.date).getFullYear() === dividendYear,
+                          );
+                        } else if (activeTimeframe !== 'ALL') {
                           const now = Date.now();
                           const daysMap: Record<string, number> = {
                             '1M': 30,
@@ -708,24 +757,42 @@ export default function PortfolioTracker() {
                             data={filteredDividendHistory}
                             margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                           >
-                            {/* XAxis and YAxis removed as requested */}
+                            <XAxis
+                              dataKey="date"
+                              interval={0}
+                              height={60}
+                              tickFormatter={(date: string | number) => {
+                                // Format date as short string (e.g. 'Aug')
+                                const d = new Date(date);
+                                return d.toLocaleDateString('en-US', { month: 'short' });
+                              }}
+                              tick={(props: any) => {
+                                const { x, y, payload } = props;
+                                const d = new Date(payload.value);
+                                const label = d.toLocaleDateString('en-US', { month: 'short' });
+                                return (
+                                  <g transform={`translate(${x},${y})`}>
+                                    <text
+                                      x={0}
+                                      y={0}
+                                      dy={16}
+                                      textAnchor="end"
+                                      fill="#444"
+                                      fontSize={14}
+                                      transform="rotate(-45)"
+                                    >
+                                      {label}
+                                    </text>
+                                  </g>
+                                );
+                              }}
+                            />
                             <Tooltip
                               content={({ active, payload, label }) => {
                                 if (!active || !payload || !payload.length) return null;
                                 const item = payload[0].payload;
                                 return (
                                   <div className="min-w-[140px] max-w-[220px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 dark:border-gray-800 px-3 py-2 text-xs shadow-lg flex flex-col gap-1">
-                                    <div className="font-semibold text-white dark:text-black mb-0.5">
-                                      {payload &&
-                                      payload[0] &&
-                                      payload[0].payload &&
-                                      payload[0].payload.date
-                                        ? new Date(payload[0].payload.date).toLocaleDateString(
-                                            'en-US',
-                                            { year: 'numeric', month: 'short', day: 'numeric' },
-                                          )
-                                        : label}
-                                    </div>
                                     <div className="flex flex-col gap-0.5">
                                       <span className="font-mono text-[13px] text-white dark:text-black">
                                         $
