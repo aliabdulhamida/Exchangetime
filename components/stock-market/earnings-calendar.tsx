@@ -1,9 +1,26 @@
 'use client';
 
 import { CalendarX, Menu, Filter, DollarSign, BarChart2, X } from 'lucide-react';
-import { useState , useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function EarningsCalendar() {
+  // Helper to format hour
+  function formatHour(hour: string | null | undefined): string {
+    if (!hour) return '–';
+    const h = hour.toLowerCase();
+    if (h === 'amc') return 'After Market';
+    if (h === 'bmo') return 'Pre Market';
+    return hour;
+  }
+  // Helper to format large numbers with K/M/B
+  function formatNumber(num: number | null | undefined): string {
+    if (num === null || num === undefined || isNaN(Number(num))) return '–';
+    num = Number(num);
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+    return num.toString();
+  }
   const today = new Date();
   // Ermittle Wochenstart (Sonntag)
   const weekStart = new Date(today);
@@ -118,7 +135,7 @@ export default function EarningsCalendar() {
     if (filters.marketCap && !marketCapMatches(item.marketCap, filters.marketCap)) return false;
     if (
       filters.ticker &&
-      (!item.ticker || !item.ticker.toLowerCase().includes(filters.ticker.toLowerCase()))
+      (!item.symbol || !item.symbol.toLowerCase().includes(filters.ticker.toLowerCase()))
     )
       return false;
     if (filters.epsForecast && !epsForecastMatches(item.epsForecast, filters.epsForecast))
@@ -292,81 +309,53 @@ export default function EarningsCalendar() {
                 {/* Card Content: Left & Right Sections */}
                 <div className="flex flex-col justify-center text-left h-full max-w-[60%] min-w-0">
                   <div className="text-lg font-extrabold text-teal-600 dark:text-teal-400 tracking-wide leading-tight">
-                    {item.ticker}{' '}
-                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
-                      ({item.company_name || '–'})
-                    </span>
+                    {item.symbol || '–'}
                   </div>
                   <div className="text-xs text-gray-700 dark:text-neutral-300 font-medium leading-tight mt-1">
-                    Market Cap: {item.marketCap ? item.marketCap : '–'}
+                    Date: {item.date || '–'}
                   </div>
                   <div className="text-xs text-gray-700 dark:text-neutral-300 font-medium leading-tight mt-1">
-                    Fiscal Quarter: {item.fiscalQuarterEnding || '–'}
+                    Quarter: {item.quarter ?? '–'}
+                  </div>
+                  <div className="text-xs text-gray-700 dark:text-neutral-300 font-medium leading-tight mt-1">
+                    Year: {item.year ?? '–'}
                   </div>
                 </div>
                 <div className="flex flex-col items-end ml-8 text-right h-full w-[40%] min-w-[120px]">
-                  <div className="text-teal-600 dark:text-teal-400 text-xs font-semibold leading-tight whitespace-nowrap mb-1">
-                    {item.release_time}
-                  </div>
-                  <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap mb-1">
-                    Consensus EPS:{' '}
-                    {(() => {
-                      if (!item.epsForecast)
-                        return <span className="text-black dark:text-white font-extrabold">–</span>;
-                      let value = item.epsForecast;
-                      let isNegative = false;
-                      if (typeof value === 'string') {
-                        const match = value.trim().match(/^\(([^)]+)\)$/);
-                        if (match) {
-                          value = '-' + match[1];
-                          isNegative = true;
-                        }
-                      }
-                      if (typeof value === 'string' && value.startsWith('-')) isNegative = true;
+                  {(() => {
+                    const hourLabel = formatHour(item.hour);
+                    if (hourLabel === 'After Market' || hourLabel === 'Pre Market') {
                       return (
-                        <span
-                          className={`font-extrabold ${isNegative ? 'text-red-600 dark:text-red-400' : 'text-black dark:text-white'}`}
-                        >
-                          {value}
-                        </span>
+                        <div className="text-teal-600 dark:text-teal-400 text-xs font-semibold leading-tight whitespace-nowrap mb-1">
+                          {hourLabel}
+                        </div>
                       );
-                    })()}
-                  </div>
+                    }
+                    return null;
+                  })()}
                   <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap mb-1">
-                    # Estimates:{' '}
+                    EPS Estimate:{' '}
                     <span className="text-black dark:text-white font-extrabold">
-                      {item.noOfEsts || '–'}
+                      {item.epsEstimate ?? '–'}
                     </span>
                   </div>
                   <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap mb-1">
-                    Last Report:{' '}
+                    EPS Actual:{' '}
                     <span className="text-black dark:text-white font-extrabold">
-                      {item.lastYearRptDt || '–'}
+                      {item.epsActual ?? '–'}
                     </span>
                   </div>
-                  <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap">
-                    Last EPS:{' '}
-                    {(() => {
-                      if (!item.lastYearEPS)
-                        return <span className="text-black dark:text-white font-extrabold">–</span>;
-                      let value = item.lastYearEPS;
-                      let isNegative = false;
-                      if (typeof value === 'string') {
-                        const match = value.trim().match(/^\(([^)]+)\)$/);
-                        if (match) {
-                          value = '-' + match[1];
-                          isNegative = true;
-                        }
-                      }
-                      if (typeof value === 'string' && value.startsWith('-')) isNegative = true;
-                      return (
-                        <span
-                          className={`font-extrabold ${isNegative ? 'text-red-600 dark:text-red-400' : 'text-black dark:text-white'}`}
-                        >
-                          {value}
-                        </span>
-                      );
-                    })()}
+                  <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap mb-1">
+                    Revenue Estimate:{' '}
+                    <span className="text-black dark:text-white font-extrabold">
+                      {formatNumber(item.revenueEstimate)}
+                    </span>
+                  </div>
+                  <div className="text-gray-700 dark:text-neutral-400 text-xs font-bold flex gap-0.5 whitespace-nowrap mb-1">
+                    Revenue Actual:{' '}
+                    <span className="text-black dark:text-white font-extrabold">
+                      {formatNumber(item.revenueActual)}
+                    </span>
                   </div>
                 </div>
               </div>
