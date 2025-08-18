@@ -846,7 +846,7 @@ export default function PortfolioTracker() {
                             type="monotone"
                             dataKey="value"
                             stroke={chartColor}
-                            strokeWidth={3}
+                            strokeWidth={1.5}
                             fillOpacity={1}
                             fill="url(#colorPortfolioValue)"
                           />
