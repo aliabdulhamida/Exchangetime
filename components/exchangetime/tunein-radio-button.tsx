@@ -108,7 +108,7 @@ export default function TuneInRadioButton() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragging]);
+  }, [dragging, handleMouseMove]);
 
   return (
     <>
