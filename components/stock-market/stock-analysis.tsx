@@ -422,7 +422,7 @@ export default function StockAnalysis() {
   };
 
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-xl pt-3 px-6 pb-6 border border-gray-200 dark:border-[#1F1F23]">
+    <div className="rounded-xl pt-3 px-6 pb-6 border border-gray-200 dark:border-[#1F1F23]">
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 text-left">
         Stock Analysis
       </h2>

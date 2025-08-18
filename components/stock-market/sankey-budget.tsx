@@ -405,7 +405,7 @@ export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
 
   return (
     <div
-      className="bg-white dark:bg-[#0F0F12] rounded-xl border border-gray-200 dark:border-[#1F1F23] max-w-full w-full"
+      className="rounded-xl border border-gray-200 dark:border-[#1F1F23] max-w-full w-full"
       id="personal-budget-container"
     >
       <div className="flex items-center justify-between p-6 pb-0">

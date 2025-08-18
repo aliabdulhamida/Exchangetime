@@ -36,7 +36,9 @@ export default function Layout({ children, sidebar }: LayoutProps) {
             <TopNav />
           </header>
           {/* Kein Padding-Top mehr, damit Content ganz oben steht */}
-          <main className="flex-1 overflow-auto p-6 bg-white dark:bg-[#0F0F12] mt-16">
+          <main
+            className={`flex-1 overflow-auto p-6 mt-16 ${theme === 'dark' ? 'bg-black' : 'bg-white'}`}
+          >
             {children}
           </main>
         </div>

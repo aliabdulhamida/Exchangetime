@@ -1160,7 +1160,9 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <div className="h-full flex flex-col">
+        <div
+          className={`h-full flex flex-col ${currentTheme === 'dark' ? 'bg-black' : 'bg-white'}`}
+        >
           <Link
             href="https://exchangetime.de/"
             target="_blank"
@@ -1195,7 +1197,9 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
               <div className="mb-1.5">
                 {isCollapsed ? (
                   // Vertikaler Toggle für eingeklappte Sidebar
-                  <div className="relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#18181b] shadow-sm flex flex-col w-full">
+                  <div
+                    className={`relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 ${currentTheme === 'dark' ? 'bg-black' : 'bg-white'} shadow-sm flex flex-col w-full`}
+                  >
                     <Link
                       href="/"
                       onClick={(e) => {

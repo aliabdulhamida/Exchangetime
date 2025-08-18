@@ -192,9 +192,10 @@
 .dark .blog-card {
   /* Add subtle light ring + stronger dark drop shadow for dark backgrounds */
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
     0 12px 18px -6px rgba(0, 0, 0, 0.7),
     0 6px 10px -4px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12); /* Even less prominent border for dark theme */
 }
 
 .dark .blog-card:hover {
