@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 export default function TuneInRadioButton() {
   // ...existing code...
@@ -70,29 +70,32 @@ export default function TuneInRadioButton() {
     wasDragging.current = false;
     setOffset({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
-  const handleMouseMove = (e: MouseEvent) => {
-    if (dragging) {
-      const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-      const winHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
-      const buttonWidth = 48; // Approximate button size
-      const buttonHeight = 48;
-      // Get sidebar width from localStorage
-      let sidebarWidth = 256;
-      if (typeof window !== 'undefined') {
-        const collapsed = localStorage.getItem('sidebar-collapsed');
-        sidebarWidth = collapsed === 'true' ? 80 : 256;
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (dragging) {
+        const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+        const winHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+        const buttonWidth = 48; // Approximate button size
+        const buttonHeight = 48;
+        // Get sidebar width from localStorage
+        let sidebarWidth = 256;
+        if (typeof window !== 'undefined') {
+          const collapsed = localStorage.getItem('sidebar-collapsed');
+          sidebarWidth = collapsed === 'true' ? 80 : 256;
+        }
+        let newX = e.clientX - offset.x;
+        let newY = e.clientY - offset.y;
+        // Clamp position so button stays within viewport and not behind sidebar
+        if (newX < sidebarWidth) newX = sidebarWidth;
+        if (newY < 0) newY = 0;
+        if (newX + buttonWidth > winWidth) newX = winWidth - buttonWidth;
+        if (newY + buttonHeight > winHeight) newY = winHeight - buttonHeight;
+        setPosition({ x: newX, y: newY });
+        wasDragging.current = true;
       }
-      let newX = e.clientX - offset.x;
-      let newY = e.clientY - offset.y;
-      // Clamp position so button stays within viewport and not behind sidebar
-      if (newX < sidebarWidth) newX = sidebarWidth;
-      if (newY < 0) newY = 0;
-      if (newX + buttonWidth > winWidth) newX = winWidth - buttonWidth;
-      if (newY + buttonHeight > winHeight) newY = winHeight - buttonHeight;
-      setPosition({ x: newX, y: newY });
-      wasDragging.current = true;
-    }
-  };
+    },
+    [dragging, offset],
+  );
   const handleMouseUp = () => {
     setDragging(false);
   };
