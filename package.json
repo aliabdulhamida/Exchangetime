@@ -17,7 +17,8 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepare": "husky install",
-    "start": "next start"
+    "start": "next start",
+    "test": "echo 'No tests specified'"
   },
   "dependencies": {
     "@coreui/react": "^5.7.1",
