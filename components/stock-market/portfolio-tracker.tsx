@@ -588,7 +588,7 @@ export default function PortfolioTracker() {
   const [timeframe, setTimeframe] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('ALL');
   const totalReturn = getTotalReturn();
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-xl flex flex-col w-full max-w-full">
+    <div className="rounded-xl flex flex-col w-full max-w-full">
       <header className="flex flex-col px-4 pt-2 pb-1">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white tracking-tight leading-tight">
           Portfolio Tracker

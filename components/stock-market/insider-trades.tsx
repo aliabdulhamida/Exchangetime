@@ -66,7 +66,16 @@ export default function InsiderTrades() {
     );
   }
 
-  const selectedSum = selectedIndexes.map((i) => trades[i]?.value || 0).reduce((a, b) => a + b, 0);
+  const selectedSum = selectedIndexes
+    .map((i) => {
+      const trade = trades[i];
+      if (!trade) return 0;
+      // If transaction contains 'Buy', add value; if 'Sale', subtract value
+      if (trade.transaction.toLowerCase().includes('buy')) return trade.value;
+      if (trade.transaction.toLowerCase().includes('sale')) return -trade.value;
+      return 0;
+    })
+    .reduce((a, b) => a + b, 0);
 
   const fetchInsiderTrades = async () => {
     setLoading(true);
@@ -154,10 +163,15 @@ export default function InsiderTrades() {
     .reduce((sum, t) => sum + t.value, 0);
 
   function formatCompactNumber(num: number) {
-    if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + 'B';
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
-    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (num >= 1_000_000_000_000) return Math.ceil(num / 1_000_000_000_000) + 'T';
+    if (num >= 1_000_000_000) return Math.ceil(num / 1_000_000_000) + 'B';
+    if (num >= 1_000_000) return Math.ceil(num / 1_000_000) + 'M';
+    if (num >= 1_000) return Math.ceil(num / 1_000) + 'K';
+    if (num <= -1_000_000_000_000) return Math.ceil(num / 1_000_000_000_000) + 'T';
+    if (num <= -1_000_000_000) return Math.ceil(num / 1_000_000_000) + 'B';
+    if (num <= -1_000_000) return Math.ceil(num / 1_000_000) + 'M';
+    if (num <= -1_000) return Math.ceil(num / 1_000) + 'K';
+    return Math.ceil(num).toString();
   }
 
   // Chart-Komponente im Compound-Interest-Stil für Insider Trades
@@ -267,7 +281,7 @@ export default function InsiderTrades() {
 
   // --- BEGINN JSX-RETURN ---
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-2xl pt-4 pl-4 pr-8 pb-8 border border-gray-200 dark:border-[#1F1F23] w-full md:max-w-2xl md:mx-auto">
+    <div className="rounded-2xl pt-4 pl-4 pr-8 pb-8 border border-gray-200 dark:border-[#1F1F23] w-full md:max-w-2xl md:mx-auto">
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2 mt-0 ml-0">
         Insider Trades
       </h2>
@@ -403,6 +417,15 @@ export default function InsiderTrades() {
       {/* Kartenliste */}
       {trades.length > 0 && (
         <>
+          {selectedIndexes.length > 0 && (
+            <div className="mb-4 flex items-center justify-center">
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-900 bg-white dark:bg-white px-4 py-2 rounded-lg shadow border border-blue-100 dark:border-blue-900">
+                <span className="text-black">
+                  Total value of selected trades: ${formatCompactNumber(Math.ceil(selectedSum))}
+                </span>
+              </span>
+            </div>
+          )}
           <div className="mb-2 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -418,13 +441,13 @@ export default function InsiderTrades() {
             <span>Select transactions to show the total value.</span>
           </div>
           <div className="relative">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[320px] overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[320px] overflow-y-auto pr-2 ml-4">
               {trades.map((trade, index) => {
                 const selected = selectedIndexes.includes(index);
                 return (
                   <Card
                     key={index}
-                    className={`flex flex-col px-6 py-5 min-h-[160px] relative cursor-pointer transition-all duration-150 border-2 ${selected ? 'border-white dark:border-white shadow-lg' : 'border-transparent'}`}
+                    className={`flex flex-col px-6 py-5 min-h-[160px] relative cursor-pointer transition-all duration-150 border border-gray-400 dark:border-gray-600 ${selected ? 'border-white dark:border-white shadow-lg' : ''}`}
                     onClick={() => toggleSelect(index)}
                     tabIndex={0}
                     aria-pressed={selected}
@@ -470,7 +493,7 @@ export default function InsiderTrades() {
                             PRICE
                           </span>
                           <span className="text-[11px] font-bold text-card-foreground">
-                            ${trade.price.toFixed(2)}
+                            ${formatCompactNumber(Math.ceil(trade.price))}
                           </span>
                         </div>
                         <div className="flex flex-col items-start flex-1 pl-1">
@@ -478,7 +501,7 @@ export default function InsiderTrades() {
                             SHARES
                           </span>
                           <span className="text-[11px] font-bold text-card-foreground">
-                            {formatCompactNumber(trade.shares)}
+                            {formatCompactNumber(Math.ceil(trade.shares))}
                           </span>
                         </div>
                         <div className="flex flex-col items-start flex-1 pl-1">
@@ -486,7 +509,7 @@ export default function InsiderTrades() {
                             VALUE
                           </span>
                           <span className="text-[11px] font-bold text-card-foreground">
-                            ${formatCompactNumber(trade.value)}
+                            ${formatCompactNumber(Math.ceil(trade.value))}
                           </span>
                         </div>
                       </div>
@@ -496,15 +519,6 @@ export default function InsiderTrades() {
               })}
             </div>
           </div>
-          {selectedIndexes.length > 0 && (
-            <div className="mt-4 mb-2 flex items-center justify-center">
-              <span className="text-sm font-semibold text-blue-700 dark:text-blue-900 bg-white dark:bg-white px-4 py-2 rounded-lg shadow border border-blue-100 dark:border-blue-900">
-                <span className="text-black">
-                  Total value of selected trades: ${formatCompactNumber(selectedSum)}
-                </span>
-              </span>
-            </div>
-          )}
         </>
       )}
       {/* Info-Hinweis entfernt, jetzt als Tooltip am Titel */}

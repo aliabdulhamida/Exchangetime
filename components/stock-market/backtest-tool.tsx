@@ -279,13 +279,15 @@ export default function BacktestTool() {
   };
 
   return (
-    <div className="bg-white dark:bg-[#0F0F12] rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23] flex flex-col">
+    <div
+      className={`rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23] flex flex-col${result ? ' min-h-[850px] h-[850px]' : ''}`}
+    >
       <div className="flex items-center justify-start mb-6">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">Backtest Tool</h2>
       </div>
       {!result ? (
         <>
-          <div className="space-y-4 mb-6">
+          <div className="space-y-4 mb-6 flex-1 flex flex-col justify-center">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -294,7 +296,7 @@ export default function BacktestTool() {
                 <Input
                   value={symbol}
                   onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  placeholder="Enter ticker (e.g. AAPL)"
+                  placeholder="Ticker"
                 />
               </div>
               <div>
@@ -384,9 +386,8 @@ export default function BacktestTool() {
           )}
         </>
       ) : (
-        <div className="flex flex-col justify-center h-full">
-          <div className="space-y-3 flex-1 flex flex-col justify-center">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Results</h3>
+        <div className="flex flex-col justify-center h-full flex-1">
+          <div className="space-y-3 flex-1 flex flex-col justify-center h-full">
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
                 <p className="text-xs text-gray-600 dark:text-gray-400">Total Investment</p>
@@ -433,7 +434,7 @@ export default function BacktestTool() {
             </div>
             {(portfolioHistory && portfolioHistory.length > 0) ||
             (dividendHistory && dividendHistory.length > 0) ? (
-              <div className="mt-6 flex flex-col md:flex-row gap-6 w-full">
+              <div className="mt-6 flex flex-col gap-6 w-full">
                 {portfolioHistory &&
                   portfolioHistory.length > 0 &&
                   (() => {
@@ -445,11 +446,11 @@ export default function BacktestTool() {
                       else if (last < first) chartColor = '#dc2626';
                     }
                     return (
-                      <div className="flex-1 min-w-0">
+                      <div className="w-full">
                         <ChartContainer
                           config={{ value: { label: 'Portfolio Value', color: chartColor } }}
                         >
-                          <ResponsiveContainer width="100%" height={60}>
+                          <ResponsiveContainer width="100%" height={120}>
                             <AreaChart
                               data={portfolioHistory}
                               margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
@@ -534,9 +535,9 @@ export default function BacktestTool() {
                     );
                   })()}
                 {dividendHistory && dividendHistory.length > 0 && (
-                  <div className="flex-1 min-w-0">
+                  <div className="w-full">
                     <ChartContainer config={{ amount: { label: 'Dividende', color: '#22c55e' } }}>
-                      <ResponsiveContainer width="100%" height={60}>
+                      <ResponsiveContainer width="100%" height={120}>
                         <BarChart
                           data={dividendHistory}
                           margin={{ top: 10, right: 30, left: 0, bottom: 0 }}

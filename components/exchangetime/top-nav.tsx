@@ -1,5 +1,6 @@
 import { ChevronRight, RotateCw, Trash2, Pencil } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { useTheme } from 'next-themes';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import {
@@ -11,12 +12,15 @@ import {
 import { fetchStockData as fetchStockDataPortfolio } from '../stock-market/portfolio-tracker';
 import TradingViewNews from '../stock-market/TradingViewNews';
 import { ThemeToggle } from '../theme-toggle';
+import TuneInRadioButton from './tunein-radio-button';
 
 const FearGreedIndex = dynamic(() => import('@/components/stock-market/fear-greed-index'), {
   ssr: false,
 });
 
 export default function TopNav() {
+  const { theme, systemTheme } = useTheme();
+  const currentTheme = theme === 'system' ? systemTheme : theme;
   // --- Radio Hover State ---
   const [radioOpen, setRadioOpen] = useState(false);
   const radioTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -177,7 +181,9 @@ export default function TopNav() {
 
   return (
     <>
-      <nav className="px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-[#0F0F12] border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64">
+      <nav
+        className={`px-3 sm:px-6 flex items-center justify-between border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64 ${currentTheme === 'dark' ? 'bg-black' : 'bg-white'}`}
+      >
         <div className="flex flex-nowrap items-center ml-16 gap-x-2 overflow-x-auto">
           {/* Watchlist Dropdown */}
           <DropdownMenu>
@@ -368,125 +374,7 @@ export default function TopNav() {
           <ThemeToggle />
         </div>
       </nav>
-      {/* TuneIn Radio Bottom Right - Button und Player immer im DOM, Modal blendet nur UI ein/aus */}
-      <div
-        style={{ position: 'fixed', bottom: 155, right: 24, zIndex: 1000, pointerEvents: 'none' }}
-      >
-        <button
-          className="rounded-full shadow-xl bg-white dark:bg-[#18181b] border-2 border-gray-300 dark:border-[#23232a] p-3 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:focus:ring-emerald-900 animate-radio-pulse"
-          style={{
-            boxShadow: '0 3px 12px rgba(34,197,94,0.10)',
-            pointerEvents: 'auto',
-            position: 'relative',
-            zIndex: 2,
-          }}
-          tabIndex={0}
-          aria-label="Radio öffnen"
-          onClick={(e) => {
-            if ((window as any)._radioTouchHandled) {
-              (window as any)._radioTouchHandled = false;
-              return;
-            }
-            e.stopPropagation();
-            if (!radioOpen) {
-              handleRadioEnter();
-              if (radioTimeout.current) clearTimeout(radioTimeout.current);
-            } else {
-              setRadioOpen(false);
-              if (radioTimeout.current) clearTimeout(radioTimeout.current);
-            }
-          }}
-          onTouchStart={(e) => {
-            (window as any)._radioTouchHandled = true;
-            e.stopPropagation();
-            (window as any)._radioTouchStart = Date.now();
-          }}
-          onTouchEnd={(e) => {
-            e.stopPropagation();
-            const start = (window as any)._radioTouchStart || 0;
-            const duration = Date.now() - start;
-            (window as any)._radioTouchStart = 0;
-            if (duration > 350) return;
-            if (!radioOpen) {
-              handleRadioEnter();
-              if (radioTimeout.current) clearTimeout(radioTimeout.current);
-            } else {
-              setRadioOpen(false);
-              if (radioTimeout.current) clearTimeout(radioTimeout.current);
-            }
-          }}
-        >
-          {/* Pulsating Animation Keyframes */}
-          <style jsx global>{`
-            @keyframes radio-pulse {
-              0% {
-                box-shadow:
-                  0 0 0 0 rgba(120, 120, 120, 0.45),
-                  0 4px 16px rgba(34, 197, 94, 0.1);
-              }
-              70% {
-                box-shadow:
-                  0 0 0 12px rgba(120, 120, 120, 0),
-                  0 4px 16px rgba(34, 197, 94, 0.1);
-              }
-              100% {
-                box-shadow:
-                  0 0 0 0 rgba(120, 120, 120, 0),
-                  0 4px 16px rgba(34, 197, 94, 0.1);
-              }
-            }
-            .dark .animate-radio-pulse {
-              animation: radio-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            }
-          `}</style>
-          {/* bi-broadcast Bootstrap Icon as SVG (exakt wie vom User) */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            fill="currentColor"
-            viewBox="0 0 16 16"
-            className="text-black dark:text-white"
-            style={{ color: undefined }}
-          >
-            <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0" />
-          </svg>
-        </button>
-        {/* Player bleibt immer im DOM, Modal blendet nur UI ein/aus */}
-        <div
-          className={radioOpen ? 'fixed inset-0 z-[1100] flex items-end justify-end' : ''}
-          style={radioOpen ? { pointerEvents: 'auto' } : { display: 'none' }}
-          onClick={radioOpen ? () => setRadioOpen(false) : undefined}
-        >
-          {radioOpen && <div className="absolute inset-0 bg-black bg-opacity-40" />}
-          <div
-            className="relative mb-[225px] mr-6 w-[320px] max-w-[90vw] bg-white dark:bg-[#18181b] border border-gray-200 dark:border-[#23232a] rounded-lg shadow-xl p-2 z-[1110]"
-            onClick={(e) => e.stopPropagation()}
-            style={
-              radioOpen
-                ? { visibility: 'visible', pointerEvents: 'auto' }
-                : { visibility: 'hidden', pointerEvents: 'none' }
-            }
-          >
-            <iframe
-              src="https://tunein.com/embed/player/s110052/"
-              style={{ width: '100%', height: 100, border: 'none' }}
-              scrolling="no"
-              frameBorder="no"
-              title="Radio Player 2"
-              allow="autoplay"
-            />
-            <iframe
-              src="https://tunein.com/embed/player/s165740/"
-              style={{ width: '100%', height: 100, border: 'none' }}
-              scrolling="no"
-              frameBorder="no"
-              title="Radio Player"
-              allow="autoplay"
-            />
-          </div>
-        </div>
-      </div>
+      <TuneInRadioButton />
     </>
   );
 }
