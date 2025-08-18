@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export default function TuneInRadioButton() {
   // ...existing code...
@@ -7,7 +7,7 @@ export default function TuneInRadioButton() {
 
   // Place this after all state declarations and before return
   const [open, setOpen] = useState(false);
-  const wasDragging = React.useRef(false);
+  const wasDragging = useRef(false);
   const [position, setPosition] = useState({
     x: window.innerWidth - 100,
     y: window.innerHeight - 200,
@@ -52,7 +52,7 @@ export default function TuneInRadioButton() {
 
   // Update position on drag
   // Close modal on outside click
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open || dragging) return;
     function handleClick(e: MouseEvent) {
       const modal = document.getElementById('tunein-radio-modal');
@@ -96,7 +96,7 @@ export default function TuneInRadioButton() {
   const handleMouseUp = () => {
     setDragging(false);
   };
-  React.useEffect(() => {
+  useEffect(() => {
     if (dragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
