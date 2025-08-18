@@ -23,11 +23,14 @@ async function fetchEarningsCalendar(): Promise<Record<string, any[]>> {
 
   for (const dateObj of weekDates) {
     const dateStr = dateObj.toISOString().split('T')[0];
-    const url = `https://api.nasdaq.com/api/calendar/earnings?date=${dateStr}`;
+    const url = `https://corsproxy.io/?https://api.nasdaq.com/api/calendar/earnings?date=${dateStr}`;
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0',
         Accept: 'application/json',
+        Origin: 'https://www.nasdaq.com',
+        Referer: 'https://www.nasdaq.com/',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
     });
     const json = await res.json();
