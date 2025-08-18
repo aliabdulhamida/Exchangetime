@@ -24,17 +24,32 @@ async function fetchEarningsCalendar(): Promise<Record<string, any[]>> {
   for (const dateObj of weekDates) {
     const dateStr = dateObj.toISOString().split('T')[0];
     const url = `https://corsproxy.io/?https://api.nasdaq.com/api/calendar/earnings?date=${dateStr}`;
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        Accept: 'application/json',
-        Origin: 'https://www.nasdaq.com',
-        Referer: 'https://www.nasdaq.com/',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-    });
-    const json = await res.json();
-    const rows = json?.data?.rows || [];
+    let rows: any[] = [];
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0',
+          Accept: 'application/json',
+          Origin: 'https://www.nasdaq.com',
+          Referer: 'https://www.nasdaq.com/',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`Error fetching ${url}: Status ${res.status} - ${text}`);
+      } else {
+        try {
+          const json = await res.json();
+          rows = json?.data?.rows || [];
+        } catch (jsonErr) {
+          const text = await res.text();
+          console.error(`Error parsing JSON from ${url}: ${jsonErr} - ${text}`);
+        }
+      }
+    } catch (fetchErr) {
+      console.error(`Fetch failed for ${url}:`, fetchErr);
+    }
     data[dateStr] = rows.map((row: any) => {
       let release_time = row.time;
       if (release_time && typeof release_time === 'string') {
