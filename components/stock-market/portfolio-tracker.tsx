@@ -1,3 +1,4 @@
+// ...existing code...
 'use client';
 import { RefreshCw, Plus, Trash2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, type JSX } from 'react';
@@ -186,6 +187,14 @@ export default function PortfolioTracker() {
   const [loading, setLoading] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-hide error after 2 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
   const [dividendData, setDividendData] = useState<{ [symbol: string]: DividendEvent[] }>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('dividendData');
@@ -465,34 +474,70 @@ export default function PortfolioTracker() {
   const annualYield =
     currentPortfolioValue > 0 ? (ttmDividendIncome / currentPortfolioValue) * 100 : 0;
 
+  // Modal state for deleting shares
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    index: number | null;
+    maxShares: number;
+    symbol: string;
+  }>({ open: false, index: null, maxShares: 0, symbol: '' });
+  const [deleteShares, setDeleteShares] = useState('');
+
   const handleDeletePurchase = (indexToDelete: number) => {
-    setPurchases((prev) => prev.filter((_, index) => index !== indexToDelete));
+    const purchase = purchases[indexToDelete];
+    // Aggregate total shares for the symbol
+    const totalShares = purchases
+      .filter((p) => p.symbol === purchase.symbol)
+      .reduce((sum, p) => sum + p.shares, 0);
+    setDeleteModal({
+      open: true,
+      index: indexToDelete,
+      maxShares: totalShares,
+      symbol: purchase.symbol,
+    });
+    setDeleteShares('');
+  };
+
+  const confirmDeleteShares = () => {
+    if (deleteModal.index === null) return;
+    const sharesToDelete = Number(deleteShares);
+    if (!sharesToDelete || sharesToDelete < 1 || sharesToDelete > deleteModal.maxShares) return;
+    setPurchases((prev) => {
+      const updated = [...prev];
+      const purchase = updated[deleteModal.index!];
+      if (purchase.shares > sharesToDelete) {
+        updated[deleteModal.index!] = { ...purchase, shares: purchase.shares - sharesToDelete };
+      } else {
+        updated.splice(deleteModal.index!, 1);
+      }
+      return updated;
+    });
+    setDeleteModal({ open: false, index: null, maxShares: 0, symbol: '' });
+    setDeleteShares('');
   };
 
   // Calculate total return value and percentage for selected timeframe
   let totalReturnValue: number | null = null;
   let totalReturnPct: number | null = null;
-  {
-    let filtered = portfolioHistory;
-    if (portfolioHistory.length > 0) {
-      if (activeTimeframe !== 'ALL') {
-        const now = Date.now();
-        const daysMap: Record<string, number> = {
-          '1M': 30,
-          '3M': 90,
-          '6M': 180,
-          '1Y': 365,
-        };
-        const days = daysMap[activeTimeframe] || 100000;
-        const cutoff = now - days * 24 * 60 * 60 * 1000;
-        filtered = portfolioHistory.filter((p) => new Date(p.date).getTime() >= cutoff);
-      }
-      if (filtered.length > 0) {
-        const first = filtered[0].value;
-        const last = filtered[filtered.length - 1].value;
-        totalReturnValue = last - first;
-        totalReturnPct = first > 0 ? ((last - first) / first) * 100 : null;
-      }
+  let filtered = portfolioHistory;
+  if (portfolioHistory.length > 0) {
+    if (activeTimeframe !== 'ALL') {
+      const now = Date.now();
+      const daysMap: Record<string, number> = {
+        '1M': 30,
+        '3M': 90,
+        '6M': 180,
+        '1Y': 365,
+      };
+      const days = daysMap[activeTimeframe] || 100000;
+      const cutoff = now - days * 24 * 60 * 60 * 1000;
+      filtered = portfolioHistory.filter((p) => new Date(p.date).getTime() >= cutoff);
+    }
+    if (filtered.length > 0) {
+      const first = filtered[0].value;
+      const last = filtered[filtered.length - 1].value;
+      totalReturnValue = last - first;
+      totalReturnPct = first > 0 ? ((last - first) / first) * 100 : null;
     }
   }
 
@@ -541,13 +586,23 @@ export default function PortfolioTracker() {
                   maximumFractionDigits: 0,
                 })}
               </div>
-              {totalReturn.pct !== null && (
-                <div
-                  className={`text-xs sm:text-sm ${totalReturn.pct > 0 ? 'text-green-600' : totalReturn.pct < 0 ? 'text-red-600' : 'text-muted-foreground'}`}
-                >
-                  {totalReturn.formatted}
-                </div>
-              )}
+              {(() => {
+                // Always show the percentage for 'ALL' timeframe
+                let pct = null;
+                if (portfolioHistory.length > 0) {
+                  const first = portfolioHistory[0].value;
+                  const last = portfolioHistory[portfolioHistory.length - 1].value;
+                  pct = first > 0 ? ((last - first) / first) * 100 : null;
+                }
+                return pct !== null ? (
+                  <div
+                    className={`text-xs sm:text-sm ${pct > 0 ? 'text-green-600' : pct < 0 ? 'text-red-600' : 'text-muted-foreground'}`}
+                  >
+                    {pct > 0 ? '+' : ''}
+                    {pct.toFixed(2)}%
+                  </div>
+                ) : null;
+              })()}
             </CardContent>
           </Card>
 
@@ -954,11 +1009,38 @@ export default function PortfolioTracker() {
             <CardContent className="space-y-4 text-xs sm:text-sm">
               {purchases.length > 0 ? (
                 <div className="space-y-2 max-h-40 sm:max-h-60 md:max-h-80 overflow-y-auto">
-                  {purchases.map((purchase, index) => {
-                    const currentPrice = getCurrentPrice(purchase.symbol);
-                    const buyPrice = getBuyPrice(purchase.symbol, purchase.date);
-                    const currentValue = currentPrice ? currentPrice * purchase.shares : 0;
-                    const investedValue = buyPrice ? buyPrice * purchase.shares : 0;
+                  {Object.entries(
+                    purchases.reduce(
+                      (
+                        acc: Record<
+                          string,
+                          { shares: number; purchases: typeof purchases; indices: number[] }
+                        >,
+                        p,
+                        idx,
+                      ) => {
+                        if (!acc[p.symbol])
+                          acc[p.symbol] = { shares: 0, purchases: [], indices: [] };
+                        acc[p.symbol].shares += p.shares;
+                        acc[p.symbol].purchases.push(p);
+                        acc[p.symbol].indices.push(idx);
+                        return acc;
+                      },
+                      {} as Record<
+                        string,
+                        { shares: number; purchases: typeof purchases; indices: number[] }
+                      >,
+                    ),
+                  ).map(([symbol, { shares, purchases: symbolPurchases, indices }]) => {
+                    // Calculate average buy price
+                    const totalInvested = symbolPurchases.reduce((sum, p) => {
+                      const buyPrice = getBuyPrice(symbol, p.date);
+                      return sum + (buyPrice ? buyPrice * p.shares : 0);
+                    }, 0);
+                    const avgBuyPrice = shares > 0 ? totalInvested / shares : 0;
+                    const currentPrice = getCurrentPrice(symbol);
+                    const currentValue = currentPrice ? currentPrice * shares : 0;
+                    const investedValue = avgBuyPrice * shares;
                     const returnPct =
                       investedValue > 0
                         ? ((currentValue - investedValue) / investedValue) * 100
@@ -966,19 +1048,17 @@ export default function PortfolioTracker() {
 
                     return (
                       <div
-                        key={index}
+                        key={symbol}
                         className="p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="font-medium text-foreground text-xs sm:text-sm">
-                            {purchase.symbol}
+                            {symbol}
                           </div>
                           <div className="flex items-center gap-1">
-                            <div className="text-xs text-muted-foreground">
-                              {purchase.shares} shares
-                            </div>
+                            <div className="text-xs text-muted-foreground">{shares} shares</div>
                             <button
-                              onClick={() => handleDeletePurchase(index)}
+                              onClick={() => handleDeletePurchase(indices[0])}
                               className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-red-600"
                               aria-label="Delete holding"
                             >
@@ -999,6 +1079,14 @@ export default function PortfolioTracker() {
                             {returnPct.toFixed(1)}%
                           </div>
                         </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Avg. buy price:{' '}
+                          {avgBuyPrice.toLocaleString(undefined, {
+                            style: 'currency',
+                            currency: 'USD',
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
                       </div>
                     );
                   })}
@@ -1015,6 +1103,57 @@ export default function PortfolioTracker() {
           </Card>
         </div>
       </main>
+
+      {deleteModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/10 dark:bg-black/20">
+          <Card className="w-full max-w-md border border-border shadow-lg mx-2 sm:mx-0">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Delete Shares</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-xs sm:text-sm">
+              <div className="mb-2 text-center text-sm">
+                How many shares of <span className="font-bold">{deleteModal.symbol}</span> do you
+                want to delete?
+                <br />
+                <span className="text-muted-foreground">(Max: {deleteModal.maxShares})</span>
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={deleteModal.maxShares}
+                value={deleteShares}
+                onChange={(e) => setDeleteShares(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder={`1 - ${deleteModal.maxShares}`}
+              />
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2 text-xs sm:text-sm">
+                <Button
+                  onClick={() => {
+                    setDeleteModal({ open: false, index: null, maxShares: 0, symbol: '' });
+                    setDeleteShares('');
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmDeleteShares}
+                  disabled={
+                    !deleteShares ||
+                    Number(deleteShares) < 1 ||
+                    Number(deleteShares) > deleteModal.maxShares
+                  }
+                  className="flex-1"
+                  variant="destructive"
+                >
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/30 dark:bg-black/50">
@@ -1065,7 +1204,7 @@ export default function PortfolioTracker() {
                   Cancel
                 </Button>
                 <Button onClick={handleAddPurchase} disabled={loading} className="flex-1">
-                  {loading ? 'Adding...' : 'Add'}
+                  {loading ? 'Adding...' : 'Buy'}
                 </Button>
               </div>
             </CardContent>
