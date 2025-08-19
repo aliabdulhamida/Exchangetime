@@ -34,11 +34,11 @@ async function fetchEarningsCalendar(): Promise<Record<string, any[]>> {
       if (!data[dateStr]) data[dateStr] = [];
       data[dateStr].push({
         date: row.date,
-        epsActual: row.actualEPS ?? null,
+        epsActual: row.epsActual ?? null,
         epsEstimate: row.epsEstimate ?? null,
         hour: row.hour ?? '',
         quarter: row.quarter ?? null,
-        revenueActual: row.actualRevenue ?? null,
+        revenueActual: row.revenueActual ?? null,
         revenueEstimate: row.revenueEstimate ?? null,
         symbol: row.symbol ?? '',
         year: row.year ?? null,
