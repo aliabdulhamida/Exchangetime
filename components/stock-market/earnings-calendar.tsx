@@ -375,15 +375,7 @@ export default function EarningsCalendar() {
                     return null;
                   })()}
                 </div>
-                {/* Quarter and Year */}
-                <div className="flex flex-row items-center justify-center gap-4 mb-2">
-                  <span className="text-xs text-gray-700 dark:text-neutral-300 font-medium">
-                    Quarter: {item.quarter ?? '–'}
-                  </span>
-                  <span className="text-xs text-gray-700 dark:text-neutral-300 font-medium">
-                    Year: {item.year ?? '–'}
-                  </span>
-                </div>
+                {/* ...removed quarter and year display... */}
                 {/* EPS and Revenue Info */}
                 <div className="grid grid-cols-2 gap-4 w-full">
                   <div className="flex flex-col items-center">
