@@ -4,6 +4,30 @@ import { CalendarX, Menu, Filter, Clock, BarChart2, X, RefreshCw } from 'lucide-
 import { useState, useEffect } from 'react';
 
 export default function EarningsCalendar() {
+  // Helper to determine border color for earnings card
+  function getBorderColor(item: any) {
+    const hasActuals =
+      item.epsActual !== undefined &&
+      item.epsActual !== null &&
+      item.epsActual !== '' &&
+      item.revenueActual !== undefined &&
+      item.revenueActual !== null &&
+      item.revenueActual !== '';
+    if (hasActuals) {
+      const epsActual = parseFloat(item.epsActual);
+      const epsEstimate = parseFloat(item.epsEstimate);
+      const revActual = parseFloat(item.revenueActual);
+      const revEstimate = parseFloat(item.revenueEstimate);
+      if (!isNaN(epsActual) && !isNaN(epsEstimate) && !isNaN(revActual) && !isNaN(revEstimate)) {
+        if (epsActual >= epsEstimate && revActual >= revEstimate) {
+          return 'border-green-500';
+        } else if (epsActual < epsEstimate && revActual < revEstimate) {
+          return 'border-red-500';
+        }
+      }
+    }
+    return 'border-gray-200 dark:border-neutral-800';
+  }
   // Helper to format EPS to 2 decimal places
   function formatEPS(num: number | null | undefined): string {
     if (num === null || num === undefined || isNaN(Number(num))) return '–';
@@ -65,7 +89,12 @@ export default function EarningsCalendar() {
     }
   }, []);
 
-  let items = earningsData[key] || [];
+  // Shift data by one day down: show previous day's data for each day
+  // Shift data by one day down: show next day's data for each day
+  const nextDayIdx = (selectedDayIdx + 1) % 7;
+  const nextDate = weekDates[nextDayIdx];
+  const nextKey = nextDate.toISOString().split('T')[0];
+  let items = earningsData[nextKey] || [];
 
   // Filter menu state
   const [filterOpen, setFilterOpen] = useState(false);
@@ -360,19 +389,19 @@ export default function EarningsCalendar() {
             {filteredItems.map((item: any, idx: number) => (
               <div
                 key={idx}
-                className="border border-gray-200 dark:border-neutral-800 rounded-lg px-4 py-4 flex flex-col items-center justify-center shadow hover:shadow-md transition-shadow duration-200 min-h-[120px] md:min-h-[150px] w-full"
+                className={`border ${getBorderColor(item)} rounded-lg px-4 py-4 flex flex-col items-center justify-center shadow hover:shadow-md transition-shadow duration-200 min-h-[120px] md:min-h-[150px] w-full`}
                 style={{ height: 'auto' }}
               >
                 {/* Symbol and Market Time */}
                 <div className="flex flex-col items-center w-full mb-2">
-                  <span className="text-2xl font-extrabold text-teal-600 dark:text-teal-400 tracking-wide leading-tight">
+                  <span className="text-2xl font-extrabold text-white tracking-wide leading-tight">
                     {item.symbol || '–'}
                   </span>
                   {(() => {
                     const hourLabel = formatHour(item.hour);
                     if (hourLabel === 'After Market' || hourLabel === 'Pre Market') {
                       return (
-                        <span className="text-teal-600 dark:text-teal-400 text-sm font-semibold leading-tight mt-1">
+                        <span className="text-white text-sm font-semibold leading-tight mt-1">
                           {hourLabel}
                         </span>
                       );
