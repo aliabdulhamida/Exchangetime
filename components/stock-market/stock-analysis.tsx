@@ -212,10 +212,8 @@ export default function StockAnalysis() {
 
   async function fetchYahooFinanceMetrics(symbol: string): Promise<Metrics> {
     try {
-      const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY;
-      const fmpUrl = `https://financialmodelingprep.com/api/v3/cash-flow-statement/${symbol}?limit=1&apikey=${apiKey}`;
-      const response = await fetch(fmpUrl);
-      if (!response.ok) throw new Error(`FMP API returned status ${response.status}`);
+      const response = await fetch(`/api/fcf?symbol=${symbol}`);
+      if (!response.ok) throw new Error(`FCF API returned status ${response.status}`);
       const json = await response.json();
       // FMP returns an array, take the most recent statement
       const statement = Array.isArray(json) ? json[0] : json;
@@ -386,8 +384,7 @@ export default function StockAnalysis() {
       // DCF von financialmodellingprep.com
       let dcf = null;
       try {
-        const dcfUrl = `https://financialmodelingprep.com/api/v3/discounted-cash-flow/${symbol}?apikey=dLA2mkbn8dXaP4RoeGungdPJzNTiYRix`;
-        const dcfRes = await fetch(dcfUrl);
+        const dcfRes = await fetch(`/api/dcf?symbol=${symbol}`);
         if (dcfRes.ok) {
           const dcfJson = await dcfRes.json();
           dcf = dcfJson?.dcf || dcfJson[0]?.dcf || null;
