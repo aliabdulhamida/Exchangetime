@@ -10,6 +10,8 @@ import { ChartContainer } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import AnalystValuation from './AnalystValuation';
+
 interface StockData {
   symbol: string;
   name: string;
@@ -158,7 +160,7 @@ export default function StockAnalysis() {
       const epsGrowth = extractMetric('EPS next Y') || extractMetric('EPS Growth');
       const roic = extractMetric('ROI') || extractMetric('ROIC');
       const currentRatio = extractMetric('Current R') || extractMetric('Current Ratio');
-      const freeCashFlow = extractMetric('FCF') || extractMetric('Free Cash Flow');
+      const freeCashFlow = extractMetric('FCF') || extractMetric('FCF');
       const forwardPE = extractMetric('Forward P/E') || extractMetric('Fwd P/E');
       const dividendYield = extractMetric('Dividend %') || extractMetric('Div Yield');
       // Hilfsfunktionen
@@ -209,8 +211,25 @@ export default function StockAnalysis() {
   }
 
   async function fetchYahooFinanceMetrics(symbol: string): Promise<Metrics> {
-    // Dummy: gibt nur leere Werte zurück, kann bei Bedarf erweitert werden
-    return {};
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY;
+      const fmpUrl = `https://financialmodelingprep.com/api/v3/cash-flow-statement/${symbol}?limit=1&apikey=${apiKey}`;
+      const response = await fetch(fmpUrl);
+      if (!response.ok) throw new Error(`FMP API returned status ${response.status}`);
+      const json = await response.json();
+      // FMP returns an array, take the most recent statement
+      const statement = Array.isArray(json) ? json[0] : json;
+      let fcfValue: number | undefined = undefined;
+      if (statement && typeof statement.freeCashFlow === 'number') {
+        // Convert to billions for display
+        fcfValue = statement.freeCashFlow / 1e9;
+      }
+      return {
+        freeCashFlow: fcfValue,
+      };
+    } catch (error) {
+      return {};
+    }
   }
   const [searchSymbol, setSearchSymbol] = useState('');
   const [selectedStock, setSelectedStock] = useState<StockData | null>(null);
@@ -344,7 +363,6 @@ export default function StockAnalysis() {
     try {
       const symbol = searchSymbol.toUpperCase();
       await fetchChartData(symbol, chartRange);
-      // ...existing code...
       const yahooUrl = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
       const yahooRes = await fetch(yahooUrl);
       if (!yahooRes.ok) {
@@ -361,8 +379,6 @@ export default function StockAnalysis() {
       const previousClose = meta?.previousClose;
       const change = price && previousClose ? price - previousClose : 0;
       const changePercent = change && previousClose ? (change / previousClose) * 100 : 0;
-
-      // ...existing code...
 
       // Hole zusätzliche Metriken (Finviz + Yahoo Fallback)
       const metrics = await fetchAdditionalMetrics(symbol);
@@ -403,9 +419,9 @@ export default function StockAnalysis() {
           debtEquity: metrics?.debtToEquity,
           currentRatio: metrics?.currentRatio,
           freeCashFlow:
-            typeof metrics?.freeCashFlow === 'number'
-              ? `$${(metrics.freeCashFlow / 1e9).toFixed(2)}B`
-              : undefined,
+            typeof metrics?.freeCashFlow === 'number' && metrics.freeCashFlow > 0
+              ? `$${metrics.freeCashFlow.toFixed(2)}B`
+              : '-',
         });
       } else {
         setError('Error fetching data.');
@@ -563,17 +579,17 @@ export default function StockAnalysis() {
             <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#18181b] col-span-1">
               <h4 className="font-semibold mb-2 text-sm text-gray-900 dark:text-white">Growth</h4>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>Revenue Growth</span>
+                <span>Revenue</span>
                 <span>{selectedStock.revenueGrowth ? `${selectedStock.revenueGrowth}%` : '-'}</span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>Earnings Growth</span>
+                <span>Earnings</span>
                 <span>
                   {selectedStock.earningsGrowth ? `${selectedStock.earningsGrowth}%` : '-'}
                 </span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>EPS Growth</span>
+                <span>EPS</span>
                 <span>{selectedStock.epsGrowth ? `${selectedStock.epsGrowth}%` : '-'}</span>
               </div>
             </div>
@@ -591,12 +607,12 @@ export default function StockAnalysis() {
                 <span>{selectedStock.currentRatio ?? '-'}</span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>Free Cash Flow</span>
+                <span>FCF</span>
                 <span>{selectedStock.freeCashFlow ?? '-'}</span>
               </div>
             </div>
             {/* DCF Valuation */}
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23] col-span-2">
+            <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23] col-span-1">
               <p className="text-sm text-gray-600 dark:text-gray-400">DCF Valuation</p>
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-900 dark:text-white text-sm">
@@ -618,6 +634,8 @@ export default function StockAnalysis() {
                   )}
               </div>
             </div>
+            {/* Analyst Valuation (Finviz scrape) */}
+            <AnalystValuation symbol={selectedStock?.symbol} price={selectedStock?.price} />
             {/* Chart: Kursverlauf (dynamisch von Yahoo Finance) */}
             <div className="col-span-2 mt-6">
               <ChartContainer config={{ price: { label: 'Price', color: '#2563eb' } }}>
