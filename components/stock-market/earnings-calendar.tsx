@@ -4,6 +4,11 @@ import { CalendarX, Menu, Filter, Clock, BarChart2, X, RefreshCw } from 'lucide-
 import { useState, useEffect } from 'react';
 
 export default function EarningsCalendar() {
+  // Helper to format EPS to 2 decimal places
+  function formatEPS(num: number | null | undefined): string {
+    if (num === null || num === undefined || isNaN(Number(num))) return '–';
+    return Number(num).toFixed(2);
+  }
   // Helper to format hour
   function formatHour(hour: string | null | undefined): string {
     if (!hour) return '–';
@@ -383,13 +388,13 @@ export default function EarningsCalendar() {
                       EPS Estimate
                     </span>
                     <span className="text-black dark:text-white font-extrabold text-base mb-2">
-                      {item.epsEstimate ?? '–'}
+                      {formatEPS(item.epsEstimate)}
                     </span>
                     <span className="text-gray-700 dark:text-neutral-400 text-xs font-bold mb-1">
                       EPS Actual
                     </span>
                     <span className="text-black dark:text-white font-extrabold text-base">
-                      {item.epsActual ?? '–'}
+                      {formatEPS(item.epsActual)}
                     </span>
                   </div>
                   <div className="flex flex-col items-center">
