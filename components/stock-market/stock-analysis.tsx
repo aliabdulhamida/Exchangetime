@@ -707,11 +707,11 @@ export default function StockAnalysis() {
                 </ResponsiveContainer>
               </ChartContainer>
               <div className="flex gap-4 mt-2 justify-between items-center">
-                <div className="flex gap-2">
+                <div className="flex gap-2 mt-4">
                   {(['1M', '3M', '6M', '1Y'] as const).map((r) => (
                     <button
                       key={r}
-                      className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${chartRange === r ? 'bg-white text-black border-gray-300 dark:border-[#333]' : 'bg-gray-100 dark:bg-[#222] border-gray-300 dark:border-[#333] text-black dark:text-gray-200'}`}
+                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${chartRange === r ? 'bg-white text-black' : 'bg-transparent text-white'}`}
                       onClick={async () => {
                         setChartRange(r);
                         if (selectedStock) await fetchChartData(selectedStock.symbol, r);
