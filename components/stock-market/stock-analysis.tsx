@@ -2,7 +2,7 @@
 
 import { TrendingUp, TrendingDown, Search, AlertTriangle } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { AreaChart, Area, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -349,7 +349,7 @@ export default function StockAnalysis() {
         const days = getRangeDays(range);
         filtered = fullArr.slice(-Math.min(fullArr.length, days));
       }
-      chartArr = filtered.map((d) => ({ name: d.name, price: d.price }));
+      chartArr = filtered.map((d) => ({ name: d.name, price: d.price, date: d.date }));
     }
     setChartData(chartArr);
   }
@@ -638,41 +638,29 @@ export default function StockAnalysis() {
               <ChartContainer config={{ price: { label: 'Price', color: '#2563eb' } }}>
                 <ResponsiveContainer width="100%" height={300}>
                   {chartData.length > 0 ? (
-                    <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <AreaChart
+                      data={chartData}
+                      margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
+                    >
                       <defs>
                         <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor={chartColor} stopOpacity={0.8} />
                           <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 12, fill: '#a1a1aa' }}
-                        minTickGap={30}
-                      />
+                      {/* YAxis added for auto-scaling, but hidden visually */}
                       <YAxis
-                        tick={{ fontSize: 12, fill: '#a1a1aa' }}
-                        width={80}
-                        domain={['auto', 'auto']}
-                        tickFormatter={(v: number) =>
-                          v >= 1_000_000
-                            ? (v / 1_000_000).toFixed(1) + 'M'
-                            : v >= 1_000
-                              ? (v / 1_000).toFixed(1) + 'K'
-                              : v.toLocaleString()
-                        }
+                        hide={true}
+                        domain={[
+                          'dataMin - (dataMax-dataMin)*0.05',
+                          'dataMax + (dataMax-dataMin)*0.05',
+                        ]}
+                        allowDataOverflow={true}
                       />
                       <Tooltip
-                        content={({
-                          active,
-                          payload,
-                          label,
-                        }: {
-                          active?: boolean;
-                          payload?: any[];
-                          label?: string;
-                        }) => {
+                        content={({ active, payload, label }) => {
                           if (!active || !payload || !payload.length) return null;
+                          const item = payload[0].payload;
                           return (
                             <div
                               className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]"
@@ -682,12 +670,18 @@ export default function StockAnalysis() {
                                 className="mb-0.5"
                                 style={{ color: chartColor, fontSize: '11px' }}
                               >
-                                {label}
+                                {item && item.date
+                                  ? new Date(item.date).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })
+                                  : label}
                               </div>
                               <div>
                                 <span style={{ color: chartColor, fontSize: '11px' }}>Price:</span>{' '}
                                 $
-                                {payload[0]?.payload?.price?.toLocaleString(undefined, {
+                                {item?.price?.toLocaleString(undefined, {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
                                 })}
