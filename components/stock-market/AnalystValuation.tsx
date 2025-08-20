@@ -1,3 +1,4 @@
+import { AlertCircle, CircleCheck } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 // You may need to pass selectedStock.price as a prop for correct comparison
@@ -71,7 +72,15 @@ const AnalystValuation: React.FC<AnalystValuationProps> = ({ symbol, price }) =>
             : valuation}
         </span>
         {status && (
-          <span className={`text-xs font-bold px-2 py-1 rounded ${statusClass}`}>{status}</span>
+          <span
+            className={`text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 ${statusClass}`}
+          >
+            {status === 'Overvalued' ? (
+              <AlertCircle className="w-3 h-3 text-red-500" />
+            ) : (
+              <CircleCheck className="w-3 h-3 text-green-500" />
+            )}
+          </span>
         )}
       </div>
     </div>

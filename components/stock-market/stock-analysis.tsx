@@ -1,6 +1,14 @@
 'use client';
 
-import { TrendingUp, TrendingDown, Search, AlertTriangle } from 'lucide-react';
+import {
+  TrendingUp,
+  TrendingDown,
+  Search,
+  AlertTriangle,
+  AlertCircle,
+  CircleCheck,
+  CircleDot,
+} from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { AreaChart, Area, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -542,16 +550,51 @@ export default function StockAnalysis() {
                 Valuation
               </h4>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>P/E Ratio</span>
-                <span>{selectedStock.pe ?? '-'}</span>
+                <span className="text-xs sm:text-sm">P/E Ratio</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.pe ?? '-'}
+                  {typeof selectedStock.pe === 'number' ? (
+                    selectedStock.pe < 10 ? (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    ) : selectedStock.pe <= 25 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.pe <= 40 ? (
+                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>PEG Ratio</span>
-                <span>{selectedStock.peg ?? '-'}</span>
+                <span className="text-xs sm:text-sm">PEG Ratio</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.peg ?? '-'}
+                  {typeof selectedStock.peg === 'number' ? (
+                    selectedStock.peg < 1 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.peg <= 2 ? (
+                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>P/B Ratio</span>
-                <span>{selectedStock.pb ?? '-'}</span>
+                <span className="text-xs sm:text-sm">P/B Ratio</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.pb ?? '-'}
+                  {typeof selectedStock.pb === 'number' ? (
+                    selectedStock.pb < 1 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.pb <= 3 ? (
+                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
               </div>
             </div>
             {/* PROFITABILITY */}
@@ -560,34 +603,98 @@ export default function StockAnalysis() {
                 Profitability
               </h4>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>ROE</span>
-                <span>{selectedStock.roe ? `${selectedStock.roe}%` : '-'}</span>
+                <span className="text-xs sm:text-sm">ROE</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.roe ? `${selectedStock.roe}%` : '-'}
+                  {typeof selectedStock.roe === 'number' ? (
+                    selectedStock.roe > 15 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.roe >= 10 ? (
+                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>Net Margin</span>
-                <span>{selectedStock.netMargin ? `${selectedStock.netMargin}%` : '-'}</span>
+                <span className="text-xs sm:text-sm">Net Margin</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.netMargin ? `${selectedStock.netMargin}%` : '-'}
+                  {typeof selectedStock.netMargin === 'number' ? (
+                    selectedStock.netMargin > 10 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.netMargin >= 5 ? (
+                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>ROIC</span>
-                <span>{selectedStock.roic ? `${selectedStock.roic}%` : '-'}</span>
+                <span className="text-xs sm:text-sm">ROIC</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.roic ? `${selectedStock.roic}%` : '-'}
+                  {typeof selectedStock.roic === 'number' ? (
+                    selectedStock.roic > 10 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.roic >= 5 ? (
+                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
               </div>
             </div>
             {/* GROWTH */}
             <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#18181b] col-span-1">
               <h4 className="font-semibold mb-2 text-sm text-gray-900 dark:text-white">Growth</h4>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>Revenue</span>
-                <span>{selectedStock.revenueGrowth ? `${selectedStock.revenueGrowth}%` : '-'}</span>
-              </div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span>Earnings</span>
-                <span>
-                  {selectedStock.earningsGrowth ? `${selectedStock.earningsGrowth}%` : '-'}
+                <span className="text-xs sm:text-sm">Revenue</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.revenueGrowth ? `${selectedStock.revenueGrowth}%` : '-'}
+                  {typeof selectedStock.revenueGrowth === 'number' ? (
+                    selectedStock.revenueGrowth > 0 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.revenueGrowth === 0 ? (
+                      <CircleDot className="w-4 h-4 text-gray-300" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
                 </span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>EPS</span>
-                <span>{selectedStock.epsGrowth ? `${selectedStock.epsGrowth}%` : '-'}</span>
+                <span className="text-xs sm:text-sm">Earnings</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.earningsGrowth ? `${selectedStock.earningsGrowth}%` : '-'}
+                  {typeof selectedStock.earningsGrowth === 'number' ? (
+                    selectedStock.earningsGrowth > 0 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.earningsGrowth === 0 ? (
+                      <CircleDot className="w-4 h-4 text-gray-300" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
+              </div>
+              <div className="flex justify-between items-center mb-1 text-sm">
+                <span className="text-xs sm:text-sm">EPS</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.epsGrowth ? `${selectedStock.epsGrowth}%` : '-'}
+                  {typeof selectedStock.epsGrowth === 'number' ? (
+                    selectedStock.epsGrowth > 0 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.epsGrowth === 0 ? (
+                      <CircleDot className="w-4 h-4 text-gray-300" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
               </div>
             </div>
             {/* FINANCIAL HEALTH */}
@@ -596,16 +703,49 @@ export default function StockAnalysis() {
                 Financial Health
               </h4>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>Debt/Equity</span>
-                <span>{selectedStock.debtEquity ?? '-'}</span>
+                <span className="text-xs sm:text-sm">Debt/Equity</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.debtEquity ?? '-'}
+                  {typeof selectedStock.debtEquity === 'number' ? (
+                    selectedStock.debtEquity < 1 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.debtEquity <= 2 ? (
+                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>Current Ratio</span>
-                <span>{selectedStock.currentRatio ?? '-'}</span>
+                <span className="text-xs sm:text-sm">Current Ratio</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.currentRatio ?? '-'}
+                  {typeof selectedStock.currentRatio === 'number' ? (
+                    selectedStock.currentRatio >= 1.5 && selectedStock.currentRatio <= 3 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.currentRatio < 1 ? (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    ) : (
+                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                    )
+                  ) : null}
+                </span>
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
-                <span>FCF</span>
-                <span>{selectedStock.freeCashFlow ?? '-'}</span>
+                <span className="text-xs sm:text-sm">FCF</span>
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                  {selectedStock.freeCashFlow ?? '-'}
+                  {typeof selectedStock.freeCashFlow === 'number' ? (
+                    selectedStock.freeCashFlow > 0 ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : selectedStock.freeCashFlow === 0 ? (
+                      <CircleDot className="w-4 h-4 text-gray-300" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )
+                  ) : null}
+                </span>
               </div>
             </div>
             {/* DCF Valuation */}
@@ -622,11 +762,13 @@ export default function StockAnalysis() {
                   selectedStock.price !== undefined &&
                   selectedStock.price !== null && (
                     <span
-                      className={`text-xs font-bold px-2 py-1 rounded ${Number(selectedStock.price) > Number(selectedStock.dcf) ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'}`}
+                      className={`text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 ${Number(selectedStock.price) > Number(selectedStock.dcf) ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'}`}
                     >
-                      {Number(selectedStock.price) > Number(selectedStock.dcf)
-                        ? 'Overvalued'
-                        : 'Undervalued'}
+                      {Number(selectedStock.price) > Number(selectedStock.dcf) ? (
+                        <AlertCircle className="w-3 h-3 text-red-500" />
+                      ) : (
+                        <CircleCheck className="w-3 h-3 text-green-500" />
+                      )}
                     </span>
                   )}
               </div>
@@ -661,15 +803,16 @@ export default function StockAnalysis() {
                         content={({ active, payload, label }) => {
                           if (!active || !payload || !payload.length) return null;
                           const item = payload[0].payload;
+                          function formatPrice(num: number) {
+                            if (typeof num !== 'number') return '-';
+                            return num
+                              .toFixed(2)
+                              .replace('.', ',')
+                              .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                          }
                           return (
-                            <div
-                              className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]"
-                              style={{ lineHeight: 1.2 }}
-                            >
-                              <div
-                                className="mb-0.5"
-                                style={{ color: chartColor, fontSize: '11px' }}
-                              >
+                            <div className="min-w-[110px] max-w-[180px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 px-2 py-1 text-[11px] shadow-lg flex flex-col gap-1">
+                              <div className="font-semibold mb-0.5">
                                 {item && item.date
                                   ? new Date(item.date).toLocaleDateString('en-US', {
                                       year: 'numeric',
@@ -678,13 +821,10 @@ export default function StockAnalysis() {
                                     })
                                   : label}
                               </div>
-                              <div>
-                                <span style={{ color: chartColor, fontSize: '11px' }}>Price:</span>{' '}
-                                $
-                                {item?.price?.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-mono text-[12px]">
+                                  ${formatPrice(item?.price)}
+                                </span>
                               </div>
                             </div>
                           );
@@ -711,7 +851,7 @@ export default function StockAnalysis() {
                   {(['1M', '3M', '6M', '1Y'] as const).map((r) => (
                     <button
                       key={r}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${chartRange === r ? 'bg-white text-black' : 'bg-transparent text-white'}`}
+                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${chartRange === r ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-transparent text-black dark:text-white'}`}
                       onClick={async () => {
                         setChartRange(r);
                         if (selectedStock) await fetchChartData(selectedStock.symbol, r);

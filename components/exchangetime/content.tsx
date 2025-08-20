@@ -601,18 +601,21 @@ function CompoundInterestCalculator() {
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload || !payload.length) return null;
+                  const item = payload[0].payload;
+                  function formatPrice(num: number) {
+                    if (typeof num !== 'number') return '-';
+                    return num
+                      .toFixed(2)
+                      .replace('.', ',')
+                      .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                  }
                   return (
-                    <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-4 py-2 shadow-lg text-xs min-w-[120px]">
-                      {/* Jahreszahl entfernt, nur noch Capital anzeigen */}
-                      <div>
-                        <span className="text-gray-300">Capital:</span>{' '}
-                        {typeof payload[0]?.value === 'number'
-                          ? payload[0].value.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
-                          : '-'}{' '}
-                        €
+                    <div className="min-w-[110px] max-w-[180px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 px-2 py-1 text-[11px] shadow-lg flex flex-col gap-1">
+                      <div className="font-semibold mb-0.5">
+                        {item && item.year !== undefined ? `Year ${item.year}` : label}
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-mono text-[12px]">€{formatPrice(item?.capital)}</span>
                       </div>
                     </div>
                   );
