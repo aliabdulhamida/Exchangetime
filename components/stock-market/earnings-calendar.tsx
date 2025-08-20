@@ -51,15 +51,15 @@ export default function EarningsCalendar() {
     return num.toString();
   }
   const today = new Date();
-  // Ermittle Wochenstart (Sonntag)
+  // Ermittle Wochenstart (Montag)
   const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay());
+  weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
     return d;
   });
-  const [selectedDayIdx, setSelectedDayIdx] = useState(today.getDay());
+  const [selectedDayIdx, setSelectedDayIdx] = useState((today.getDay() + 6) % 7);
   const selectedDate = weekDates[selectedDayIdx];
   const key = selectedDate.toISOString().split('T')[0];
   const [earningsData, setEarningsData] = useState<Record<string, any[]>>({});
@@ -91,10 +91,9 @@ export default function EarningsCalendar() {
 
   // Shift data by one day down: show previous day's data for each day
   // Shift data by one day down: show next day's data for each day
-  const nextDayIdx = (selectedDayIdx + 1) % 7;
-  const nextDate = weekDates[nextDayIdx];
-  const nextKey = nextDate.toISOString().split('T')[0];
-  let items = earningsData[nextKey] || [];
+  // Show data for the selected day (correct mapping)
+  const selectedKey = weekDates[selectedDayIdx].toISOString().split('T')[0];
+  let items = earningsData[selectedKey] || [];
 
   // Filter menu state
   const [filterOpen, setFilterOpen] = useState(false);
