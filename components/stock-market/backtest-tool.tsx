@@ -63,7 +63,7 @@ import {
 
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { ChartContainer } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 
 interface BacktestResult {
@@ -485,36 +485,31 @@ export default function BacktestTool() {
                                 }
                               />
                               <Tooltip
-                                content={({
-                                  active,
-                                  payload,
-                                  label,
-                                }: {
-                                  active?: boolean;
-                                  payload?: any[];
-                                  label?: string;
-                                }) => {
+                                content={({ active, payload, label }) => {
                                   if (!active || !payload || !payload.length) return null;
+                                  const item = payload[0].payload;
+                                  function formatPrice(num: number) {
+                                    if (typeof num !== 'number') return '-';
+                                    return num
+                                      .toFixed(2)
+                                      .replace('.', ',')
+                                      .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                                  }
                                   return (
-                                    <div
-                                      className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg px-2 py-1 shadow-lg text-[11px] min-w-[80px]"
-                                      style={{ lineHeight: 1.2 }}
-                                    >
-                                      <div
-                                        className="mb-0.5"
-                                        style={{ color: chartColor, fontSize: '11px' }}
-                                      >
-                                        {label}
+                                    <div className="min-w-[110px] max-w-[180px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 px-2 py-1 text-[11px] shadow-lg flex flex-col gap-1">
+                                      <div className="font-semibold mb-0.5">
+                                        {item && item.date
+                                          ? new Date(item.date).toLocaleDateString('en-US', {
+                                              year: 'numeric',
+                                              month: 'short',
+                                              day: 'numeric',
+                                            })
+                                          : label}
                                       </div>
-                                      <div>
-                                        <span style={{ color: chartColor, fontSize: '11px' }}>
-                                          Value:
-                                        </span>{' '}
-                                        $
-                                        {payload[0]?.payload?.value?.toLocaleString(undefined, {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })}
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className="font-mono text-[12px]">
+                                          ${formatPrice(item?.value)}
+                                        </span>
                                       </div>
                                     </div>
                                   );
@@ -545,11 +540,35 @@ export default function BacktestTool() {
                           <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={30} />
                           <YAxis tick={{ fontSize: 10 }} width={60} domain={[0, 'auto']} />
                           <Tooltip
-                            content={<ChartTooltipContent />}
-                            formatter={(value: number) =>
-                              `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                            }
-                            labelFormatter={(label: string) => `Date: ${label}`}
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload || !payload.length) return null;
+                              const item = payload[0].payload;
+                              function formatPrice(num: number) {
+                                if (typeof num !== 'number') return '-';
+                                return num
+                                  .toFixed(2)
+                                  .replace('.', ',')
+                                  .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                              }
+                              return (
+                                <div className="min-w-[110px] max-w-[180px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 px-2 py-1 text-[11px] shadow-lg flex flex-col gap-1">
+                                  <div className="font-semibold mb-0.5">
+                                    {item && item.date
+                                      ? new Date(item.date).toLocaleDateString('en-US', {
+                                          year: 'numeric',
+                                          month: 'short',
+                                          day: 'numeric',
+                                        })
+                                      : label}
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-mono text-[12px]">
+                                      ${formatPrice(item?.amount)}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            }}
                           />
                           <Bar dataKey="amount" fill="#22c55e" name="Dividende" />
                         </BarChart>

@@ -1,5 +1,8 @@
 'use client';
 
+// Helper for correct compact formatting with decimals and sign
+'use client';
+
 import { Search, ArrowDownCircle, ArrowUpCircle, AlertTriangle } from 'lucide-react';
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -25,6 +28,28 @@ interface InsiderTrade {
 }
 
 export default function InsiderTrades() {
+  // Helper for correct compact formatting with decimals and sign
+  function formatSelectedTotal(num: number) {
+    const absNum = Math.abs(num);
+    let value: number, unit: string;
+    if (absNum >= 1_000_000_000_000) {
+      value = num / 1_000_000_000_000;
+      unit = 'T';
+    } else if (absNum >= 1_000_000_000) {
+      value = num / 1_000_000_000;
+      unit = 'B';
+    } else if (absNum >= 1_000_000) {
+      value = num / 1_000_000;
+      unit = 'M';
+    } else if (absNum >= 1_000) {
+      value = num / 1_000;
+      unit = 'K';
+    } else {
+      value = num;
+      unit = '';
+    }
+    return `${value.toFixed(2)}${unit}`;
+  }
   // ...existing code...
   const [ticker, setTicker] = useState('');
   const [trades, setTrades] = useState<InsiderTrade[]>([]);
@@ -358,7 +383,7 @@ export default function InsiderTrades() {
       {/* Statistikkarten und Chart */}
       {trades.length > 0 && (
         <>
-          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div className="mb-6 grid grid-cols-2 gap-4 text-sm sm:grid-cols-2">
             <Card className="flex flex-col justify-center min-h-[48px] w-full">
               <CardContent className="p-3">
                 <div className="flex items-center justify-between w-full">
@@ -421,10 +446,12 @@ export default function InsiderTrades() {
             <div className="mb-4 flex items-center justify-center">
               <span className="text-sm font-semibold text-blue-700 dark:text-blue-900 bg-white dark:bg-white px-4 py-2 rounded-lg shadow border border-blue-100 dark:border-blue-900">
                 <span className="text-black">
-                  Total value of selected trades: ${formatCompactNumber(Math.ceil(selectedSum))}
+                  Total value of selected trades: ${formatSelectedTotal(selectedSum)}
                 </span>
               </span>
             </div>
+
+            // Helper for correct compact formatting with decimals and sign
           )}
           <div className="mb-2 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
             <svg
@@ -509,7 +536,7 @@ export default function InsiderTrades() {
                             VALUE
                           </span>
                           <span className="text-[11px] font-bold text-card-foreground">
-                            ${formatCompactNumber(Math.ceil(trade.value))}
+                            ${formatSelectedTotal(trade.value)}
                           </span>
                         </div>
                       </div>
