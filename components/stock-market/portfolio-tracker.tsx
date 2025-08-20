@@ -847,7 +847,7 @@ export default function PortfolioTracker() {
                                 if (!active || !payload || !payload.length) return null;
                                 const item = payload[0].payload;
                                 return (
-                                  <div className="min-w-[140px] max-w-[220px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 dark:border-gray-800 px-3 py-2 text-xs shadow-lg flex flex-col gap-1">
+                                  <div className="min-w-[130px] max-w-[240px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 dark:border-gray-800 px-3 py-2 text-xs shadow-lg flex flex-col gap-1">
                                     <div className="flex flex-col gap-0.5">
                                       <span className="font-mono text-[13px] text-white dark:text-black">
                                         $
@@ -931,7 +931,7 @@ export default function PortfolioTracker() {
                               if (!active || !payload || !payload.length) return null;
                               const item = payload[0].payload;
                               return (
-                                <div className="min-w-[140px] max-w-[220px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 dark:border-gray-800 px-3 py-2 text-xs shadow-lg flex flex-col gap-1">
+                                <div className="min-w-[110px] max-w-[220px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 dark:border-gray-800 px-3 py-2 text-xs shadow-lg flex flex-col gap-1">
                                   <div className="font-semibold text-white dark:text-black mb-0.5">
                                     {payload &&
                                     payload[0] &&
@@ -1168,10 +1168,10 @@ export default function PortfolioTracker() {
                   type="text"
                   placeholder="e.g., AAPL"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  onChange={(e) => setSearch(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring uppercase"
                   inputMode="text"
-                  autoCapitalize="characters"
+                  style={{ textTransform: 'uppercase' }}
                 />
               </div>
               <div>
