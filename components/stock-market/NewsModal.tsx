@@ -111,21 +111,27 @@ const NewsModal: React.FC<NewsModalProps> = ({ open, onOpenChange, ticker }) => 
         {/* Pagination controls - always visible */}
   <div className="flex justify-center items-center gap-4 py-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-black sticky bottom-0 rounded-b-2xl">
           <button
-            className="px-3 py-1 rounded bg-gray-100 dark:bg-black text-gray-700 dark:text-gray-200 font-medium disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-black/80 transition-colors"
+            className="px-3 py-1 rounded bg-gray-100 dark:bg-black text-gray-700 dark:text-gray-200 font-medium disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-black/80 transition-colors flex items-center justify-center"
             onClick={() => setPage(page - 1)}
             disabled={page === 1}
+            aria-label="Previous Page"
           >
-            Previous
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
           </button>
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
             Page {page} of {Math.max(1, Math.ceil(news.length / pageSize))}
           </span>
           <button
-            className="px-3 py-1 rounded bg-gray-100 dark:bg-black text-gray-700 dark:text-gray-200 font-medium disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-black/80 transition-colors"
+            className="px-3 py-1 rounded bg-gray-100 dark:bg-black text-gray-700 dark:text-gray-200 font-medium disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-black/80 transition-colors flex items-center justify-center"
             onClick={() => setPage(page + 1)}
             disabled={page === Math.ceil(news.length / pageSize) || news.length === 0}
+            aria-label="Next Page"
           >
-            Next
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
           </button>
         </div>
       </DialogContent>
