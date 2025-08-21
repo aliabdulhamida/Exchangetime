@@ -17,9 +17,9 @@ import { Button } from '@/components/ui/button';
 import { ChartContainer } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import NewsModal from './NewsModal';
 
 import AnalystValuation from './AnalystValuation';
+import NewsModal from './NewsModal';
 
 interface StockData {
   symbol: string;
