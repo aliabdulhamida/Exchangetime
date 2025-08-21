@@ -1,8 +1,5 @@
 'use client';
 
-// Helper for correct compact formatting with decimals and sign
-'use client';
-
 import { Search, ArrowDownCircle, ArrowUpCircle, AlertTriangle } from 'lucide-react';
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -50,7 +47,7 @@ export default function InsiderTrades() {
     }
     return `${value.toFixed(2)}${unit}`;
   }
-  // ...existing code...
+
   const [ticker, setTicker] = useState('');
   const [trades, setTrades] = useState<InsiderTrade[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -302,11 +299,8 @@ export default function InsiderTrades() {
     );
   }
 
-  // ...alle useEffect, Handler, Variablen etc. (wie vorher)...
-
-  // --- BEGINN JSX-RETURN ---
   return (
-    <div className="rounded-2xl pt-4 pl-4 pr-8 pb-8 border border-gray-200 dark:border-[#1F1F23] w-full md:max-w-2xl md:mx-auto">
+  <div className="rounded-xl pt-3 px-4 sm:px-8 pb-6 border border-gray-200 dark:border-[#1F1F23]">
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2 mt-0 ml-0">
         Insider Trades
       </h2>
@@ -328,11 +322,12 @@ export default function InsiderTrades() {
       </div>
       {/* Disclaimer ähnlich wie Stock Analysis */}
       {!loading && !error && trades.length === 0 && (
-        <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-          <p className="text-xs text-blue-600 dark:text-blue-400">
-            💡 Insider trading data is reported with a delay and should be used for informational
+         <div className="mt-4 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center gap-2 border border-blue-200 dark:border-blue-800">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-500 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span className="text-xs text-blue-700 dark:text-blue-300 font-normal">
+            Insider trading data is reported with a delay and should be used for informational
             purposes only.
-          </p>
+          </span>
         </div>
       )}
       {loading && (
@@ -347,7 +342,7 @@ export default function InsiderTrades() {
               </CardContent>
             </Card>
           ))}
-          <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[420px] h-[420px] overflow-y-auto pr-2 mt-4">
+          <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[600px] h-[600px] overflow-y-auto pr-2 mt-4">
             {[...Array(4)].map((_, i) => (
               <Card key={i} className="flex flex-col px-6 py-5 min-h-[160px] relative">
                 <CardContent className="flex flex-col p-0 h-full">
@@ -468,7 +463,7 @@ export default function InsiderTrades() {
             <span>Select transactions to show the total value.</span>
           </div>
           <div className="relative">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[320px] overflow-y-auto pr-2 ml-4">
+            <div className="grid grid-cols-2 gap-6 max-h-[320px] overflow-y-auto pr-2 ml-4">
               {trades.map((trade, index) => {
                 const selected = selectedIndexes.includes(index);
                 return (
@@ -483,59 +478,59 @@ export default function InsiderTrades() {
                     <CardContent className="flex flex-col p-0 h-full">
                       {/* Top Row: Titel und Sale-Badge nebeneinander */}
                       <div className="flex items-start w-full mb-6 relative">
-                        <div className="absolute left-0 -top-1 text-xs font-extrabold text-card-foreground uppercase tracking-tight leading-tight max-w-[70%] break-words">
+                        <div className="absolute left-0 -top-1 text-[10px] sm:text-xs font-extrabold text-card-foreground uppercase tracking-tight leading-tight max-w-[70%] break-words">
                           {trade.position}
                         </div>
                         {/* Badges absolut oben rechts platzieren */}
                         <div className="absolute -right-4 -top-2 flex gap-1">
                           {sellRegex.test(trade.transaction) && (
                             <span
-                              className="text-red-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1"
+                              className="text-red-400 text-[8px] sm:text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1"
                               style={{ letterSpacing: 1 }}
                             >
-                              <ArrowDownCircle className="w-3 h-3 mr-0.5" /> Sale
+                              <ArrowDownCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" /> Sale
                             </span>
                           )}
                           {buyRegex.test(trade.transaction) && (
                             <span
-                              className="text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1"
+                              className="text-green-400 text-[8px] sm:text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1"
                               style={{ letterSpacing: 1 }}
                             >
-                              <ArrowUpCircle className="w-3 h-3 mr-0.5" /> Buy
+                              <ArrowUpCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" /> Buy
                             </span>
                           )}
                         </div>
                       </div>
                       {/* Datum und Name */}
-                      <div className="text-[10px] font-bold text-card-foreground flex justify-center mt-2 mb-0.5">
+                      <div className="text-[8px] sm:text-[10px] font-bold text-card-foreground flex justify-center mt-2 mb-0.5">
                         {trade.date}
                       </div>
-                      <div className="text-[10px] text-muted-foreground text-center mb-2">
+                      <div className="text-[8px] sm:text-[10px] text-muted-foreground text-center mb-2">
                         {trade.insider}
                       </div>
                       {/* Werte */}
                       <div className="flex flex-row items-end justify-between w-full mt-auto gap-2">
-                        <div className="flex flex-col items-start flex-1 pl-1">
-                          <span className="text-[8px] text-muted-foreground font-semibold mb-0.5">
+                        <div className="flex flex-col items-start flex-1 -ml-1">
+                          <span className="text-[7px] sm:text-[8px] text-muted-foreground font-semibold mb-0.5">
                             PRICE
                           </span>
-                          <span className="text-[11px] font-bold text-card-foreground">
+                          <span className="text-[9px] sm:text-[11px] font-bold text-card-foreground">
                             ${formatCompactNumber(Math.ceil(trade.price))}
                           </span>
                         </div>
-                        <div className="flex flex-col items-start flex-1 pl-1">
-                          <span className="text-[8px] text-muted-foreground font-semibold mb-0.5">
+                        <div className="flex flex-col items-start flex-1 -ml-1">
+                          <span className="text-[7px] sm:text-[8px] text-muted-foreground font-semibold mb-0.5">
                             SHARES
                           </span>
-                          <span className="text-[11px] font-bold text-card-foreground">
+                          <span className="text-[9px] sm:text-[11px] font-bold text-card-foreground">
                             {formatCompactNumber(Math.ceil(trade.shares))}
                           </span>
                         </div>
-                        <div className="flex flex-col items-start flex-1 pl-1">
-                          <span className="text-[8px] text-muted-foreground font-semibold mb-0.5">
+                        <div className="flex flex-col items-start flex-1 -ml-1">
+                          <span className="text-[7px] sm:text-[8px] text-muted-foreground font-semibold mb-0.5">
                             VALUE
                           </span>
-                          <span className="text-[11px] font-bold text-card-foreground">
+                          <span className="text-[9px] sm:text-[11px] font-bold text-card-foreground">
                             ${formatSelectedTotal(trade.value)}
                           </span>
                         </div>
@@ -548,7 +543,7 @@ export default function InsiderTrades() {
           </div>
         </>
       )}
-      {/* Info-Hinweis entfernt, jetzt als Tooltip am Titel */}
+      
     </div>
   );
 }

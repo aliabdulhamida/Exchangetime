@@ -44,6 +44,7 @@ function CurrencyPairIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+// Icon imports should be at the top of the file, after the custom icon function
 import {
   BarChart2,
   DollarSign,
@@ -63,6 +64,19 @@ import {
   Gauge,
   BookOpen,
   Home,
+  PieChart,
+  ArrowLeftRight,
+  TrendingUp,
+  PiggyBank,
+  FileText,
+  ShieldCheck,
+  Mail,
+  UserCheck,
+  CalendarCheck2,
+  CalendarClock,
+  Briefcase,
+  Info,
+  Clock
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -1163,12 +1177,11 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         <div
           className={`h-full flex flex-col ${currentTheme === 'dark' ? 'bg-black' : 'bg-white'}`}
         >
-          <Link
-            href="https://exchangetime.de/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="h-16 flex items-center border-b border-gray-200 dark:border-[#1F1F23]"
+          <button
+            type="button"
+            className="h-16 flex items-center border-b border-gray-200 dark:border-[#1F1F23] w-full bg-transparent"
             style={{ padding: isCollapsed ? '0' : '0 1.5rem' }}
+            onClick={() => window.location.reload()}
           >
             <div
               className={`flex items-center gap-3 ${isCollapsed ? 'justify-center w-full' : ''}`}
@@ -1189,7 +1202,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                 </span>
               )}
             </div>
-          </Link>
+          </button>
 
           <div className="flex-1 overflow-y-auto py-3 px-3">
             <div className="space-y-5">
@@ -1318,8 +1331,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                 </div>
                 <div className="space-y-1">
                   {/* Dashboard Button entfernt */}
-                  <ModuleButton module="StockAnalysis" icon={BarChart2} label="Stock Analysis" />
-                  <ModuleButton module="ExchangeTimes" icon={Building2} label="Exchange Times" />
+                  <ModuleButton module="StockAnalysis" icon={PieChart} label="Stock Analysis" />
+                  <ModuleButton module="ExchangeTimes" icon={Clock} label="Exchange Times" />
                 </div>
               </div>
 
@@ -1335,27 +1348,27 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   </div>
                 )}
                 <div className="space-y-1">
-                  <ModuleButton module="BacktestTool" icon={Wallet} label="Backtest Tool" />
+                  <ModuleButton module="BacktestTool" icon={TrendingUp} label="Backtest Tool" />
                   <ModuleButton
                     module="PortfolioTracker"
-                    icon={CreditCard}
+                    icon={Briefcase}
                     label="Portfolio Tracker"
                   />
                   <ModuleButton
                     module="CurrencyConverter"
-                    icon={DollarSign}
+                    icon={ArrowLeftRight}
                     label="Currency Converter"
                   />
                   <ModuleButton module="TaxCalculator" icon={Calculator} label="Tax Calculator" />
                   <ModuleButton
                     module="CompoundInterest"
-                    icon={Receipt}
+                    icon={PiggyBank}
                     label="Compound Interest"
                   />
                   <ModuleButton module="PersonalBudget" icon={Folder} label="Personal Budget" />
                   <ModuleButton
                     module="TechnicalAnalysis"
-                    icon={Gauge}
+                    icon={BarChart2}
                     label="Technical Analysis"
                   />
                 </div>
@@ -1373,15 +1386,15 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   </div>
                 )}
                 <div className="space-y-1">
-                  <ModuleButton module="InsiderTrades" icon={Users2} label="Insider Trades" />
+                  <ModuleButton module="InsiderTrades" icon={UserCheck} label="Insider Trades" />
                   <ModuleButton
                     module="EconomicCalendar"
-                    icon={CalendarDays}
+                    icon={CalendarCheck2}
                     label="Economic Calendar"
                   />
                   <ModuleButton
                     module="EarningsCalendar"
-                    icon={CalendarDays}
+                    icon={CalendarClock}
                     label="Earnings Calendar"
                   />
                   <ModuleButton module="HolidayCalendar" icon={CupSoda} label="Holiday Calendar" />
@@ -1416,19 +1429,19 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   </button>
                   {helpLegalOpen && (
                     <div id="help-legal-section" className="space-y-1 animate-fade-in">
-                      <SimpleNavItem href="/settings/about" icon={HelpCircle}>
+                      <SimpleNavItem href="/settings/about" icon={Info}>
                         About
                       </SimpleNavItem>
-                      <SimpleNavItem href="/settings/mission" icon={HelpCircle}>
+                      <SimpleNavItem href="/settings/mission" icon={ShieldCheck}>
                         Our Mission
                       </SimpleNavItem>
-                      <SimpleNavItem href="/settings/privacy-policy" icon={HelpCircle}>
+                      <SimpleNavItem href="/settings/privacy-policy" icon={FileText}>
                         Privacy Policy
                       </SimpleNavItem>
-                      <SimpleNavItem href="/settings/terms-of-service" icon={HelpCircle}>
+                      <SimpleNavItem href="/settings/terms-of-service" icon={BookOpen}>
                         Terms of Service
                       </SimpleNavItem>
-                      <SimpleNavItem href="/settings/contact" icon={HelpCircle}>
+                      <SimpleNavItem href="/settings/contact" icon={Mail}>
                         Contact
                       </SimpleNavItem>
                     </div>

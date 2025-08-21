@@ -443,7 +443,7 @@ export default function StockAnalysis() {
   };
 
   return (
-    <div className="rounded-xl pt-3 px-6 pb-6 border border-gray-200 dark:border-[#1F1F23]">
+    <div className="rounded-xl pt-3 px-8 pb-6 border border-gray-200 dark:border-[#1F1F23]">
       <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 text-left">
         Stock Analysis
       </h2>
@@ -902,11 +902,11 @@ export default function StockAnalysis() {
           </div>
         </div>
       ) : (
-        <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-          <p className="text-xs text-blue-600 dark:text-blue-400">
-            💡 The provided stock analysis data is for informational purposes only and does not
-            constitute investment advice.
-          </p>
+        <div className="mt-4 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center gap-2 border border-blue-200 dark:border-blue-800">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-500 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span className="text-xs text-blue-700 dark:text-blue-300 font-normal">
+            Stock analysis data is for informational purposes only and does not constitute investment advice.
+          </span>
         </div>
       )}
     </div>

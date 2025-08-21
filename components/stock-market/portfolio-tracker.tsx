@@ -557,20 +557,18 @@ export default function PortfolioTracker() {
   return (
     <div className="min-h-[50vh] text-xs sm:text-sm md:text-base">
       <header>
-        <div className="container mx-auto px-4 sm:px-6 pt-2 pb-6">
+  <div className="container mx-auto px-4 sm:px-6 pt-0 pb-6">
           <div className="flex items-center justify-between">
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">
               Portfolio Tracker
             </h1>
             <div className="flex items-center gap-3">
-              {/* Theme toggle removed */}
-              {/* Reload button removed as requested */}
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="container mx-auto px-auto sm:px-auto py-auto sm:py-8">
         <section className="grid gap-4 mb-8 grid-cols-2 lg:grid-cols-4">
           <Card className="border border-border">
             <CardHeader className="pb-2">

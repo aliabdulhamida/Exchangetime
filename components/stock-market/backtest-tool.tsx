@@ -279,9 +279,7 @@ export default function BacktestTool() {
   };
 
   return (
-    <div
-      className={`rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23] flex flex-col${result ? ' min-h-[850px] h-[850px]' : ''}`}
-    >
+  <div className="rounded-xl pt-3 px-9 pb-6 border border-gray-200 dark:border-[#1F1F23]">
       <div className="flex items-center justify-start mb-6">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">Backtest Tool</h2>
       </div>
