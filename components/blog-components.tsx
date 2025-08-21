@@ -88,6 +88,17 @@ export function BlogCategories({
 // Export blog sample articles
 export const blogPosts: BlogPost[] = [
   {
+    id: 13,
+    title: 'Walmart Earnings Report: In-Depth Analysis & Outlook',
+    excerpt:
+      'A comprehensive analysis of Walmart’s financial health, strategic initiatives, and market outlook ahead of the upcoming earnings announcement.',
+    date: 'August 21, 2025',
+    image:
+      'https://images.unsplash.com/photo-1648091855110-77a1c3dead63?q=80&w=2708&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    categories: ['Markets', 'Analysis', 'Earnings'],
+    slug: 'walmart-earnings-analysis',
+  },
+  {
     id: 12,
     title: 'The Historic Trump-Putin Summit: A Geopolitical Gamble with Stock Market Ripples',
     excerpt:
