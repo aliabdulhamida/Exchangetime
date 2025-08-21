@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { ChartContainer } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import NewsModal from './NewsModal';
 
 import AnalystValuation from './AnalystValuation';
 
@@ -43,6 +44,7 @@ interface StockData {
 
 export default function StockAnalysis() {
   const [loading, setLoading] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
   // --- Hilfsfunktionen für zusätzliche Metriken ---
   type Metrics = {
     peRatio?: number;
@@ -522,7 +524,24 @@ export default function StockAnalysis() {
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                 {selectedStock.name}
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{selectedStock.symbol}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">{selectedStock.symbol}</span>
+                <button
+                  className="px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  onClick={() => setNewsOpen(true)}
+                  aria-label={`Show news for ${selectedStock.symbol}`}
+                >
+                  News
+                </button>
+              </div>
+      {/* News Modal */}
+      {selectedStock && (
+        <NewsModal
+          open={newsOpen}
+          onOpenChange={setNewsOpen}
+          ticker={selectedStock.symbol}
+        />
+      )}
             </div>
             <div className="text-right">
               <p className="text-xl font-bold text-gray-900 dark:text-white">
