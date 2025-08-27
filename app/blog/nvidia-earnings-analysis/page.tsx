@@ -2,7 +2,6 @@
 
 import { Calendar } from "lucide-react";
 import Image from "next/image";
-import Script from "next/script";
 import { useRef } from "react";
 
 import BackToTop from "@/components/BackToTop";
