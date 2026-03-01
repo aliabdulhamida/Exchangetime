@@ -1,15 +1,16 @@
 "use client";
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Info } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as ReTooltip, CartesianGrid } from 'recharts';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { toast } from '@/components/ui/use-toast';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Toggle } from '@/components/ui/toggle';
-import { ToastAction } from '@/components/ui/toast';
 import { Slider } from '@/components/ui/slider';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as ReTooltip, CartesianGrid } from 'recharts';
+import { ToastAction } from '@/components/ui/toast';
+import { Toggle } from '@/components/ui/toggle';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { toast } from '@/components/ui/use-toast';
 
 function parseNumber(v: any, cur: string) {
   let s = String(v).trim();
@@ -55,14 +56,14 @@ export default function DcfCalculator() {
   const [scenarioName, setScenarioName] = useState('');
   const [scenarios, setScenarios] = useState<Array<{ name: string; state: any }>>([]);
   const [highlightedScenario, setHighlightedScenario] = useState<string | null>(null);
-  const scenarioRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const scenarioRefs = useRef<Record<string, HTMLDivElement | null>>({});
   // Currency selection and formatting (define early to avoid TDZ when loading persistence)
   const [currency, setCurrency] = useState<'USD' | 'EUR' | 'CHF' | 'GBP'>('USD');
   const [currentPrice, setCurrentPrice] = useState<number | string>(0);
   const [ticker, setTicker] = useState<string>('');
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const lastFetchRef = React.useRef<{ symbol: string; time: number; price: number; currency?: string } | null>(null);
+  const lastFetchRef = useRef<{ symbol: string; time: number; price: number; currency?: string } | null>(null);
   const [displayScale, setDisplayScale] = useState<'auto' | 'raw' | 'K' | 'M' | 'B' | 'T'>('auto');
   const [sparkline, setSparkline] = useState<number[] | null>(null);
   const [sparklineLoading, setSparklineLoading] = useState(false);
@@ -500,21 +501,21 @@ export default function DcfCalculator() {
       const eq = ev + numeric(cash, currency) - numeric(debt, currency);
       return eq / Math.max(1, numeric(sharesOutstanding, currency));
     },
-    [useMultiple, terminalMultiple, fcfList, cash, debt, sharesOutstanding, currency],
+    [fcfList, cash, debt, sharesOutstanding, currency],
   );
 
   // dynamic sensitivity ranges around current assumptions
-  const sensitivityDiscounts = React.useMemo(() => {
+  const sensitivityDiscounts = useMemo(() => {
     const base = Math.round(discountRate);
     return Array.from({ length: 5 }, (_, i) => Math.max(1, Math.min(30, base - 2 + i)));
   }, [discountRate]);
 
-  const sensitivityGrowths = React.useMemo(() => {
+  const sensitivityGrowths = useMemo(() => {
     const base = Math.round(terminalGrowth);
     return Array.from({ length: 5 }, (_, i) => Math.max(0, base - 2 + i));
   }, [terminalGrowth]);
 
-  const sensitivityMultiples = React.useMemo(() => {
+  const sensitivityMultiples = useMemo(() => {
     const base = Math.round(terminalMultiple);
     return Array.from({ length: 5 }, (_, i) => Math.max(1, base - 4 + i * 2));
   }, [terminalMultiple]);
@@ -629,7 +630,7 @@ export default function DcfCalculator() {
       }
       setFcfGrowths(gs);
     }
-  }, [fcfMode]);
+  }, [fcfMode, fcfList]);
 
   // Automated FCF generation
   useEffect(() => {
@@ -651,7 +652,7 @@ export default function DcfCalculator() {
         setFcfList(arr);
       }
     }
-  }, [fcfMode, fcfStart, fcfGrowthConstant, fcfGrowths, currency]);
+  }, [fcfMode, fcfStart, fcfGrowthConstant, fcfGrowths, currency, fcfList.length]);
 
   return (
     <Card className="shadow-lg">
