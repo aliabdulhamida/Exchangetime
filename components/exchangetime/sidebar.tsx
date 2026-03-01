@@ -1063,8 +1063,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         description = (
           <>
             If you have any questions, feedback, or need support, please contact us at{' '}
-            <a href="mailto:support@example.com" className="underline">
-              support@example.com
+            <a href="mailto:info@exchangetime.de" className="underline">
+              info@exchangetime.de
             </a>
             .<br />
             <br />

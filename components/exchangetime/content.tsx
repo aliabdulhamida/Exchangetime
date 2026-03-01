@@ -12,6 +12,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import TaxCalculator from '../tax-calculator';
 import BacktestTool from '../stock-market/backtest-tool';
 import CurrencyConverter from '../stock-market/currency-converter';
+import DcfCalculator from '../dcf-calculator';
 import EarningsCalendar from '../stock-market/earnings-calendar';
 import ExchangeTimes from '../stock-market/exchange-times';
 import HolidayCalendar from '../stock-market/holiday-calendar';
@@ -291,6 +292,8 @@ export default function Content(props: ContentProps) {
               </div>
             </div>
           )}
+          
+
           {modules.includes('CurrencyConverter') && (
             <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col">
               <ModuleWrapper
@@ -390,7 +393,24 @@ export default function Content(props: ContentProps) {
               </ModuleWrapper>
             </div>
           )}
+
+          {/* DCF removed from this row to render below the Tax Calculator */}
         </div>
+        {/* Render DCF below Tax Calculator as a new full-width row */}
+        {modules.includes('DCFCalculator') && (
+          <div className="w-full mt-6">
+            <div className="min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 flex flex-col h-full rounded-xl">
+              <ModuleWrapper
+                onClose={() => hideModule('DCFCalculator')}
+                onSolo={() => showOnlyModule('DCFCalculator')}
+              >
+                <div className="flex-1 flex flex-col h-full p-4">
+                  <DcfCalculator />
+                </div>
+              </ModuleWrapper>
+            </div>
+          </div>
+        )}
       </>
     </div>
   );
