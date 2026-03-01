@@ -28,7 +28,7 @@ export default function Layout({ children, sidebar }: LayoutProps) {
   return (
     <>
       <DownloadAppOverlay />
-      <div className={`flex h-screen ${theme === 'dark' ? 'dark' : ''}`}>
+      <div className="flex h-screen">
         {sidebar}
         <div className="w-full flex flex-1 flex-col">
           {/* Sticky/fixed Header */}
@@ -36,9 +36,7 @@ export default function Layout({ children, sidebar }: LayoutProps) {
             <TopNav />
           </header>
           {/* Kein Padding-Top mehr, damit Content ganz oben steht */}
-          <main
-            className={`flex-1 overflow-auto p-6 mt-16 ${theme === 'dark' ? 'bg-black' : 'bg-white'}`}
-          >
+          <main className="flex-1 overflow-auto p-6 mt-16 bg-background">
             {children}
           </main>
         </div>

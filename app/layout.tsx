@@ -40,6 +40,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* ensure theme class is present on first paint to avoid mixed light/dark flash */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            try {
+              var theme = localStorage.getItem('theme');
+              if (!theme) {
+                var mql = window.matchMedia('(prefers-color-scheme: dark)');
+                theme = mql.matches ? 'dark' : 'light';
+              }
+              document.documentElement.classList.add(theme);
+            } catch (e) {}
+          })();
+        ` }} />
+
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
@@ -47,6 +61,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Exchangetime" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+        {/* indicate both color schemes are supported for the browser UI */}
+        <meta name="color-scheme" content="light dark" />
       </head>
       <body className={`${inter.className} antialiased`}>
         <ThemeProvider

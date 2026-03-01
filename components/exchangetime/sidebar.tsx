@@ -1120,15 +1120,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         <Menu className="h-5 w-5 text-gray-600 dark:text-gray-300" />
       </button>
       <nav
-        className={`
-          fixed inset-y-0 left-0 z-[70]
-          ${currentTheme === 'dark' ? 'bg-[#0F0F12] border-[#1F1F23]' : 'bg-white border-gray-200'}
-          transform transition-all duration-300 ease-in-out
-          lg:translate-x-0 lg:static border-r
-          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-          ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
-          ${isCollapsed ? 'w-20' : 'w-64'}
-        `}
+        className={`fixed inset-y-0 left-0 z-[70] bg-white dark:bg-[#0F0F12] border-gray-200 dark:border-[#1F1F23] transform transition-all duration-300 ease-in-out lg:translate-x-0 lg:static border-r ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} ${isCollapsed ? 'lg:w-20' : 'lg:w-64'} ${isCollapsed ? 'w-20' : 'w-64'}`}
         data-collapsed={isCollapsed}
         aria-label="Sidebar navigation"
       >
@@ -1167,7 +1159,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
           </svg>
         </button>
         <div
-          className={`h-full flex flex-col ${currentTheme === 'dark' ? 'bg-black' : 'bg-white'}`}
+          className="h-full flex flex-col bg-background"
         >
           <button
             type="button"
@@ -1203,7 +1195,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                 {isCollapsed ? (
                   // Vertikaler Toggle für eingeklappte Sidebar
                   <div
-                    className={`relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 ${currentTheme === 'dark' ? 'bg-black' : 'bg-white'} shadow-sm flex flex-col w-full`}
+                    className="relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-black shadow-sm flex flex-col w-full"
                   >
                     <Link
                       href="/"

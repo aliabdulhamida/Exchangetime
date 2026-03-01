@@ -439,7 +439,7 @@ export default function InsiderTrades() {
         <>
           {selectedIndexes.length > 0 && (
             <div className="mb-4 flex items-center justify-center">
-              <span className="text-sm font-semibold text-blue-700 dark:text-blue-900 bg-white dark:bg-white px-4 py-2 rounded-lg shadow border border-blue-100 dark:border-blue-900">
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-900 bg-white dark:bg-[#18181b] px-4 py-2 rounded-lg shadow border border-blue-100 dark:border-blue-900">
                 <span className="text-black">
                   Total value of selected trades: ${formatSelectedTotal(selectedSum)}
                 </span>

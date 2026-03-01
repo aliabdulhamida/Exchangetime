@@ -666,7 +666,7 @@ export default function DcfCalculator() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Left: Inputs & Forecasts */}
             <div className="md:col-span-2 space-y-4">
-              <div className="p-4 bg-white dark:bg-[#070708] rounded">
+              <div className="p-4 bg-card rounded">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h4 className="text-base font-semibold">Assumptions</h4>
@@ -680,7 +680,7 @@ export default function DcfCalculator() {
                   </div>
                   <div className="flex items-center gap-2">
                     <label className="text-xs">Currency</label>
-                    <select value={currency} onChange={(e) => setCurrency(e.target.value as any)} className="px-2 py-1 rounded border bg-white dark:bg-black text-sm">
+                    <select value={currency} onChange={(e) => setCurrency(e.target.value as any)} className="px-2 py-1 rounded border bg-input text-sm">
                       <option value="USD">USD</option>
                       <option value="EUR">EUR</option>
                       <option value="GBP">GBP</option>
@@ -893,7 +893,7 @@ export default function DcfCalculator() {
             </div>
             {/* Right: Summary, Chart, Sensitivity, Scenarios */}
             <div className="md:col-span-1 space-y-4">
-              <div className="p-4 bg-white dark:bg-[#070708] rounded text-center">
+              <div className="p-4 bg-card rounded text-center">
                 <div className="flex items-center justify-between">
                   <div className="text-xs text-muted-foreground flex items-center gap-2">Enterprise Value <TooltipProvider><Tooltip><TooltipTrigger><Info className="w-4 h-4 text-muted-foreground" /></TooltipTrigger><TooltipContent>Enterprise value = present value of projected FCFs + terminal value</TooltipContent></Tooltip></TooltipProvider></div>
                   <div className="text-xs text-muted-foreground">
@@ -1003,13 +1003,13 @@ export default function DcfCalculator() {
                   </ResponsiveContainer>
                 </div>
               </div>
-              <div className="p-3 bg-white dark:bg-[#070708] rounded">
+              <div className="p-3 bg-card rounded">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium">Sensitivity</div>
                   <button className="text-sm text-muted-foreground" onClick={() => setShowSensitivity((s) => !s)}>{showSensitivity ? 'Hide' : 'Show'}</button>
                 </div>
                 {showSensitivity && (
-                  <div className="mt-3 overflow-auto border rounded p-2 bg-white dark:bg-[#0b0b0b]">
+                  <div className="mt-3 overflow-auto border rounded p-2 bg-card">
                     <table className="text-sm w-full table-auto border-collapse">
                       <thead>
                         <tr>

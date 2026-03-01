@@ -182,7 +182,7 @@ export default function TopNav() {
   return (
     <>
       <nav
-        className={`px-3 sm:px-6 flex items-center justify-between border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64 ${currentTheme === 'dark' ? 'bg-black' : 'bg-white'}`}
+        className="px-3 sm:px-6 flex items-center justify-between border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64 bg-white dark:bg-black"
       >
         <div className="flex flex-nowrap items-center ml-16 gap-x-2 overflow-x-auto">
           {/* Watchlist Dropdown */}
@@ -316,7 +316,7 @@ export default function TopNav() {
                     />
                     <div className="flex gap-1 mt-1">
                       <button
-                        className="px-2 py-1 text-xs rounded bg-white text-black border border-gray-300 hover:bg-gray-100 dark:bg-white dark:text-black dark:border-gray-300"
+                        className="px-2 py-1 text-xs rounded bg-white text-black border border-gray-300 hover:bg-gray-100 dark:bg-[#18181b] dark:text-gray-200 dark:border-[#23232a]"
                         onClick={handleAddStock}
                       >
                         Add
@@ -335,10 +335,9 @@ export default function TopNav() {
                 ) : (
                   <button
                     className="flex items-center gap-1 mt-2 px-2 py-1 rounded bg-white border border-gray-300 dark:bg-[#18181b] dark:text-gray-200 dark:border-[#23232a] text-xs hover:bg-[#f9f9f9] dark:hover:bg-[#23232a]"
-                    style={{ backgroundColor: '#fff', color: '#000' }}
                     onClick={() => setShowAdd(true)}
                   >
-                    <span style={{ color: '#000' }}>+</span> Add stock
+                    <span>+</span> Add stock
                   </button>
                 )}
               </div>
