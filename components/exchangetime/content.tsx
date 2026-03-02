@@ -18,7 +18,7 @@ import ExchangeTimes from '../stock-market/exchange-times';
 import HolidayCalendar from '../stock-market/holiday-calendar';
 import InsiderTrades from '../stock-market/insider-trades';
 import PortfolioTracker from '../stock-market/portfolio-tracker';
-import SankeyBudget from '../stock-market/sankey-budget';
+import OptionsPayoffLab from '../stock-market/sankey-budget';
 import StockAnalysis from '../stock-market/stock-analysis';
 import TradingviewEcCalendar from '../stock-market/TradingviewEc-Calendar.jsx';
 import TradingViewWidget from '../stock-market/TradingViewWidget';
@@ -38,12 +38,12 @@ function ModuleWrapper({
   onSolo?: () => void;
 }) {
   return (
-    <div className="relative p-2">
-      <div className="absolute right-5 top-5 flex gap-2" style={{ zIndex: 10 }}>
+    <div className="et-module-card relative p-3 sm:p-4">
+      <div className="absolute right-3 top-3 flex gap-1.5" style={{ zIndex: 10 }}>
         {onSolo && (
           <button
             onClick={onSolo}
-            className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent hover:border-blue-400 rounded p-1 transition"
+            className="et-module-action"
             aria-label="Show only this module"
             title="Show only this module"
           >
@@ -71,7 +71,7 @@ function ModuleWrapper({
         )}
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-700 dark:hover:text-white"
+          className="et-module-action et-module-action-danger"
           aria-label="Close"
           title="Close"
         >
@@ -121,12 +121,12 @@ export default function Content(props: ContentProps) {
   };
   // Kein flex-zentriertes Layout mehr, sondern immer nur space-y-6
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-3 sm:space-y-6 sm:pb-4">
       {/* Module-Rendering: Wenn nur ein Modul sichtbar ist, trotzdem Grid-Layout */}
       {/* Das bisherige Grid-Layout bleibt immer erhalten */}
       <>
         {/* Top Row - Exchange Times */}
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {modules.includes('ExchangeTimes') && (
             <ModuleWrapper
               onClose={() => hideModule('ExchangeTimes')}
@@ -141,19 +141,19 @@ export default function Content(props: ContentProps) {
         {(modules.includes('StockAnalysis') ||
           modules.includes('InsiderTrades') ||
           modules.includes('BacktestTool')) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 sm:gap-6">
             {modules.includes('StockAnalysis') && (
               <div
                 className={
                   (modules.length === 1 ? 'w-full max-w-2xl mx-auto ' : '') + 'flex flex-col'
                 }
               >
-                <div className="flex flex-col h-full min-h-[420px]">
+                <div className="flex h-full flex-col min-h-0 sm:min-h-[420px]">
                   <ModuleWrapper
                     onClose={() => hideModule('StockAnalysis')}
                     onSolo={() => showOnlyModule('StockAnalysis')}
                   >
-                    <div className="flex flex-col h-full min-h-[420px]">
+                    <div className="flex h-full flex-col min-h-0 sm:min-h-[420px]">
                       <StockAnalysis />
                     </div>
                   </ModuleWrapper>
@@ -164,14 +164,14 @@ export default function Content(props: ContentProps) {
               <div
                 className={
                   (modules.length === 1 ? 'w-full md:max-w-xl md:mx-auto ' : 'w-full ') +
-                  'flex flex-col h-full min-h-[420px]'
+                  'flex flex-col h-full min-h-0 sm:min-h-[420px]'
                 }
               >
                 <ModuleWrapper
                   onClose={() => hideModule('InsiderTrades')}
                   onSolo={() => showOnlyModule('InsiderTrades')}
                 >
-                  <div className="flex flex-col h-full min-h-[420px]">
+                  <div className="flex h-full flex-col min-h-0 sm:min-h-[420px]">
                     <InsiderTrades />
                   </div>
                 </ModuleWrapper>
@@ -193,10 +193,10 @@ export default function Content(props: ContentProps) {
 
         {/* Full-width Portfolio Tracker Row (same sizing as Technical Analysis) */}
         {modules.includes('PortfolioTracker') && (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6">
             <div
               className={
-                `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full ` +
+                `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto mt-0 md:mt-2 flex flex-col h-full ` +
                 (modules.length === 1 ? '' : '')
               }
             >
@@ -204,7 +204,7 @@ export default function Content(props: ContentProps) {
                 onClose={() => hideModule('PortfolioTracker')}
                 onSolo={() => showOnlyModule('PortfolioTracker')}
               >
-                <div className="p-4 flex flex-col h-full">
+                <div className="p-3 sm:p-4 flex flex-col h-full">
                   <PortfolioTracker />
                 </div>
               </ModuleWrapper>
@@ -213,11 +213,11 @@ export default function Content(props: ContentProps) {
         )}
 
         {/* Neue Zeile: Technical Analysis */}
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {modules.includes('TechnicalAnalysis') && (
             <div
               className={
-                `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col h-full ` +
+                `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto mt-0 md:mt-2 flex flex-col h-full ` +
                 (modules.length === 1 ? '' : '')
               }
             >
@@ -225,11 +225,11 @@ export default function Content(props: ContentProps) {
                 onClose={() => hideModule('TechnicalAnalysis')}
                 onSolo={() => showOnlyModule('TechnicalAnalysis')}
               >
-                <div className="p-4 flex flex-col h-full">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <div className="p-3 sm:p-4 flex flex-col h-full">
+                  <h2 className="mb-4 text-lg font-semibold text-foreground">
                     Technical Analysis
                   </h2>
-                  <div className="flex-1 min-h-[700px]">
+                  <div className="flex-1 min-h-[420px] sm:min-h-[560px] lg:min-h-[700px]">
                     <TradingViewWidget />
                   </div>
                 </div>
@@ -239,18 +239,18 @@ export default function Content(props: ContentProps) {
         </div>
 
         {/* Third Row - Trading Tools (Compound Interest + Currency Converter) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 sm:gap-6">
           {modules.includes('CompoundInterest') && (
-            <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 min-h-[220px] border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col justify-center">
-              <div className="flex items-center justify-between px-6 pt-4 pb-0">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <div className="et-module-card flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 min-h-0 mt-0 md:mt-2 flex flex-col justify-center">
+              <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-0">
+                <h2 className="text-lg font-semibold text-foreground">
                   Compound Interest
                 </h2>
                 <div className="flex gap-2 items-center">
                   {/* Augen-Button und X-Button aus ModuleWrapper */}
                   <button
                     onClick={() => showOnlyModule('CompoundInterest')}
-                    className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent hover:border-blue-400 rounded p-1 transition"
+                    className="et-module-action"
                     aria-label="Show only this module"
                     title="Show only this module"
                   >
@@ -277,7 +277,7 @@ export default function Content(props: ContentProps) {
                   </button>
                   <button
                     onClick={() => hideModule('CompoundInterest')}
-                    className="text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                    className="et-module-action et-module-action-danger"
                     aria-label="Close"
                     title="Close"
                   >
@@ -285,22 +285,21 @@ export default function Content(props: ContentProps) {
                   </button>
                 </div>
               </div>
-              <div className="p-4 flex flex-col h-full">
+              <div className="p-3 sm:p-4 flex flex-col h-full">
                 <div className="flex-1 flex flex-col justify-between">
                   <CompoundInterestCalculator />
                 </div>
               </div>
             </div>
           )}
-          
 
           {modules.includes('CurrencyConverter') && (
-            <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 border border-gray-200 dark:border-[#23232a] rounded-xl mt-0 md:mt-2 flex flex-col">
+            <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 mt-0 md:mt-2 flex flex-col">
               <ModuleWrapper
                 onClose={() => hideModule('CurrencyConverter')}
                 onSolo={() => showOnlyModule('CurrencyConverter')}
               >
-                <div className="p-4 flex flex-col h-full">
+                <div className="p-3 sm:p-4 flex flex-col h-full">
                   <CurrencyConverter />
                 </div>
               </ModuleWrapper>
@@ -312,21 +311,16 @@ export default function Content(props: ContentProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{/* MarketSummary removed */}</div>
 
         {/* Fifth Row - Calendar und Holiday Info */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:gap-6">
           {/* Neues Modul links neben Earnings Calendar */}
           {modules.includes('EconomicCalendar') && (
-            <div
-              className={
-                (modules.length === 1 ? 'w-full max-w-xl mx-auto ' : '') +
-                'border border-gray-200 dark:border-[#23232a] rounded-xl'
-              }
-            >
+            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
               <ModuleWrapper
                 onClose={() => hideModule('EconomicCalendar')}
                 onSolo={() => showOnlyModule('EconomicCalendar')}
               >
-                <div className="flex flex-col h-full min-h-[220px] items-start justify-start px-6 pb-4 mt-3">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <div className="mt-1 flex h-full min-h-0 flex-col gap-3 px-1 pb-1 sm:mt-2 sm:px-2 sm:pb-2">
+                  <h2 className="pr-16 text-base font-semibold text-foreground sm:pr-20 sm:text-lg">
                     Economic Calendar
                   </h2>
                   <TradingviewEcCalendar />
@@ -356,19 +350,19 @@ export default function Content(props: ContentProps) {
           )}
         </div>
 
-        {/* Sixth Row - Personal Budget Sankey Diagramm */}
+        {/* Sixth Row - Options Payoff Lab */}
         <div
-          className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}
+          className={`flex flex-col items-stretch gap-4 md:flex-row sm:gap-6${modules.length === 1 ? ' justify-center' : ''}`}
         >
-          {/* Personal Budget Sankey Diagramm */}
+          {/* Options Payoff Lab */}
           {modules.includes('PersonalBudget') && (
-            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full">
+            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-0 flex flex-col h-full">
               <ModuleWrapper
                 onClose={() => hideModule('PersonalBudget')}
                 onSolo={() => showOnlyModule('PersonalBudget')}
               >
                 <div className="flex-1 flex flex-col h-full">
-                  <SankeyBudget />
+                  <OptionsPayoffLab />
                 </div>
               </ModuleWrapper>
             </div>
@@ -379,10 +373,10 @@ export default function Content(props: ContentProps) {
 
         {/* Eighth Row - Tax Calculator */}
         <div
-          className={`flex flex-col md:flex-row gap-6 items-stretch${modules.length === 1 ? ' justify-center' : ''}`}
+          className={`flex flex-col items-stretch gap-4 md:flex-row sm:gap-6${modules.length === 1 ? ' justify-center' : ''}`}
         >
           {modules.includes('TaxCalculator') && (
-            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-[-0.5rem] md:mt-0 flex flex-col h-full rounded-xl">
+            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-0 flex flex-col h-full rounded-xl">
               <ModuleWrapper
                 onClose={() => hideModule('TaxCalculator')}
                 onSolo={() => showOnlyModule('TaxCalculator')}
@@ -398,13 +392,13 @@ export default function Content(props: ContentProps) {
         </div>
         {/* Render DCF below Tax Calculator as a new full-width row */}
         {modules.includes('DCFCalculator') && (
-          <div className="w-full mt-6">
-            <div className="min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 flex flex-col h-full rounded-xl">
+          <div className="w-full mt-4 sm:mt-6">
+            <div className="min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 flex flex-col h-full">
               <ModuleWrapper
                 onClose={() => hideModule('DCFCalculator')}
                 onSolo={() => showOnlyModule('DCFCalculator')}
               >
-                <div className="flex-1 flex flex-col h-full p-4">
+                <div className="flex-1 flex flex-col h-full">
                   <DcfCalculator />
                 </div>
               </ModuleWrapper>
@@ -449,49 +443,49 @@ function CompoundInterestCalculator() {
   return (
     <div className="flex flex-col md:flex-row gap-6 w-full">
       {/* Linke Spalte: Eingaben */}
-      <form className="flex flex-col gap-4 p-2 md:w-1/2 w-full max-w-md">
-        <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+      <form className="flex w-full max-w-md flex-col gap-4 p-2 md:w-1/2">
+        <label className="flex flex-col text-sm font-medium text-muted-foreground">
           Initial Capital
           <input
             type="number"
-            className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition"
+            className="mt-1 rounded-md border border-border bg-black px-3 py-2 text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring"
             value={start}
             min={0}
             onChange={(e) => setStart(Number(e.target.value))}
           />
         </label>
-        <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+        <label className="flex flex-col text-sm font-medium text-muted-foreground">
           Monthly Deposit
           <input
             type="number"
-            className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition"
+            className="mt-1 rounded-md border border-border bg-black px-3 py-2 text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring"
             value={monthly}
             min={0}
             onChange={(e) => setMonthly(Number(e.target.value))}
           />
         </label>
-        <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+        <label className="flex flex-col text-sm font-medium text-muted-foreground">
           Interest Rate (% p.a.)
           <input
             type="number"
-            className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition"
+            className="mt-1 rounded-md border border-border bg-black px-3 py-2 text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring"
             value={rate}
             min={0}
             step={0.01}
             onChange={(e) => setRate(Number(e.target.value))}
           />
         </label>
-        <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+        <label className="flex flex-col text-sm font-medium text-muted-foreground">
           Years
           <input
             type="number"
-            className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition"
+            className="mt-1 rounded-md border border-border bg-black px-3 py-2 text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring"
             value={years}
             min={1}
             onChange={(e) => setYears(Number(e.target.value))}
           />
         </label>
-        <div className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200 mt-4">
+        <div className="mt-4 flex flex-col text-sm font-medium text-muted-foreground">
           <FormControl size="small" fullWidth>
             <InputLabel
               id="interval-label"
@@ -501,7 +495,7 @@ function CompoundInterestCalculator() {
                       color: '#fff',
                       fontSize: 14,
                       top: 2,
-                      backgroundColor: '#23232a',
+                      backgroundColor: '#000',
                       px: 0.5,
                     }
                   : {
@@ -524,7 +518,7 @@ function CompoundInterestCalculator() {
               sx={
                 theme === 'dark'
                   ? {
-                      backgroundColor: '#23232a',
+                      backgroundColor: '#000',
                       color: '#fff',
                       fontSize: 14,
                       '.MuiOutlinedInput-notchedOutline': {
@@ -563,7 +557,7 @@ function CompoundInterestCalculator() {
                   sx:
                     theme === 'dark'
                       ? {
-                          backgroundColor: '#23232a',
+                          backgroundColor: '#000',
                           color: '#fff',
                         }
                       : {
@@ -582,12 +576,12 @@ function CompoundInterestCalculator() {
       </form>
       {/* Rechte Spalte: Ergebnisse und Chart */}
       <div className="flex flex-col gap-2 md:w-1/2 w-full justify-center">
-        <div className="text-base font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-[#23232a] rounded-md px-3 py-2">
+        <div className="rounded-md border border-border bg-card px-3 py-2 text-base font-semibold text-foreground">
           Final Capital:{' '}
           {result.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
           €
         </div>
-        <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-[#23232a] rounded-md px-3 py-2">
+        <div className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
           Initial Capital:{' '}
           {start.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
           €<br />
@@ -609,8 +603,8 @@ function CompoundInterestCalculator() {
             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#e5e5e5" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#e5e5e5" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="year" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
@@ -630,7 +624,7 @@ function CompoundInterestCalculator() {
                       .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                   }
                   return (
-                    <div className="min-w-[110px] max-w-[180px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 px-2 py-1 text-[11px] shadow-lg flex flex-col gap-1">
+                    <div className="flex min-w-[110px] max-w-[180px] flex-col gap-1 rounded-lg border border-border bg-black px-2 py-1 text-[11px] text-white shadow-lg">
                       <div className="font-semibold mb-0.5">
                         {item && item.year !== undefined ? `Year ${item.year}` : label}
                       </div>
@@ -644,7 +638,7 @@ function CompoundInterestCalculator() {
               <Area
                 type="monotone"
                 dataKey="capital"
-                stroke="#2563eb"
+                stroke="#e5e5e5"
                 fillOpacity={1}
                 fill="url(#colorCapital)"
               />

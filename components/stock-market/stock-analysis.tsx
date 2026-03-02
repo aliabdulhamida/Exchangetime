@@ -1,8 +1,6 @@
 'use client';
 
 import {
-  TrendingUp,
-  TrendingDown,
   Search,
   AlertTriangle,
   AlertCircle,
@@ -41,6 +39,8 @@ interface StockData {
   currentRatio?: number;
   freeCashFlow?: number;
 }
+
+const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
 
 export default function StockAnalysis() {
   const [loading, setLoading] = useState(false);
@@ -91,7 +91,7 @@ export default function StockAnalysis() {
   // Chart-Farbe je nach Entwicklung
   const chartIsPositive =
     chartData.length > 1 && chartData[chartData.length - 1].price >= chartData[0].price;
-  const chartColor = chartIsPositive ? '#38FFB7' : '#FF3860';
+  const chartColor = chartIsPositive ? '#E5E5E5' : '#A3A3A3';
 
   function formatRatio(value?: number, digits = 2) {
     if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
@@ -122,7 +122,7 @@ export default function StockAnalysis() {
     if (!data || data.length < 2) return null;
     const first = data[0].price;
     const last = data[data.length - 1].price;
-    if (!first || !last) return null;
+    if (!Number.isFinite(first) || !Number.isFinite(last) || first === 0) return null;
     return ((last - first) / first) * 100;
   }
 
@@ -228,11 +228,19 @@ export default function StockAnalysis() {
   }
 
   const handleSearch = async () => {
-    if (!searchSymbol) return;
+    const symbol = searchSymbol.trim().toUpperCase();
+    if (!symbol) return;
+    if (!SYMBOL_PATTERN.test(symbol)) {
+      setError('Please enter a valid ticker symbol.');
+      setSelectedStock(null);
+      setChartData([]);
+      setDcfValue(null);
+      return;
+    }
+
     setError(null);
     setLoading(true);
     try {
-      const symbol = searchSymbol.toUpperCase();
       await fetchChartData(symbol, chartRange);
       const yahooRes = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
       if (!yahooRes.ok) {
@@ -247,8 +255,13 @@ export default function StockAnalysis() {
       const meta = yahooJson?.meta || {};
       const price = yahooJson?.price;
       const previousClose = yahooJson?.previousClose;
-      const change = price && previousClose ? price - previousClose : 0;
-      const changePercent = change && previousClose ? (change / previousClose) * 100 : 0;
+      const hasValidPrice = typeof price === 'number' && Number.isFinite(price);
+      const hasPreviousClose = typeof previousClose === 'number' && Number.isFinite(previousClose);
+      const change = hasValidPrice && hasPreviousClose ? price - previousClose : 0;
+      const changePercent =
+        hasValidPrice && hasPreviousClose && previousClose !== 0
+          ? (change / previousClose) * 100
+          : 0;
 
       // Hole zusätzliche Metriken (Finviz + Yahoo Fallback)
       const metrics = await fetchAdditionalMetrics(symbol);
@@ -256,7 +269,7 @@ export default function StockAnalysis() {
       // DCF von financialmodellingprep.com
       let dcf = null;
       try {
-        const dcfRes = await fetch(`/api/dcf?symbol=${symbol}`);
+        const dcfRes = await fetch(`/api/dcf?symbol=${encodeURIComponent(symbol)}`);
         if (dcfRes.ok) {
           const dcfJson = await dcfRes.json();
           dcf = dcfJson?.dcf || dcfJson[0]?.dcf || null;
@@ -268,7 +281,7 @@ export default function StockAnalysis() {
         setDcfValue(null);
       }
 
-      if (meta && price) {
+      if (meta && hasValidPrice) {
         setSelectedStock({
           symbol: symbol,
           name: metrics?.companyName || meta?.longName || meta?.shortName || symbol,
@@ -304,10 +317,12 @@ export default function StockAnalysis() {
   };
 
   return (
-    <div className="rounded-xl pt-3 px-8 pb-6 border border-gray-200 dark:border-[#1F1F23]">
-      <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 text-left">
-        Stock Analysis
-      </h2>
+    <div className="pt-0 space-y-4">
+      <div>
+        <h2 className="mb-2 mt-0 ml-0 flex items-center gap-2 text-lg font-bold text-foreground">
+          Stock Analysis
+        </h2>
+      </div>
 
       {/* Chart: Kursverlauf (dynamisch von Yahoo Finance) wird nach DCF angezeigt */}
 
@@ -321,7 +336,7 @@ export default function StockAnalysis() {
               handleSearch();
             }
           }}
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
         <Button onClick={handleSearch}>
           <Search className="w-4 h-4" />
@@ -331,10 +346,10 @@ export default function StockAnalysis() {
       {error && (
         <Alert
           variant="destructive"
-          className="mb-4 flex flex-col items-center border border-red-400 dark:border-red-500 bg-red-50/60 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg p-4"
+          className="mb-4 flex flex-col items-center rounded-lg border border-red-400 bg-red-900/20 p-4 text-red-300"
         >
           <div className="flex flex-col items-center">
-            <AlertTriangle className="w-8 h-8 mb-2 text-red-500 dark:text-red-400" />
+            <AlertTriangle className="mb-2 h-8 w-8 text-red-300" />
             <span className="text-center font-normal">{error}</span>
           </div>
         </Alert>
@@ -355,7 +370,7 @@ export default function StockAnalysis() {
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="p-3 rounded-lg bg-gray-50 dark:bg-[#18181b] col-span-1 space-y-2"
+                className="col-span-1 space-y-2 rounded-lg border border-border bg-card p-3"
               >
                 <Skeleton className="h-4 w-24 mb-1" />
                 <Skeleton className="h-3 w-full" />
@@ -363,11 +378,11 @@ export default function StockAnalysis() {
                 <Skeleton className="h-3 w-full" />
               </div>
             ))}
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23] col-span-2">
+            <div className="col-span-1 rounded-lg border border-border bg-card p-3 sm:col-span-2">
               <Skeleton className="h-4 w-32 mb-2" />
               <Skeleton className="h-6 w-24" />
             </div>
-            <div className="col-span-2 mt-6">
+            <div className="col-span-1 mt-6 sm:col-span-2">
               <Skeleton className="h-40 w-full mb-2" />
               <div className="flex gap-4 mt-2 justify-between items-center">
                 <Skeleton className="h-6 w-32" />
@@ -377,56 +392,55 @@ export default function StockAnalysis() {
           </div>
         </div>
       ) : selectedStock ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                {selectedStock.name}
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{selectedStock.symbol}</span>
-                <button
-                  className="px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                  onClick={() => setNewsOpen(true)}
-                  aria-label={`Show news for ${selectedStock.symbol}`}
-                >
-                  News
-                </button>
+        <div className="space-y-5">
+          <div className="rounded-xl border border-border bg-card/50 px-3 py-3 sm:px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Company</p>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <h3 className="truncate text-base font-semibold text-foreground sm:text-lg">
+                    {selectedStock.name}
+                  </h3>
+                  <button
+                    className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground transition hover:bg-secondary"
+                    onClick={() => setNewsOpen(true)}
+                    aria-label={`Show news for ${selectedStock.symbol}`}
+                  >
+                    News
+                  </button>
+                </div>
               </div>
-      {/* News Modal */}
-      {selectedStock && (
-        <NewsModal
-          open={newsOpen}
-          onOpenChange={setNewsOpen}
-          ticker={selectedStock.symbol}
-        />
-      )}
-            </div>
-            <div className="text-right">
-              <p className="text-xl font-bold text-gray-900 dark:text-white">
-                ${selectedStock.price?.toFixed(2)}
-              </p>
-              <div className="flex items-center gap-1">
-                {selectedStock.change >= 0 ? (
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                ) : (
-                  <TrendingDown className="w-4 h-4 text-red-500" />
-                )}
-                <span
-                  className={`text-sm font-medium ${selectedStock.change >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                >
-                  {selectedStock.change >= 0 ? '+' : ''}
-                  {selectedStock.change?.toFixed(2)} ({selectedStock.changePercent?.toFixed(2)}%)
-                </span>
+              <div className="flex items-end gap-3">
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Price</p>
+                  <p className="tabular-nums text-base font-semibold text-foreground sm:text-lg">
+                    ${selectedStock.price?.toFixed(2)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Today</p>
+                  <p
+                    className={`tabular-nums text-base font-semibold ${selectedStock.changePercent >= 0 ? 'text-green-400' : 'text-red-400'} sm:text-lg`}
+                  >
+                    {selectedStock.changePercent >= 0 ? '+' : ''}
+                    {selectedStock.changePercent?.toFixed(2)}%
+                  </p>
+                </div>
               </div>
             </div>
+            {/* News Modal */}
+            {selectedStock && (
+              <NewsModal
+                open={newsOpen}
+                onOpenChange={setNewsOpen}
+                ticker={selectedStock.symbol}
+              />
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 items-stretch">
             {/* VALUATION */}
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#18181b] col-span-1">
-              <h4 className="font-semibold mb-2 text-sm text-gray-900 dark:text-white">
-                Valuation
-              </h4>
+            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
+              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground">Valuation</h4>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">P/E Ratio</span>
                 <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
@@ -437,7 +451,7 @@ export default function StockAnalysis() {
                     ) : selectedStock.pe <= 25 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
                     ) : selectedStock.pe <= 40 ? (
-                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                      <CircleDot className="w-4 h-4 text-gray-400" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-red-500" />
                     )
@@ -452,7 +466,7 @@ export default function StockAnalysis() {
                     selectedStock.peg < 1 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
                     ) : selectedStock.peg <= 2 ? (
-                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                      <CircleDot className="w-4 h-4 text-gray-400" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-red-500" />
                     )
@@ -467,7 +481,7 @@ export default function StockAnalysis() {
                     selectedStock.pb < 1 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
                     ) : selectedStock.pb <= 3 ? (
-                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                      <CircleDot className="w-4 h-4 text-gray-400" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-red-500" />
                     )
@@ -476,10 +490,8 @@ export default function StockAnalysis() {
               </div>
             </div>
             {/* PROFITABILITY */}
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#18181b] col-span-1">
-              <h4 className="font-semibold mb-2 text-sm text-gray-900 dark:text-white">
-                Profitability
-              </h4>
+            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
+              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground">Profitability</h4>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">ROE</span>
                 <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
@@ -488,7 +500,7 @@ export default function StockAnalysis() {
                     selectedStock.roe > 15 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
                     ) : selectedStock.roe >= 10 ? (
-                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                      <CircleDot className="w-4 h-4 text-gray-400" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-red-500" />
                     )
@@ -503,7 +515,7 @@ export default function StockAnalysis() {
                     selectedStock.netMargin > 10 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
                     ) : selectedStock.netMargin >= 5 ? (
-                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                      <CircleDot className="w-4 h-4 text-gray-400" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-red-500" />
                     )
@@ -518,7 +530,7 @@ export default function StockAnalysis() {
                     selectedStock.roic > 10 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
                     ) : selectedStock.roic >= 5 ? (
-                      <CircleDot className="w-4 h-4 text-yellow-400" />
+                      <CircleDot className="w-4 h-4 text-gray-400" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-red-500" />
                     )
@@ -527,8 +539,8 @@ export default function StockAnalysis() {
               </div>
             </div>
             {/* GROWTH */}
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#18181b] col-span-1">
-              <h4 className="font-semibold mb-2 text-sm text-gray-900 dark:text-white">Growth</h4>
+            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
+              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground">Growth</h4>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">Revenue</span>
                 <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
@@ -576,8 +588,8 @@ export default function StockAnalysis() {
               </div>
             </div>
             {/* FINANCIAL HEALTH */}
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#18181b] col-span-1">
-              <h4 className="font-semibold mb-2 text-sm text-gray-900 dark:text-white">
+            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
+              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground">
                 Financial Health
               </h4>
               <div className="flex justify-between items-center mb-1 text-sm">
@@ -627,10 +639,10 @@ export default function StockAnalysis() {
               </div>
             </div>
             {/* DCF Valuation */}
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23] col-span-1">
-              <p className="text-sm text-gray-600 dark:text-gray-400">DCF Valuation</p>
+            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">DCF Valuation</p>
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-900 dark:text-white text-sm">
+                <span className="text-base font-semibold text-foreground">
                   {selectedStock.dcf !== undefined && selectedStock.dcf !== null
                     ? `$${Number(selectedStock.dcf).toFixed(2)}`
                     : 'Not available'}
@@ -654,8 +666,8 @@ export default function StockAnalysis() {
             {/* Analyst Valuation (Finviz scrape) */}
             <AnalystValuation symbol={selectedStock?.symbol} price={selectedStock?.price} />
             {/* Chart: Kursverlauf (dynamisch von Yahoo Finance) */}
-            <div className="col-span-2 mt-6">
-              <ChartContainer config={{ price: { label: 'Price', color: '#2563eb' } }}>
+            <div className="col-span-2 mt-4 rounded-xl border border-border/80 bg-card/60 p-3 sm:p-4">
+              <ChartContainer config={{ price: { label: 'Price', color: '#e5e5e5' } }}>
                 <ResponsiveContainer width="100%" height={300}>
                   {chartData.length > 0 ? (
                     <AreaChart
@@ -689,7 +701,7 @@ export default function StockAnalysis() {
                               .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                           }
                           return (
-                            <div className="min-w-[110px] max-w-[180px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 px-2 py-1 text-[11px] shadow-lg flex flex-col gap-1">
+                            <div className="flex min-w-[110px] max-w-[180px] flex-col gap-1 rounded-lg border border-border bg-black px-2 py-1 text-[11px] text-white shadow-lg">
                               <div className="font-semibold mb-0.5">
                                 {item && item.date
                                   ? new Date(item.date).toLocaleDateString('en-US', {
@@ -718,29 +730,29 @@ export default function StockAnalysis() {
                       />
                     </AreaChart>
                   ) : (
-                    <div className="text-gray-400 dark:text-gray-600 text-sm">
+                    <div className="text-sm text-muted-foreground">
                       No data available.
                     </div>
                   )}
                 </ResponsiveContainer>
               </ChartContainer>
-              <div className="flex gap-4 mt-2 justify-between items-center">
-                <div className="flex gap-2 mt-4">
-                  {(['1M', '3M', '6M', '1Y'] as const).map((r) => (
-                    <button
-                      key={r}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${chartRange === r ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-transparent text-black dark:text-white'}`}
-                      onClick={async () => {
-                        setChartRange(r);
-                        if (selectedStock) await fetchChartData(selectedStock.symbol, r);
-                      }}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 text-xs">
+              <div className="mt-2">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    {(['1M', '3M', '6M', '1Y'] as const).map((r) => (
+                      <button
+                        key={r}
+                        className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${chartRange === r ? 'border-foreground bg-foreground text-background' : 'border-transparent bg-transparent text-muted-foreground hover:border-border hover:text-foreground'}`}
+                        onClick={async () => {
+                          setChartRange(r);
+                          if (selectedStock) await fetchChartData(selectedStock.symbol, r);
+                        }}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="ml-auto flex items-center gap-3 text-xs">
                     <div>
                       <span>YTD:</span>
                       <span
@@ -752,9 +764,7 @@ export default function StockAnalysis() {
                             : 'ml-1'
                         }
                       >
-                        {ytdChange !== null
-                          ? `${ytdChange > 0 ? '+' : ''}${ytdChange.toFixed(2)}%`
-                          : '–'}
+                        {ytdChange !== null ? `${ytdChange > 0 ? '+' : ''}${ytdChange.toFixed(2)}%` : '–'}
                       </span>
                     </div>
                     <div>
@@ -780,10 +790,24 @@ export default function StockAnalysis() {
           </div>
         </div>
       ) : (
-        <div className="mt-4 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center gap-2 border border-blue-200 dark:border-blue-800">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-500 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <span className="text-xs text-blue-700 dark:text-blue-300 font-normal">
-            Stock analysis data is for informational purposes only and does not constitute investment advice.
+        <div className="mt-4 px-3 py-2 rounded-lg bg-secondary/60 flex items-center gap-2 border border-border">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-4 h-4 text-muted-foreground"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          <span className="text-xs text-muted-foreground font-normal">
+            Stock analysis data is for informational purposes only and does not constitute
+            investment advice.
           </span>
         </div>
       )}

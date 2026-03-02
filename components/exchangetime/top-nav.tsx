@@ -1,7 +1,6 @@
-import { ChevronRight, RotateCw, Trash2, Pencil } from 'lucide-react';
+import { ChevronRight, Pencil, RotateCw, Trash2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useTheme } from 'next-themes';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   DropdownMenu,
@@ -9,58 +8,23 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+import TuneInRadioButton from './tunein-radio-button';
 import { fetchStockData as fetchStockDataPortfolio } from '../stock-market/portfolio-tracker';
 import TradingViewNews from '../stock-market/TradingViewNews';
-import { ThemeToggle } from '../theme-toggle';
-import TuneInRadioButton from './tunein-radio-button';
 
 const FearGreedIndex = dynamic(() => import('@/components/stock-market/fear-greed-index'), {
   ssr: false,
 });
 
+const triggerClass =
+  'et-nav-pill inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold sm:px-3';
+
 export default function TopNav() {
-  const { theme, systemTheme } = useTheme();
-  const currentTheme = theme === 'system' ? systemTheme : theme;
-  // --- Radio Hover State ---
-  const [radioOpen, setRadioOpen] = useState(false);
-  const radioTimeout = useRef<NodeJS.Timeout | null>(null);
-  const radioRef = useRef<HTMLDivElement | null>(null);
-  // Schließe das Radio-Menü bei Klick außerhalb
-  useEffect(() => {
-    if (!radioOpen) return;
-    function handleClick(e: MouseEvent | TouchEvent) {
-      if (!radioRef.current) return;
-      if (!radioRef.current.contains(e.target as Node)) {
-        setRadioOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('touchstart', handleClick);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('touchstart', handleClick);
-    };
-  }, [radioOpen]);
-
-  const handleRadioEnter = () => {
-    if (radioTimeout.current) {
-      clearTimeout(radioTimeout.current);
-      radioTimeout.current = null;
-    }
-    // Nur öffnen, wenn noch nicht offen
-    setRadioOpen((prev) => (prev ? true : true));
-  };
-
-  const handleRadioLeave = () => {
-    if (radioTimeout.current) clearTimeout(radioTimeout.current);
-    radioTimeout.current = setTimeout(() => {
-      setRadioOpen(false);
-    }, 2000);
-  };
-  // Watchlist: Lazy Initializer, liest direkt aus localStorage
   const [watchlist, setWatchlist] = useState<{ ticker: string }[]>(() => {
-    if (typeof window === 'undefined')
+    if (typeof window === 'undefined') {
       return [{ ticker: 'AAPL' }, { ticker: 'MSFT' }, { ticker: 'TSLA' }];
+    }
+
     try {
       const raw = window.localStorage.getItem('et_watchlist');
       if (raw !== null) {
@@ -73,6 +37,7 @@ export default function TopNav() {
         }
       }
     } catch {}
+
     return [{ ticker: 'AAPL' }, { ticker: 'MSFT' }, { ticker: 'TSLA' }];
   });
   const [showAdd, setShowAdd] = useState(false);
@@ -90,12 +55,13 @@ export default function TopNav() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Holt die aktuellen Kurse für alle Aktien in der Watchlist
   const fetchPrices = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     const results: { [ticker: string]: string } = {};
     const changesResult: { [ticker: string]: number | null } = {};
+
     await Promise.all(
       watchlist.map(async (stock) => {
         try {
@@ -106,12 +72,11 @@ export default function TopNav() {
               last && last.close !== null && last.close !== undefined
                 ? `$${last.close.toFixed(2)}`
                 : 'N/A';
-            // Tagesveränderung berechnen
+
             if (data.length > 1 && last && last.close !== null && last.close !== undefined) {
               const prev = data[data.length - 2];
               if (prev && prev.close !== null && prev.close !== undefined && prev.close !== 0) {
-                const change = ((last.close - prev.close) / prev.close) * 100;
-                changesResult[stock.ticker] = change;
+                changesResult[stock.ticker] = ((last.close - prev.close) / prev.close) * 100;
               } else {
                 changesResult[stock.ticker] = null;
               }
@@ -130,15 +95,12 @@ export default function TopNav() {
         }
       }),
     );
+
     setPrices(results);
     setChanges(changesResult);
     setLoading(false);
   }, [watchlist]);
 
-  // Lade Watchlist aus localStorage wie im Portfolio Tracker
-  // useEffect zum Persistieren der Watchlist
-
-  // Persistiere Watchlist in localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -155,17 +117,19 @@ export default function TopNav() {
 
   useEffect(() => {
     if (watchlist.length === 0) return;
+
     let isMounted = true;
     fetchPrices().catch((err) => {
       if (typeof window !== 'undefined') console.error('fetchPrices error', err);
     });
-    // Optional: alle 60 Sekunden aktualisieren
+
     const interval = setInterval(() => {
-      if (isMounted)
-        fetchPrices().catch((err) => {
-          if (typeof window !== 'undefined') console.error('fetchPrices error', err);
-        });
+      if (!isMounted) return;
+      fetchPrices().catch((err) => {
+        if (typeof window !== 'undefined') console.error('fetchPrices error', err);
+      });
     }, 60000);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -181,29 +145,26 @@ export default function TopNav() {
 
   return (
     <>
-      <nav
-        className="px-3 sm:px-6 flex items-center justify-between border-b border-gray-200 dark:border-[#1F1F23] h-full pl-0 lg:pl-64 bg-white dark:bg-black"
-      >
-        <div className="flex flex-nowrap items-center ml-16 gap-x-2 overflow-x-auto">
-          {/* Watchlist Dropdown */}
+      <nav className="flex h-full items-center justify-between gap-3 px-3 sm:px-5 lg:pl-[17rem]">
+        <div className="et-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pl-12 lg:pl-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center px-2 py-0.5 text-xs sm:px-3 sm:py-1 sm:text-xs rounded hover:bg-gray-100 dark:hover:bg-[#18181b] border border-gray-200 dark:border-[#23232a] mr-2">
-                <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 mr-2">
-                  Watchlist
-                </span>
-                <ChevronRight size={16} />
+              <button className={`${triggerClass} mr-1`}>
+                <span>Watchlist</span>
+                <ChevronRight size={14} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[220px]">
-              <div className="flex flex-col gap-2 p-2">
-                {/* Watchlist-Titel und Reload nebeneinander */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1">
+            <DropdownMenuContent
+              align="start"
+              className="et-dropdown-panel min-w-[250px] max-w-[92vw] p-0"
+            >
+              <div className="flex flex-col gap-2 p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex min-w-0 items-center gap-1">
                     {editingTitle ? (
                       <input
                         type="text"
-                        className="text-base font-bold text-gray-800 dark:text-gray-100 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none px-1 py-0.5 min-w-[80px]"
+                        className="w-full min-w-[90px] border-b border-border/80 bg-transparent px-1 py-0.5 text-sm font-semibold text-foreground outline-none focus:border-primary"
                         value={watchlistTitle}
                         onChange={(e) => setWatchlistTitle(e.target.value)}
                         onBlur={() => setEditingTitle(false)}
@@ -215,16 +176,16 @@ export default function TopNav() {
                     ) : (
                       <>
                         <span
-                          className="text-base font-bold text-gray-800 dark:text-gray-100"
-                          title="Watchlist-Titel"
+                          className="truncate text-sm font-semibold text-foreground"
+                          title="Watchlist title"
                         >
                           {watchlistTitle}
                         </span>
                         <button
                           type="button"
-                          className="ml-1 text-gray-400 hover:text-blue-600 p-1 rounded focus:outline-none"
-                          title="Titel bearbeiten"
-                          aria-label="Edit Watchlist Title"
+                          className="et-module-action h-7 w-7"
+                          title="Edit watchlist title"
+                          aria-label="Edit watchlist title"
                           onClick={() => setEditingTitle(true)}
                         >
                           <Pencil size={13} />
@@ -242,87 +203,88 @@ export default function TopNav() {
                     title="Reload prices"
                     aria-label="Reload prices"
                     disabled={loading}
-                    className="h-7 w-7 p-0 flex items-center justify-center text-gray-400 hover:text-red-600 transition-colors disabled:opacity-60"
+                    className="et-module-action h-7 w-7 disabled:opacity-60"
                   >
-                    <RotateCw className={`w-4 h-4${loading ? ' animate-spin' : ''}`} />
+                    <RotateCw className={`h-4 w-4${loading ? ' animate-spin' : ''}`} />
                   </button>
                 </div>
-                {error && <span className="text-xs text-red-500 mb-1">{error}</span>}
-                {/* Watchlist-Einträge */}
+
+                {error && <span className="text-xs text-red-500">{error}</span>}
+
                 {watchlist.length === 0 ? (
-                  <div className="flex items-center justify-center py-4 text-xs text-gray-400">
-                    No stocks in watchlist
+                  <div className="rounded-lg border border-dashed border-border/70 p-4 text-center text-xs text-muted-foreground">
+                    No stocks in watchlist.
                   </div>
                 ) : (
-                  watchlist.map((stock, idx) => (
-                    <div key={stock.ticker + idx}>
-                      <div className="flex items-center px-2 py-1 rounded">
-                        <button
-                          className="mr-2 text-red-500 hover:text-red-700 text-xs p-1 rounded focus:outline-none"
-                          title={`Delete ${stock.ticker}`}
-                          aria-label={`Delete ${stock.ticker}`}
-                          onClick={() => {
-                            setWatchlist(watchlist.filter((_, i) => i !== idx));
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                        <span className="font-semibold">{stock.ticker}</span>
-                        <div className="flex-1" />
-                        <span className="text-xs font-mono text-black dark:text-gray-200 min-w-[60px] text-right flex flex-col items-end">
-                          {loading ? (
-                            <span className="text-gray-400">...</span>
-                          ) : prices[stock.ticker] !== undefined ? (
-                            <>
-                              {prices[stock.ticker]}
-                              {changes[stock.ticker] !== undefined &&
-                              changes[stock.ticker] !== null &&
-                              !isNaN(changes[stock.ticker] as number) ? (
-                                <span
-                                  className={
-                                    'ml-1 ' +
-                                    (changes[stock.ticker]! > 0
-                                      ? 'text-green-600'
-                                      : changes[stock.ticker]! < 0
-                                        ? 'text-red-600'
-                                        : 'text-gray-400')
-                                  }
-                                >
-                                  {changes[stock.ticker]! > 0 ? '+' : ''}
-                                  {changes[stock.ticker]!.toFixed(2)}%
-                                </span>
-                              ) : null}
-                            </>
-                          ) : (
-                            <span className="text-gray-400">...</span>
-                          )}
-                        </span>
+                  <div className="space-y-1">
+                    {watchlist.map((stock, idx) => (
+                      <div key={stock.ticker + idx} className="rounded-lg hover:bg-secondary/60">
+                        <div className="flex items-center gap-2 px-2 py-1.5">
+                          <button
+                            className="et-module-action et-module-action-danger h-7 w-7"
+                            title={`Delete ${stock.ticker}`}
+                            aria-label={`Delete ${stock.ticker}`}
+                            onClick={() => {
+                              setWatchlist(watchlist.filter((_, i) => i !== idx));
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                          <span className="text-sm font-semibold">{stock.ticker}</span>
+                          <div className="flex-1" />
+                          <span className="flex min-w-[72px] flex-col items-end text-right font-mono text-xs text-foreground">
+                            {loading ? (
+                              <span className="text-muted-foreground">...</span>
+                            ) : prices[stock.ticker] !== undefined ? (
+                              <>
+                                {prices[stock.ticker]}
+                                {changes[stock.ticker] !== undefined &&
+                                changes[stock.ticker] !== null &&
+                                !isNaN(changes[stock.ticker] as number) ? (
+                                  <span
+                                    className={
+                                      changes[stock.ticker]! > 0
+                                        ? 'text-foreground'
+                                        : changes[stock.ticker]! < 0
+                                          ? 'text-red-500'
+                                          : 'text-muted-foreground'
+                                    }
+                                  >
+                                    {changes[stock.ticker]! > 0 ? '+' : ''}
+                                    {changes[stock.ticker]!.toFixed(2)}%
+                                  </span>
+                                ) : null}
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">...</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="mx-2 h-px bg-border/70" />
                       </div>
-                      <div className="border-b border-gray-200 dark:border-[#23232a] mx-2" />
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
-                {/* Add-Button und Eingabefeld */}
+
                 {showAdd ? (
-                  <div className="flex flex-col gap-1 mt-2">
+                  <div className="mt-1 space-y-2">
                     <input
                       type="text"
                       placeholder="Ticker"
-                      className="px-2 py-1 rounded border text-xs bg-white dark:bg-[#18181b] border-gray-200 dark:border-[#23232a] focus:outline-none"
+                      className="w-full rounded-lg border border-border/90 bg-card px-2.5 py-1.5 text-xs uppercase text-foreground outline-none transition focus:border-primary"
                       value={newTicker.toUpperCase()}
                       onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
-                      // style entfernt, damit Placeholder nicht uppercase ist
                       autoFocus
                     />
-                    <div className="flex gap-1 mt-1">
+                    <div className="flex gap-2">
                       <button
-                        className="px-2 py-1 text-xs rounded bg-white text-black border border-gray-300 hover:bg-gray-100 dark:bg-[#18181b] dark:text-gray-200 dark:border-[#23232a]"
+                        className="rounded-md border border-border bg-foreground px-2.5 py-1 text-xs font-medium text-background hover:opacity-90"
                         onClick={handleAddStock}
                       >
                         Add
                       </button>
                       <button
-                        className="px-2 py-1 text-xs rounded bg-gray-200 dark:bg-[#23232a] text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-[#18181b]"
+                        className="rounded-lg border border-border/90 bg-secondary/70 px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-secondary"
                         onClick={() => {
                           setShowAdd(false);
                           setNewTicker('');
@@ -334,7 +296,7 @@ export default function TopNav() {
                   </div>
                 ) : (
                   <button
-                    className="flex items-center gap-1 mt-2 px-2 py-1 rounded bg-white border border-gray-300 dark:bg-[#18181b] dark:text-gray-200 dark:border-[#23232a] text-xs hover:bg-[#f9f9f9] dark:hover:bg-[#23232a]"
+                    className="mt-1 inline-flex items-center gap-1 rounded-lg border border-dashed border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition hover:border-foreground/20 hover:text-foreground"
                     onClick={() => setShowAdd(true)}
                   >
                     <span>+</span> Add stock
@@ -343,34 +305,29 @@ export default function TopNav() {
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-          {/* TradingViewWidget als Modal wie Watchlist */}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center px-2 py-0.5 text-xs sm:px-3 sm:py-1 sm:text-xs rounded hover:bg-gray-100 dark:hover:bg-[#18181b] border border-gray-200 dark:border-[#23232a]">
-                <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 mr-2">
-                  News
-                </span>
-                <ChevronRight size={16} />
+              <button className={triggerClass}>
+                <span>News</span>
+                <ChevronRight size={14} />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="min-w-[240px] w-full max-w-md sm:max-w-lg md:max-w-xl"
+              className="et-dropdown-panel min-w-[240px] max-w-[95vw] p-2 sm:max-w-xl md:max-w-2xl"
             >
-              <div className="flex flex-col gap-2 p-2">
-                <div className="w-full h-[350px] sm:h-[500px] flex items-center justify-center">
-                  <TradingViewNews />
-                </div>
+              <div className="h-[350px] w-full overflow-hidden rounded-xl sm:h-[500px]">
+                <TradingViewNews />
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        {/* Rechts: Fear & Greed Index und ThemeToggle */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          <div className="flex items-center ml-6">
+
+        <div className="ml-2 flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="flex items-center rounded-full border border-border bg-card px-2 py-0.5">
             <FearGreedIndex />
           </div>
-          <ThemeToggle />
         </div>
       </nav>
       <TuneInRadioButton />

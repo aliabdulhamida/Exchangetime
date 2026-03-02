@@ -1,8 +1,7 @@
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata, Viewport } from 'next';
-// TEMP: disable next/font/google to isolate build error
-import { Inter } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import Script from 'next/script';
 
 import './globals.css';
@@ -10,7 +9,16 @@ import '@/styles/button-animations.css';
 import '@/styles/toggle-button.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
-const inter = Inter({ subsets: ['latin'] });
+
+const geistSans = Geist({
+  subsets: ['latin'],
+  variable: '--font-display',
+});
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+});
 
 export const metadata: Metadata = {
   title: 'Exchange Time',
@@ -31,8 +39,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: light)', color: '#000000' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
   ],
 };
 
@@ -41,18 +49,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* ensure theme class is present on first paint to avoid mixed light/dark flash */}
-        <script dangerouslySetInnerHTML={{ __html: `
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
           (function() {
             try {
-              var theme = localStorage.getItem('theme');
-              if (!theme) {
-                var mql = window.matchMedia('(prefers-color-scheme: dark)');
-                theme = mql.matches ? 'dark' : 'light';
-              }
-              document.documentElement.classList.add(theme);
+              document.documentElement.classList.add('dark');
             } catch (e) {}
           })();
-        ` }} />
+        `,
+          }}
+        />
 
         <link
           rel="stylesheet"
@@ -61,14 +68,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Exchangetime" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-        {/* indicate both color schemes are supported for the browser UI */}
-        <meta name="color-scheme" content="light dark" />
+        <meta name="color-scheme" content="dark" />
       </head>
-      <body className={`${inter.className} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          forcedTheme="dark"
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
           {children}

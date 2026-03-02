@@ -68,11 +68,10 @@ import {
   CalendarClock,
   Briefcase,
   Info,
-  Clock
+  Clock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 
 import {
@@ -81,7 +80,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '../ui/dialog';
 
 interface SidebarProps {
@@ -98,7 +96,6 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   const [activeView, setActiveView] = useState<'dashboard' | 'blog'>(
     pathname?.startsWith('/blog') ? 'blog' : 'dashboard',
   );
-  const { theme, systemTheme } = useTheme();
 
   // Sicheres Abrufen des gespeicherten Zustands aus dem localStorage beim Mounten der Komponente
   useEffect(() => {
@@ -120,8 +117,6 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
       setActiveView('dashboard');
     }
   }, [pathname]);
-
-  const currentTheme = theme === 'system' ? systemTheme : theme;
 
   // Speichere den Collapse-Zustand im localStorage
   const toggleCollapsed = () => {
@@ -154,25 +149,14 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
     label: string;
   }) {
     const isVisible = visibleModules.includes(module);
-    // Farben dynamisch je nach Theme setzen
-    let baseClasses =
-      'flex items-center py-2 text-sm rounded-md transition-colors w-full text-left';
-    baseClasses += isCollapsed ? ' justify-center px-1 mb-3' : ' px-3';
-
-    let activeClasses =
-      currentTheme === 'dark'
-        ? 'bg-transparent text-white cursor-default opacity-60'
-        : 'bg-transparent text-black cursor-default opacity-60';
-    let inactiveClasses =
-      currentTheme === 'dark'
-        ? 'bg-[#1F1F23] text-gray-200 hover:bg-[#23232a] hover:text-white'
-        : 'bg-black text-white hover:bg-black hover:text-white';
 
     return (
       <button
         onClick={() => (isVisible ? null : showModule(module))}
         disabled={isVisible}
-        className={[baseClasses, isVisible ? activeClasses : inactiveClasses].join(' ')}
+        className={`et-sidebar-link flex w-full items-center py-2 text-sm text-left ${
+          isCollapsed ? 'mb-3 justify-center px-1' : 'px-3'
+        } ${isVisible ? 'et-sidebar-link-active' : 'et-sidebar-link-inactive'}`}
         aria-disabled={isVisible}
         tabIndex={isVisible ? -1 : 0}
         title={isCollapsed ? label : undefined}
@@ -203,61 +187,99 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
       ].includes(href)
     ) {
       let title = '';
+      let subtitle = '';
+      let modalIcon: React.ReactNode = null;
       let description = null;
       if (href === '/settings/about') {
         title = 'About';
+        subtitle = 'Who we are and what the platform is built for.';
+        modalIcon = <Info className="h-4 w-4" />;
         description = (
-          <div className="prose prose-neutral dark:prose-invert px-1">
-            <h2>WELCOME</h2>
-            <p>
-              Exchange Time is your comprehensive platform for tracking global market hours and
-              analyzing financial markets in real-time.
-            </p>
-            <p>
-              Our mission is to provide traders and investors with accurate, timely information
-              about market operations worldwide.
-            </p>
-            <h3>Key Features:</h3>
-            <ul>
-              <li>Real-time market status tracking</li>
-              <li>Global exchange hours</li>
-              <li>Market analysis tools</li>
-              <li>Trading calendars</li>
-            </ul>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-card/70 p-4">
+              <p className="text-sm text-muted-foreground">
+                Exchange Time is a global market-timing and analysis workspace for traders and
+                investors who need clear, real-time market context.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-border bg-card/40 p-4">
+                <h4 className="text-sm font-semibold text-foreground">What It Does</h4>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Helps you monitor market sessions, compare exchange schedules, and access decision
+                  support tools in one place.
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-card/40 p-4">
+                <h4 className="text-sm font-semibold text-foreground">Who It Serves</h4>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Active traders, long-term investors, and market observers who need reliable
+                  timing, coverage, and actionable visibility.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-card/40 p-4">
+              <h4 className="text-sm font-semibold text-foreground">Key Features</h4>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                <li>Real-time market status tracking</li>
+                <li>Global exchange hours and holiday context</li>
+                <li>Market analysis and portfolio tools</li>
+                <li>Economic, earnings, and event calendars</li>
+              </ul>
+            </div>
           </div>
         );
       } else if (href === '/settings/mission') {
         title = 'Our Mission';
+        subtitle = 'The principles guiding product and execution.';
+        modalIcon = <ShieldCheck className="h-4 w-4" />;
         description = (
-          <div className="prose prose-neutral dark:prose-invert px-1">
-            <h2>OUR VISION</h2>
-            <p>
-              To become the world's most trusted platform for global market intelligence and timing.
-            </p>
-            <h2>OUR MISSION STATEMENT</h2>
-            <p>
-              Exchange Time is dedicated to empowering traders and investors worldwide by providing:
-            </p>
-            <ul>
-              <li>Accurate and real-time market information</li>
-              <li>Comprehensive trading tools and analysis</li>
-              <li>Educational resources for better trading decisions</li>
-              <li>Innovative solutions for global market timing</li>
-            </ul>
-            <h2>OUR VALUES</h2>
-            <ul>
-              <li>Accuracy and Reliability</li>
-              <li>Innovation and Technology</li>
-              <li>User-Centric Design</li>
-              <li>Global Accessibility</li>
-            </ul>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-card/70 p-4">
+              <h4 className="text-sm font-semibold text-foreground">Vision</h4>
+              <p className="mt-2 text-sm text-muted-foreground">
+                To become the most trusted platform for global market intelligence and timing.
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card/40 p-4">
+              <h4 className="text-sm font-semibold text-foreground">Mission Statement</h4>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                <li>Deliver accurate and real-time market information</li>
+                <li>Provide comprehensive analysis and trading tools</li>
+                <li>Offer educational context for stronger decisions</li>
+                <li>Build practical solutions for global market timing</li>
+              </ul>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-border bg-card/40 p-4">
+                <h4 className="text-sm font-semibold text-foreground">Accuracy</h4>
+                <p className="mt-2 text-sm text-muted-foreground">Reliable data and clear signals.</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card/40 p-4">
+                <h4 className="text-sm font-semibold text-foreground">Innovation</h4>
+                <p className="mt-2 text-sm text-muted-foreground">Tools that reduce friction and noise.</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card/40 p-4">
+                <h4 className="text-sm font-semibold text-foreground">User Focus</h4>
+                <p className="mt-2 text-sm text-muted-foreground">Designed for practical daily workflows.</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card/40 p-4">
+                <h4 className="text-sm font-semibold text-foreground">Accessibility</h4>
+                <p className="mt-2 text-sm text-muted-foreground">Global market context for everyone.</p>
+              </div>
+            </div>
           </div>
         );
       } else if (href === '/settings/privacy-policy') {
         title = 'Privacy Policy';
+        subtitle = 'How we collect, use, and protect your data.';
+        modalIcon = <FileText className="h-4 w-4" />;
         description = (
-          <div className="max-h-[70vh] overflow-y-auto prose prose-neutral dark:prose-invert px-1">
-            <p className="text-sm text-gray-500">Last updated March 07, 2025</p>
+          <div className="prose prose-neutral max-w-none dark:prose-invert prose-headings:tracking-tight">
+            <div className="not-prose mb-4 rounded-xl border border-border bg-card/70 p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Last updated</p>
+              <p className="mt-1 text-sm font-medium text-foreground">March 07, 2025</p>
+            </div>
             <p>
               This Privacy Notice for Exchange Time ("we," "us," or "our"), describes how and why we
               might access, collect, store, use, and/or share ("process") your personal information
@@ -1010,8 +1032,15 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         );
       } else if (href === '/settings/terms-of-service') {
         title = 'Terms of Service';
+        subtitle = 'Rules, responsibilities, and service limitations.';
+        modalIcon = <BookOpen className="h-4 w-4" />;
         description = (
-          <div className="prose prose-neutral dark:prose-invert px-1">
+          <div className="prose prose-neutral max-w-none dark:prose-invert prose-headings:tracking-tight">
+            <div className="not-prose mb-4 rounded-xl border border-border bg-card/70 p-4">
+              <p className="text-sm text-muted-foreground">
+                Please review these terms carefully before using Exchange Time.
+              </p>
+            </div>
             <h2>1. ACCEPTANCE OF TERMS</h2>
             <p>
               By accessing and using Exchange Time, you accept and agree to be bound by the terms
@@ -1060,31 +1089,56 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         );
       } else if (href === '/settings/contact') {
         title = 'Contact';
+        subtitle = 'Support, feedback, and business inquiries.';
+        modalIcon = <Mail className="h-4 w-4" />;
         description = (
-          <>
-            If you have any questions, feedback, or need support, please contact us at{' '}
-            <a href="mailto:info@exchangetime.de" className="underline">
-              info@exchangetime.de
-            </a>
-            .<br />
-            <br />
-            We appreciate your interest and will respond as soon as possible.
-          </>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-card/70 p-4">
+              <h4 className="text-sm font-semibold text-foreground">Email</h4>
+              <a
+                href="mailto:info@exchangetime.de"
+                className="mt-2 inline-block text-sm font-medium text-foreground underline underline-offset-4"
+              >
+                info@exchangetime.de
+              </a>
+            </div>
+            <div className="rounded-xl border border-border bg-card/40 p-4">
+              <h4 className="text-sm font-semibold text-foreground">How We Can Help</h4>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                <li>Platform support and troubleshooting</li>
+                <li>Product feedback and feature requests</li>
+                <li>Business and partnership inquiries</li>
+              </ul>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              We appreciate your interest and respond as quickly as possible.
+            </p>
+          </div>
         );
       }
       return (
         <Dialog>
           <DialogTrigger asChild>
-            <button className="flex items-center px-3 py-2 text-sm rounded-md transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#1F1F23] w-full text-left">
+            <button className="et-sidebar-link et-sidebar-link-inactive flex w-full items-center rounded-lg px-3 py-2 text-sm text-left">
               <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
               {children}
             </button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{title}</DialogTitle>
-              <DialogDescription>{description}</DialogDescription>
+          <DialogContent className="max-h-[88vh] overflow-hidden border-border bg-background p-0 sm:max-w-3xl">
+            <DialogHeader className="border-b border-border bg-card/60 px-5 py-4 sm:px-6">
+              <div className="flex items-start gap-3 pr-8">
+                <div className="mt-0.5 rounded-md border border-border bg-background p-1.5 text-muted-foreground">
+                  {modalIcon}
+                </div>
+                <div>
+                  <DialogTitle className="text-base sm:text-lg">{title}</DialogTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+                </div>
+              </div>
             </DialogHeader>
+            <div className="et-scrollbar max-h-[calc(88vh-88px)] overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">
+              {description}
+            </div>
           </DialogContent>
         </Dialog>
       );
@@ -1093,14 +1147,9 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
     return (
       <a
         href={href}
-        className={`flex items-center py-2 text-sm rounded-md transition-colors w-full text-left
-          ${isCollapsed ? 'justify-center px-1 mb-3' : 'px-3'}
-          ${
-            currentTheme === 'dark'
-              ? 'text-gray-200 hover:text-white hover:bg-[#23232a]'
-              : 'text-gray-800 hover:text-black hover:bg-gray-100'
-          }
-        `}
+        className={`et-sidebar-link et-sidebar-link-inactive flex w-full items-center py-2 text-sm text-left ${
+          isCollapsed ? 'mb-3 justify-center px-1' : 'px-3'
+        }`}
         title={isCollapsed ? children?.toString() : undefined}
       >
         <Icon className={`${isCollapsed ? 'h-5 w-5' : 'h-4 w-4 mr-3'} flex-shrink-0`} />
@@ -1113,14 +1162,14 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
     <>
       <button
         type="button"
-        className="lg:hidden fixed top-4 left-4 z-[70] p-2 rounded-lg bg-white dark:bg-[#0F0F12] shadow-md"
+        className="et-topbar fixed left-4 top-4 z-[70] rounded-lg p-2 lg:hidden"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         aria-label="Open sidebar"
       >
-        <Menu className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+        <Menu className="h-5 w-5 text-foreground" />
       </button>
       <nav
-        className={`fixed inset-y-0 left-0 z-[70] bg-white dark:bg-[#0F0F12] border-gray-200 dark:border-[#1F1F23] transform transition-all duration-300 ease-in-out lg:translate-x-0 lg:static border-r ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} ${isCollapsed ? 'lg:w-20' : 'lg:w-64'} ${isCollapsed ? 'w-20' : 'w-64'}`}
+        className={`et-sidebar-shell fixed inset-y-0 left-0 z-[70] transform border-r transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} ${isCollapsed ? 'w-20 lg:w-20' : 'w-64 lg:w-64'}`}
         data-collapsed={isCollapsed}
         aria-label="Sidebar navigation"
       >
@@ -1128,28 +1177,27 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         {isMobileMenuOpen && (
           <button
             type="button"
-            className="absolute top-[0.875rem] right-4 z-[80] p-2 rounded-lg shadow-sm lg:hidden hover:bg-gray-100 dark:hover:bg-[#23232a] transition-colors"
+            className="absolute right-4 top-[0.875rem] z-[80] rounded-lg p-2 transition-colors hover:bg-secondary/80 lg:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
             aria-label="Close sidebar"
             style={{ background: 'transparent' }}
           >
-            <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+            <X className="h-5 w-5 text-foreground" />
           </button>
         )}
         {/* Toggle Button für Collapse/Expand (nur sichtbar auf Desktop) */}
         <button
           type="button"
-          className="hidden lg:flex absolute -right-3 top-32 z-[80] p-1 rounded-md shadow-md bg-white dark:bg-[#1F1F23] border border-gray-200 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#2a2a32] transition-all duration-200 ease-in-out"
+          className="et-topbar absolute -right-3 top-32 z-[80] hidden rounded-md border p-1 transition-all duration-200 ease-in-out hover:bg-secondary lg:flex"
           onClick={toggleCollapsed}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{
-            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.1)',
             transform: `rotate(${isCollapsed ? 180 : 0}deg)`,
           }}
           title={isCollapsed ? 'Seitenleiste ausklappen' : 'Seitenleiste einklappen'}
         >
           <svg
-            className="h-4 w-4 text-gray-700 dark:text-gray-200"
+            className="h-4 w-4 text-foreground"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -1158,28 +1206,24 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <div
-          className="h-full flex flex-col bg-background"
-        >
+        <div className="h-full flex flex-col bg-transparent">
           <button
             type="button"
-            className="h-16 flex items-center border-b border-gray-200 dark:border-[#1F1F23] w-full bg-transparent"
+            className="h-16 w-full border-b border-border/80 bg-transparent"
             style={{ padding: isCollapsed ? '0' : '0 1.5rem' }}
             onClick={() => window.location.reload()}
           >
             <div
               className={`flex items-center gap-3 ${isCollapsed ? 'justify-center w-full' : ''}`}
             >
-              {/* Responsive Globe Icon je nach Theme */}
               <Globe
-                className={`${isCollapsed ? 'w-8 h-8' : 'w-7 h-7'} align-middle ${currentTheme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}
+                className={`${isCollapsed ? 'h-8 w-8' : 'h-7 w-7'} align-middle text-foreground`}
                 style={{ marginTop: '-2px' }}
-                stroke={currentTheme === 'dark' ? '#fff' : '#0F172A'}
                 fill="none"
               />
               {!isCollapsed && (
                 <span
-                  className="text-lg font-semibold hover:cursor-pointer text-gray-900 dark:text-white align-middle"
+                  className="align-middle text-lg font-semibold text-foreground hover:cursor-pointer"
                   style={{ lineHeight: '28px' }}
                 >
                   Exchange Time
@@ -1188,15 +1232,13 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             </div>
           </button>
 
-          <div className="flex-1 overflow-y-auto py-3 px-3">
+          <div className="et-scrollbar flex-1 overflow-y-auto px-3 py-3">
             <div className="space-y-5">
               {/* Toggle-Button für Dashboard und Blog - horizontal */}
               <div className="mb-1.5">
                 {isCollapsed ? (
                   // Vertikaler Toggle für eingeklappte Sidebar
-                  <div
-                    className="relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-black shadow-sm flex flex-col w-full"
-                  >
+                  <div className="relative flex w-full flex-col overflow-hidden rounded-xl border border-border/85 bg-card/80 shadow-sm">
                     <Link
                       href="/"
                       onClick={(e) => {
@@ -1207,8 +1249,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                         relative z-10 flex items-center justify-center py-2.5 text-xs transition-all duration-300
                         ${
                           activeView === 'dashboard'
-                            ? 'text-white'
-                            : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                            ? 'text-background'
+                            : 'text-muted-foreground hover:text-foreground'
                         }
                       `}
                       title="Dashboard"
@@ -1228,8 +1270,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                         relative z-10 flex items-center justify-center py-2.5 text-xs transition-all duration-300
                         ${
                           activeView === 'blog'
-                            ? 'text-white'
-                            : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                            ? 'text-background'
+                            : 'text-muted-foreground hover:text-foreground'
                         }
                       `}
                       title="Blog"
@@ -1239,9 +1281,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                       />
                     </Link>
 
-                    {/* Sliding background for active option (vertical) */}
                     <div
-                      className="absolute inset-0 bg-gradient-to-b from-blue-600 to-blue-500 dark:from-blue-700 dark:to-blue-600 transition-all duration-300 ease-in-out z-0 h-1/2 w-full"
+                      className="absolute inset-0 z-0 h-1/2 w-full bg-foreground transition-all duration-300 ease-in-out"
                       style={{
                         transform:
                           activeView === 'dashboard' ? 'translateY(0)' : 'translateY(100%)',
@@ -1250,7 +1291,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   </div>
                 ) : (
                   // Horizontaler Toggle für ausgeklappte Sidebar
-                  <div className="relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#18181b] shadow-sm flex max-w-[220px]">
+                  <div className="relative flex max-w-[220px] overflow-hidden rounded-xl border border-border/85 bg-background">
                     <Link
                       href="/"
                       onClick={(e) => {
@@ -1261,8 +1302,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                         relative z-10 flex items-center pl-1.5 pr-3 py-2 flex-1 text-sm transition-all duration-300
                         ${
                           activeView === 'dashboard'
-                            ? 'text-white font-medium'
-                            : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                            ? 'text-background font-medium'
+                            : 'text-muted-foreground hover:text-foreground'
                         }
                       `}
                     >
@@ -1282,8 +1323,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                         relative z-10 flex items-center justify-center py-2 px-3 flex-1 text-sm transition-all duration-300
                         ${
                           activeView === 'blog'
-                            ? 'text-white font-medium'
-                            : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                            ? 'text-background font-medium'
+                            : 'text-muted-foreground hover:text-foreground'
                         }
                       `}
                     >
@@ -1293,9 +1334,8 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                       <span className="transition-all duration-300 font-medium">Blog</span>
                     </Link>
 
-                    {/* Sliding background for active option */}
                     <div
-                      className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-500 dark:from-blue-700 dark:to-blue-600 transition-all duration-300 ease-in-out z-0 w-1/2"
+                      className="absolute inset-0 z-0 w-1/2 bg-foreground transition-all duration-300 ease-in-out"
                       style={{
                         transform:
                           activeView === 'dashboard' ? 'translateX(0)' : 'translateX(100%)',
@@ -1308,7 +1348,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                 {/* Header for Market Overview without inline collapse button */}
                 <div className="px-3 mb-2">
                   <div
-                    className={`${isCollapsed ? 'text-center' : ''} text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400`}
+                    className={`${isCollapsed ? 'text-center' : ''} text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground`}
                   >
                     {isCollapsed ? 'MO' : 'Market Overview'}
                   </div>
@@ -1322,12 +1362,12 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
 
               <div>
                 {!isCollapsed && (
-                  <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     Trading Tools
                   </div>
                 )}
                 {isCollapsed && (
-                  <div className="text-center mb-3 mt-5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <div className="text-center mb-3 mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     TT
                   </div>
                 )}
@@ -1344,12 +1384,13 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                     label="Currency Converter"
                   />
                   <ModuleButton module="TaxCalculator" icon={Calculator} label="Tax Calculator" />
+                  <ModuleButton module="DCFCalculator" icon={Calculator} label="DCF Calculator" />
                   <ModuleButton
                     module="CompoundInterest"
                     icon={PiggyBank}
                     label="Compound Interest"
                   />
-                  <ModuleButton module="PersonalBudget" icon={Folder} label="Personal Budget" />
+                  <ModuleButton module="PersonalBudget" icon={Folder} label="Options Payoff Lab" />
                   <ModuleButton
                     module="TechnicalAnalysis"
                     icon={BarChart2}
@@ -1360,12 +1401,12 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
 
               <div>
                 {!isCollapsed && (
-                  <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     Market Data
                   </div>
                 )}
                 {isCollapsed && (
-                  <div className="text-center mb-3 mt-5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <div className="text-center mb-3 mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     MD
                   </div>
                 )}
@@ -1387,14 +1428,12 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             </div>
           </div>
 
-          <div
-            className={`${isCollapsed ? 'px-2' : 'px-4'} py-4 border-t border-gray-200 dark:border-[#1F1F23]`}
-          >
+          <div className={`${isCollapsed ? 'px-2' : 'px-4'} border-t border-border/80 py-4`}>
             <div className="mt-0">
               {!isCollapsed ? (
                 <>
                   <button
-                    className="flex items-center w-full px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                    className="mb-2 flex w-full items-center px-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
                     onClick={() => setHelpLegalOpen((prev) => !prev)}
                     aria-expanded={helpLegalOpen}
                     aria-controls="help-legal-section"
@@ -1434,7 +1473,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
               ) : (
                 <div className="flex justify-center mt-3">
                   <button
-                    className="p-2 rounded-md text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#23232a]"
+                    className="rounded-md p-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
                     onClick={() => setHelpLegalOpen((prev) => !prev)}
                     aria-label="Help & Legal"
                     title="Help & Legal"
@@ -1450,7 +1489,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
 
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[65] lg:hidden"
+          className="fixed inset-0 z-[65] bg-slate-950/45 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}

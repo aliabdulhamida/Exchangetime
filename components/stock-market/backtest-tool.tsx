@@ -275,16 +275,16 @@ export default function BacktestTool() {
   };
 
   return (
-  <div className="rounded-xl pt-3 px-9 pb-6 border border-gray-200 dark:border-[#1F1F23]">
+    <div className="pt-0">
       <div className="flex items-center justify-start mb-6">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Backtest Tool</h2>
+        <h2 className="text-lg font-bold text-foreground">Backtest Tool</h2>
       </div>
       {!result ? (
         <>
           <div className="space-y-4 mb-6 flex-1 flex flex-col justify-center">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">
                   Symbol
                 </label>
                 <Input
@@ -294,7 +294,7 @@ export default function BacktestTool() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">
                   Initial Amount
                 </label>
                 <Input
@@ -305,7 +305,7 @@ export default function BacktestTool() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">
                   Monthly Amount
                 </label>
                 <Input
@@ -317,7 +317,7 @@ export default function BacktestTool() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-muted-foreground">
                     Start Date
                   </label>
                   <Input
@@ -327,7 +327,7 @@ export default function BacktestTool() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-muted-foreground">
                     End Date
                   </label>
                   <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
@@ -339,7 +339,7 @@ export default function BacktestTool() {
                 htmlFor="reinvest"
                 className="flex items-center cursor-pointer select-none gap-3"
               >
-                <span className="text-sm text-gray-700 dark:text-gray-300">Reinvest Dividends</span>
+                <span className="text-sm text-muted-foreground">Reinvest Dividends</span>
                 <span className="relative">
                   <input
                     type="checkbox"
@@ -348,8 +348,8 @@ export default function BacktestTool() {
                     onChange={(e) => setReinvestDividends(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <span className="block w-10 h-6 bg-gray-200 dark:bg-gray-700 rounded-full peer-checked:bg-white transition-colors duration-200 border border-gray-300 dark:border-gray-600"></span>
-                  <span className="absolute left-0 top-0 w-6 h-6 bg-white dark:bg-[#18181b] border border-gray-300 dark:border-gray-600 rounded-full shadow transform peer-checked:translate-x-4 transition-transform duration-200"></span>
+                  <span className="block h-6 w-10 rounded-full border border-border bg-secondary transition-colors duration-200 peer-checked:bg-foreground"></span>
+                  <span className="absolute left-0 top-0 h-6 w-6 transform rounded-full border border-border bg-background transition-transform duration-200 peer-checked:translate-x-4"></span>
                 </span>
               </label>
             </div>
@@ -370,10 +370,10 @@ export default function BacktestTool() {
           {error && (
             <Alert
               variant="destructive"
-              className="mb-4 border-red-400 bg-red-100/60 dark:bg-red-900/30 text-red-700 dark:text-red-300 border flex flex-col items-center justify-center text-center relative py-8 px-4"
+              className="relative mb-4 flex flex-col items-center justify-center border border-red-400 bg-red-900/20 px-4 py-8 text-center text-red-300"
             >
               <div className="flex flex-col items-center w-full">
-                <AlertTriangle className="w-8 h-8 mb-2 text-red-600 dark:text-red-200" />
+                <AlertTriangle className="mb-2 h-8 w-8 text-red-300" />
                 <div className="text-lg mb-1 mx-auto max-w-xs break-words">{error}</div>
               </div>
             </Alert>
@@ -382,46 +382,46 @@ export default function BacktestTool() {
       ) : (
         <div className="flex flex-col justify-center h-full flex-1">
           <div className="space-y-3 flex-1 flex flex-col justify-center h-full">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
-                <p className="text-xs text-gray-600 dark:text-gray-400">Total Investment</p>
-                <p className="font-semibold text-gray-900 dark:text-white">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-xs text-muted-foreground">Total Investment</p>
+                <p className="font-semibold text-foreground">
                   ${result.initialValue.toLocaleString()}
                 </p>
               </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
-                <p className="text-xs text-gray-600 dark:text-gray-400">Final Value</p>
-                <p className="font-semibold text-gray-900 dark:text-white">
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-xs text-muted-foreground">Final Value</p>
+                <p className="font-semibold text-foreground">
                   ${result.finalValue.toLocaleString()}
                 </p>
               </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
-                <p className="text-xs text-gray-600 dark:text-gray-400">Total Return</p>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-xs text-muted-foreground">Total Return</p>
                 <p
                   className={`font-semibold ${result.totalReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}
                 >
                   {result.totalReturn.toFixed(2)}%
                 </p>
               </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23]">
-                <p className="text-xs text-gray-600 dark:text-gray-400">Annualized Return</p>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-xs text-muted-foreground">Annualized Return</p>
                 <p
                   className={`font-semibold ${result.annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}
                 >
                   {result.annualizedReturn.toFixed(2)}%
                 </p>
               </div>
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                <p className="text-xs text-blue-600 dark:text-blue-400">
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-xs text-muted-foreground">
                   Dividends {reinvestDividends ? 'Reinvested' : '(Cash)'}
                 </p>
-                <p className="font-semibold text-blue-700 dark:text-blue-300">
+                <p className="font-semibold text-foreground">
                   ${result.dividendsReinvested.toFixed(2)}
                 </p>
               </div>
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                <p className="text-xs text-gray-600 dark:text-gray-400">Total Shares Held</p>
-                <p className="font-semibold text-gray-900 dark:text-white">
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-xs text-muted-foreground">Total Shares Held</p>
+                <p className="font-semibold text-foreground">
                   {result.totalShares ? result.totalShares.toFixed(2) : '-'}
                 </p>
               </div>
@@ -490,7 +490,7 @@ export default function BacktestTool() {
                                       .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                                   }
                                   return (
-                                    <div className="min-w-[110px] max-w-[180px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 px-2 py-1 text-[11px] shadow-lg flex flex-col gap-1">
+                                    <div className="flex min-w-[110px] max-w-[180px] flex-col gap-1 rounded-lg border border-border bg-black px-2 py-1 text-[11px] text-white shadow-lg">
                                       <div className="font-semibold mb-0.5">
                                         {item && item.date
                                           ? new Date(item.date).toLocaleDateString('en-US', {
@@ -545,7 +545,7 @@ export default function BacktestTool() {
                                   .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                               }
                               return (
-                                <div className="min-w-[110px] max-w-[180px] rounded-lg bg-black text-white dark:bg-white dark:text-black border border-gray-200 px-2 py-1 text-[11px] shadow-lg flex flex-col gap-1">
+                                <div className="flex min-w-[110px] max-w-[180px] flex-col gap-1 rounded-lg border border-border bg-black px-2 py-1 text-[11px] text-white shadow-lg">
                                   <div className="font-semibold mb-0.5">
                                     {item && item.date
                                       ? new Date(item.date).toLocaleDateString('en-US', {
@@ -573,7 +573,7 @@ export default function BacktestTool() {
               </div>
             ) : null}
             <button
-              className="mt-8 w-full flex items-center justify-center gap-2 bg-[#fafafa] text-gray-900 font-medium rounded-md text-sm h-10 border-none hover:bg-gray-100 transition"
+              className="mt-8 flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-card text-sm font-medium text-foreground transition hover:bg-secondary"
               onClick={() => {
                 setResult(null);
                 setPortfolioHistory(null);

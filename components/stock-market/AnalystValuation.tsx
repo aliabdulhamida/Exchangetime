@@ -51,10 +51,10 @@ const AnalystValuation: React.FC<AnalystValuationProps> = ({ symbol, price }) =>
   }
 
   return (
-    <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#1F1F23] col-span-1">
-      <p className="text-sm text-gray-600 dark:text-gray-400">Analyst Valuation</p>
+    <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">Analyst Valuation</p>
       <div className="flex items-center gap-2">
-        <span className="font-semibold text-gray-900 dark:text-white text-sm">
+        <span className="text-base font-semibold text-foreground">
           {valuation !== 'Not available' && valuation !== 'Loading...'
             ? `$${valuation}`
             : valuation}

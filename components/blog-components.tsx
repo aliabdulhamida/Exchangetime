@@ -8,6 +8,7 @@ export interface BlogPost {
   title: string;
   excerpt: string;
   date: string;
+  readTimeMinutes: number;
   image: string;
   categories: string[];
   slug: string;
@@ -88,11 +89,24 @@ export function BlogCategories({
 // Export blog sample articles
 export const blogPosts: BlogPost[] = [
   {
+    id: 15,
+    title: 'Iran Escalation Explained: What Happened and What It Means for Global Stock Markets',
+    excerpt:
+      'A comprehensive, date-anchored explainer of the Iran escalation and how oil, rates, and risk sentiment can ripple through global equities.',
+    date: 'March 2, 2026',
+    readTimeMinutes: 4,
+    image:
+      'https://images.pexels.com/photos/3974150/pexels-photo-3974150.jpeg?auto=compress&cs=tinysrgb&w=2000',
+    categories: ['Markets', 'Geopolitics', 'Analysis'],
+    slug: 'iran-escalation-stock-market-implications',
+  },
+  {
     id: 14,
     title: 'Walmart Earnings Report: In-Depth Analysis & Outlook',
     excerpt:
       'A comprehensive analysis of Walmart’s financial health, strategic initiatives, and market outlook ahead of the upcoming earnings announcement.',
     date: 'August 21, 2025',
+    readTimeMinutes: 7,
     image:
       'https://images.unsplash.com/photo-1648091855110-77a1c3dead63?q=80&w=2708&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     categories: ['Markets', 'Analysis', 'Earnings'],
@@ -104,6 +118,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'A comprehensive analysis of NVIDIA\'s financial health, strategic initiatives, and market outlook ahead of the upcoming earnings announcement.',
     date: 'August 27, 2025',
+    readTimeMinutes: 6,
     image:
       'https://images.unsplash.com/photo-1662947683395-1ce33bdcd094?q=80&w=1828&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     categories: ['Markets', 'Analysis', 'Earnings'],
@@ -115,6 +130,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'A high-stakes summit in Alaska between Trump and Putin sends ripples through global markets, with impacts on stocks, energy, and investor sentiment.',
     date: 'August 15, 2025',
+    readTimeMinutes: 6,
     image:
       'https://images.unsplash.com/photo-1534598974068-2d51eda7628f?q=80&w=2370&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     categories: ['Markets', 'Weekly Wrap', 'Geopolitics'],
@@ -126,6 +142,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'A dramatic week for U.S. stocks: record highs, inflation optimism, PPI reality check, sector rotations, and what lies ahead for investors.',
     date: 'August 15, 2025',
+    readTimeMinutes: 3,
     image:
       'https://images.unsplash.com/photo-1439434768192-c60615c1b3c8?q=80&w=2340&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     categories: ['Markets', 'Weekly Wrap', 'Trends'],
@@ -137,6 +154,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'A modern, analytical take on Buffett’s playbook: moats, owner earnings, capital allocation, and practical checklists to navigate today’s markets.',
     date: 'August 10, 2025',
+    readTimeMinutes: 7,
     image:
       'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&h=450&q=80',
     categories: ['Investing', 'Strategy', 'Markets'],
@@ -148,6 +166,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       "Deep dive into the build-up, peak and aftermath of the internet mania: capital flows, valuations, behavior, survivors, and actionable lessons for today's thematic booms.",
     date: 'August 9, 2025',
+    readTimeMinutes: 5,
     image:
       'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&h=450',
     categories: ['Markets', 'History', 'Investing'],
@@ -160,6 +179,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'Key equity market trends YTD: AI leadership, sector rotation, earnings resilience, and what to watch into Q4.',
     date: 'August 8, 2025',
+    readTimeMinutes: 2,
     image:
       'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=800&h=450',
     categories: ['Markets', 'Trends'],
@@ -171,6 +191,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'A detailed analysis of how current interest rate decisions affect various markets and which sectors are most affected.',
     date: 'August 8, 2025',
+    readTimeMinutes: 2,
     image:
       'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&h=450',
     categories: ['Markets', 'Analysis'],
@@ -182,6 +203,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'Learn the basics of technical analysis and how to identify chart patterns to make better trading decisions.',
     date: 'August 5, 2025',
+    readTimeMinutes: 4,
     image:
       'https://images.unsplash.com/photo-1535320903710-d993d3d77d29?auto=format&fit=crop&w=800&h=450',
     categories: ['Education', 'Trading'],
@@ -193,6 +215,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'How cryptocurrencies are changing the financial world and what opportunities and risks exist for investors.',
     date: 'August 1, 2025',
+    readTimeMinutes: 4,
     image:
       'https://images.unsplash.com/photo-1516245834210-c4c142787335?auto=format&fit=crop&w=800&h=450',
     categories: ['Crypto', 'Innovation'],
@@ -204,6 +227,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'Strategies for diversifying your investment portfolio to minimize risks and secure long-term returns.',
     date: 'July 28, 2025',
+    readTimeMinutes: 7,
     image:
       'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=800&h=450',
     categories: ['Strategy', 'Investing'],
@@ -215,6 +239,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'How emotions can influence your trading decisions and techniques to keep a clear head.',
     date: 'July 25, 2025',
+    readTimeMinutes: 8,
     image:
       'https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&w=800&h=450',
     categories: ['Psychology', 'Trading'],
@@ -226,6 +251,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'Why sustainable investments can be good not only for the planet but also for your portfolio.',
     date: 'July 20, 2025',
+    readTimeMinutes: 10,
     image:
       'https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?auto=format&fit=crop&w=800&h=450',
     categories: ['ESG', 'Trends'],

@@ -145,8 +145,8 @@ export default function ExchangeTimes() {
   }
 
   return (
-    <div className="rounded-xl p-6 border border-gray-200 dark:border-[#1F1F23] shadow-lg">
-      <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+    <div className="pt-0">
+      <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-foreground">
         Exchange Times
       </h2>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -156,11 +156,11 @@ export default function ExchangeTimes() {
             placeholder="Search for exchange or city..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="px-2 py-1 rounded border border-gray-300 dark:bg-[#18181c] dark:text-white text-sm w-full max-w-xs"
+            className="w-full rounded border border-border bg-black px-2 py-1 text-sm text-foreground sm:max-w-xs"
           />
           <button
             onClick={() => setShowOnlyFavorites((prev) => !prev)}
-            className="ml-2 p-1 rounded focus:outline-none border border-transparent hover:border-white transition"
+            className="ml-2 rounded border border-transparent p-1 transition hover:border-border focus:outline-none"
             title={showOnlyFavorites ? 'Show all exchanges' : 'Show only favorites'}
             type="button"
           >
@@ -170,10 +170,10 @@ export default function ExchangeTimes() {
                 showOnlyFavorites
                   ? theme === 'dark'
                     ? 'text-white fill-white'
-                    : 'text-red-500 fill-red-500'
+                    : 'text-black fill-black'
                   : theme === 'dark'
-                    ? 'text-gray-400'
-                    : 'text-gray-400'
+                    ? 'text-muted-foreground'
+                    : 'text-muted-foreground'
               }
               fill={showOnlyFavorites ? 'currentColor' : 'none'}
             />
@@ -244,8 +244,8 @@ export default function ExchangeTimes() {
           </FormControl>
         </div>
       </div>
-      <div className="max-h-[420px] overflow-y-auto pr-2">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div className="max-h-[420px] overflow-y-auto pr-1 sm:pr-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
           {sorted.map((exchange) => {
             // Zeit bis zum nächsten Event berechnen, unter Berücksichtigung von Wochenenden und Feiertagen
             const now = new Date();
@@ -297,27 +297,25 @@ export default function ExchangeTimes() {
                   <div
                     key={exchange.name}
                     onClick={() => toggleFavorite(exchange.name)}
-                    className={`relative flex flex-col items-center rounded-2xl px-5 py-5 min-w-[210px] max-w-[260px] mx-auto cursor-pointer transition-all duration-200 border-2
+                    className={`relative mx-auto flex w-full max-w-sm cursor-pointer flex-col items-center rounded-xl border px-4 py-4 transition-all duration-200 sm:px-5 sm:py-5
                         ${
                           favorites.includes(exchange.name)
-                            ? theme === 'dark'
-                              ? 'border-white'
-                              : 'border-red-500'
-                            : 'border-gray-300 dark:border-[#23232a] hover:border-gray-400 dark:hover:border-white'
+                            ? 'border-foreground'
+                            : 'border-border hover:border-foreground/60'
                         }
-                        bg-white dark:bg-[#18181c] shadow-[0_4px_24px_0_rgba(0,0,0,0.07)] dark:shadow-lg
+                        bg-card
                       `}
                   >
-                    <div className="absolute top-2 left-3 text-[11px] text-gray-800 dark:text-gray-400 font-semibold select-none pointer-events-none">
+                    <div className="pointer-events-none absolute top-2 left-3 select-none text-[11px] font-semibold text-muted-foreground">
                       {exchange.city}
                     </div>
                     <div className="absolute top-2 right-2 flex gap-1 items-center select-none pointer-events-none">
-                      <span className="bg-red-600 dark:bg-red-700 text-white rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider shadow-sm">
+                      <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white shadow-sm">
                         CLOSED
                       </span>
                     </div>
                     <div className="h-5" />
-                    <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
+                    <div className="mb-1 flex items-center gap-2 text-lg font-extrabold tracking-widest text-foreground">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -331,27 +329,27 @@ export default function ExchangeTimes() {
                         {exchange.name}
                       </button>
                     </div>
-                    <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
+                    <div className="mb-2 text-[10px] text-muted-foreground">
                       Open:{' '}
-                      <span className="font-bold text-gray-700 dark:text-gray-100">{openTime}</span>{' '}
+                      <span className="font-bold text-foreground">{openTime}</span>{' '}
                       - Close:{' '}
-                      <span className="font-bold text-gray-700 dark:text-gray-100">
+                      <span className="font-bold text-foreground">
                         {closeTime}
                       </span>
                     </div>
-                    <div className="text-base font-mono font-bold text-gray-500 dark:text-gray-300 mb-2 tracking-widest">
+                    <div className="mb-2 text-base font-mono font-bold tracking-widest text-muted-foreground">
                       {currentTime}
                     </div>
-                    <div className="flex justify-between w-full text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+                    <div className="mb-1 flex w-full justify-between text-[11px] text-muted-foreground">
                       <span>{timeLeftLabel}</span>
-                      <span className="font-bold text-gray-900 dark:text-white">
+                      <span className="font-bold text-foreground">
                         {hours > 0 ? `${hours}h ` : ''}
                         {minutes}m
                       </span>
                     </div>
-                    <div className="w-full h-2 bg-gray-300 dark:bg-[#23232a] rounded-full overflow-hidden">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
                       <div
-                        className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
+                        className="h-full rounded-full bg-foreground transition-all duration-500"
                         style={{ width: `${Math.round(progress * 100)}%` }}
                       ></div>
                     </div>
@@ -404,27 +402,25 @@ export default function ExchangeTimes() {
                 <div
                   key={exchange.name}
                   onClick={() => toggleFavorite(exchange.name)}
-                  className={`relative flex flex-col items-center rounded-2xl px-5 py-5 min-w-[210px] max-w-[260px] mx-auto cursor-pointer transition-all duration-200 border-2
-                      ${
-                        favorites.includes(exchange.name)
-                          ? theme === 'dark'
-                            ? 'border-white'
-                            : 'border-red-500'
-                          : 'border-gray-300 dark:border-[#23232a] hover:border-gray-400 dark:hover:border-white'
-                      }
-                      bg-white dark:bg-[#18181c] shadow-[0_4px_24px_0_rgba(0,0,0,0.07)] dark:shadow-lg
+                  className={`relative mx-auto flex w-full max-w-sm cursor-pointer flex-col items-center rounded-xl border px-4 py-4 transition-all duration-200 sm:px-5 sm:py-5
+	                      ${
+                          favorites.includes(exchange.name)
+                            ? 'border-foreground'
+                            : 'border-border hover:border-foreground/60'
+                        }
+                      bg-card
                     `}
                 >
-                  <div className="absolute top-2 left-3 text-[11px] text-gray-800 dark:text-gray-400 font-semibold select-none pointer-events-none">
+                  <div className="pointer-events-none absolute top-2 left-3 select-none text-[11px] font-semibold text-muted-foreground">
                     {exchange.city}
                   </div>
                   <div className="absolute top-2 right-2 flex gap-1 items-center select-none pointer-events-none">
-                    <span className="bg-red-600 dark:bg-red-700 text-white rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider shadow-sm">
+                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white shadow-sm">
                       CLOSED
                     </span>
                   </div>
                   <div className="h-5" />
-                  <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
+                  <div className="mb-1 flex items-center gap-2 text-lg font-extrabold tracking-widest text-foreground">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -438,25 +434,25 @@ export default function ExchangeTimes() {
                       {exchange.name}
                     </button>
                   </div>
-                  <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
+                  <div className="mb-2 text-[10px] text-muted-foreground">
                     Open:{' '}
-                    <span className="font-bold text-gray-700 dark:text-gray-100">{openTime}</span> -
+                    <span className="font-bold text-foreground">{openTime}</span> -
                     Close:{' '}
-                    <span className="font-bold text-gray-700 dark:text-gray-100">{closeTime}</span>
+                    <span className="font-bold text-foreground">{closeTime}</span>
                   </div>
-                  <div className="text-base font-mono font-bold text-gray-500 dark:text-gray-300 mb-2 tracking-widest">
+                  <div className="mb-2 text-base font-mono font-bold tracking-widest text-muted-foreground">
                     {currentTime}
                   </div>
-                  <div className="flex justify-between w-full text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+                  <div className="mb-1 flex w-full justify-between text-[11px] text-muted-foreground">
                     <span>{timeLeftLabel}</span>
-                    <span className="font-bold text-gray-900 dark:text-white">
+                    <span className="font-bold text-foreground">
                       {hours > 0 ? `${hours}h ` : ''}
                       {minutes}m
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-gray-300 dark:bg-[#23232a] rounded-full overflow-hidden">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
                     <div
-                      className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
+                      className="h-full rounded-full bg-foreground transition-all duration-500"
                       style={{ width: `${Math.round(progress * 100)}%` }}
                     ></div>
                   </div>
@@ -530,33 +526,31 @@ export default function ExchangeTimes() {
               <div
                 key={exchange.name}
                 onClick={() => toggleFavorite(exchange.name)}
-                className={`relative flex flex-col items-center rounded-2xl px-5 py-5 min-w-[210px] max-w-[260px] mx-auto cursor-pointer transition-all duration-200 border-2
-                    ${
-                      favorites.includes(exchange.name)
-                        ? theme === 'dark'
-                          ? 'border-white'
-                          : 'border-red-500'
-                        : 'border-gray-300 dark:border-[#23232a] hover:border-gray-400 dark:hover:border-white'
-                    }
-                    bg-white dark:bg-[#18181c] shadow-[0_4px_24px_0_rgba(0,0,0,0.07)] dark:shadow-lg
+                className={`relative mx-auto flex w-full max-w-sm cursor-pointer flex-col items-center rounded-xl border px-4 py-4 transition-all duration-200 sm:px-5 sm:py-5
+	                    ${
+                        favorites.includes(exchange.name)
+                          ? 'border-foreground'
+                          : 'border-border hover:border-foreground/60'
+                      }
+                    bg-card
                   `}
               >
-                <div className="absolute top-2 left-3 text-[11px] text-gray-800 dark:text-gray-400 font-semibold select-none pointer-events-none">
+                <div className="pointer-events-none absolute top-2 left-3 select-none text-[11px] font-semibold text-muted-foreground">
                   {exchange.city}
                 </div>
                 <div className="absolute top-2 right-2 flex gap-1 items-center select-none pointer-events-none">
                   {exchange.isOpen ? (
-                    <span className="bg-green-600 dark:bg-green-700 text-white rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider shadow-sm">
+                    <span className="bg-foreground text-background rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider shadow-sm">
                       OPEN
                     </span>
                   ) : (
-                    <span className="bg-red-600 dark:bg-red-700 text-white rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider shadow-sm">
+                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white shadow-sm">
                       CLOSED
                     </span>
                   )}
                 </div>
                 <div className="h-5" />
-                <div className="text-lg font-extrabold text-gray-900 dark:text-white tracking-widest mb-1 flex items-center gap-2">
+                <div className="mb-1 flex items-center gap-2 text-lg font-extrabold tracking-widest text-foreground">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -570,29 +564,29 @@ export default function ExchangeTimes() {
                     {exchange.name}
                   </button>
                 </div>
-                <div className="text-[10px] text-gray-500 dark:text-gray-300 mb-2">
+                <div className="mb-2 text-[10px] text-muted-foreground">
                   Open:{' '}
-                  <span className="font-bold text-gray-700 dark:text-gray-100">
+                  <span className="font-bold text-foreground">
                     {exchange.openTime}
                   </span>{' '}
                   - Close:{' '}
-                  <span className="font-bold text-gray-700 dark:text-gray-100">
+                  <span className="font-bold text-foreground">
                     {exchange.closeTime}
                   </span>
                 </div>
-                <div className="text-base font-mono font-bold text-gray-500 dark:text-gray-300 mb-2 tracking-widest">
+                <div className="mb-2 text-base font-mono font-bold tracking-widest text-muted-foreground">
                   {currentTime}
                 </div>
-                <div className="flex justify-between w-full text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+                <div className="mb-1 flex w-full justify-between text-[11px] text-muted-foreground">
                   <span>{timeLeftLabel}</span>
-                  <span className="font-bold text-gray-900 dark:text-white">
+                  <span className="font-bold text-foreground">
                     {hours > 0 ? `${hours}h ` : ''}
                     {minutes}m
                   </span>
                 </div>
-                <div className="w-full h-2 bg-gray-300 dark:bg-[#23232a] rounded-full overflow-hidden">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
                   <div
-                    className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
+                    className="h-full rounded-full bg-foreground transition-all duration-500"
                     style={{ width: `${Math.round(progress * 100)}%` }}
                   ></div>
                 </div>
@@ -723,8 +717,8 @@ export default function ExchangeTimes() {
                             <span
                               className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold shadow-sm ${
                                 isEarly
-                                  ? 'bg-amber-500 text-black dark:bg-amber-600 dark:text-white'
-                                  : 'bg-red-600 text-white dark:bg-red-700'
+                                  ? 'bg-secondary text-foreground'
+                                  : 'bg-muted text-foreground'
                               }`}
                             >
                               {tag}

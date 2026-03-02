@@ -35,7 +35,7 @@
 }
 
 .toc-list li a:hover {
-  color: var(--primary);
+  color: var(--foreground);
 }
 
 /* Article metadata */
@@ -68,58 +68,58 @@
 
 /* Category-specific styling */
 .blog-category.category-psychology {
-  background-color: #f3e8ff;
-  color: #7e22ce;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-trading {
-  background-color: #e0f2fe;
-  color: #0284c7;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-crypto {
-  background-color: #dcfce7;
-  color: #16a34a;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-innovation {
-  background-color: #fef9c3;
-  color: #ca8a04;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-strategy {
-  background-color: #ffedd5;
-  color: #c2410c;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-investing {
-  background-color: #dbeafe;
-  color: #2563eb;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-esg {
-  background-color: #d1fae5;
-  color: #059669;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-trends {
-  background-color: #fae8ff;
-  color: #a21caf;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-markets {
-  background-color: #fef3c7;
-  color: #b45309;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-analysis {
-  background-color: #dbeafe;
-  color: #1d4ed8;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .blog-category.category-education {
-  background-color: #fae8ff;
-  color: #86198f;
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 /* Share buttons */
@@ -143,8 +143,8 @@
 }
 
 .share-button:hover {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
+  background-color: var(--secondary);
+  color: var(--foreground);
 }
 
 /* When copy button shows text, allow it to expand horizontally */
@@ -170,7 +170,7 @@
   position: absolute;
   inset: -6px;
   border-radius: 9999px;
-  background: radial-gradient(closest-side, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0) 70%);
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 70%);
   filter: blur(2px);
   animation: copied-ping 500ms ease-out;
 }
@@ -221,14 +221,14 @@
 
 .reading-progress-bar {
   height: 100%;
-  background-color: var(--primary);
+  background-color: var(--foreground);
   width: 0%;
   transition: width 0.1s ease;
 }
 
 /* Block quotes */
 article blockquote {
-  border-left: 4px solid var(--primary);
+  border-left: 4px solid var(--border);
   padding-left: 1rem;
   font-style: italic;
   margin: 1.5rem 0;

@@ -9,12 +9,47 @@ export const runtime = 'nodejs';
 // Allow more time on serverless (where supported)
 export const maxDuration = 60;
 
+function normalizeHost(hostname: string): string {
+  return hostname.trim().toLowerCase().replace(/^\[|\]$/g, '');
+}
+
+function getAllowedHosts(req: NextRequest): Set<string> {
+  const envHosts = (process.env.PDF_ALLOWED_HOSTS || '')
+    .split(',')
+    .map((entry) => normalizeHost(entry))
+    .filter(Boolean);
+
+  if (envHosts.length > 0) return new Set(envHosts);
+  return new Set([normalizeHost(req.nextUrl.hostname)]);
+}
+
 export async function GET(req: NextRequest) {
+  let browser: any = null;
   try {
     const { searchParams } = new URL(req.url);
-    const url = searchParams.get('url');
-    if (!url || !/^https?:\/\//i.test(url)) {
+    const rawUrl = searchParams.get('url');
+    if (!rawUrl) {
       return new NextResponse('Missing or invalid url', { status: 400 });
+    }
+
+    let targetUrl: URL;
+    try {
+      targetUrl = new URL(rawUrl);
+    } catch {
+      return new NextResponse('Missing or invalid url', { status: 400 });
+    }
+
+    if (!['http:', 'https:'].includes(targetUrl.protocol)) {
+      return new NextResponse('Missing or invalid url', { status: 400 });
+    }
+    if (targetUrl.username || targetUrl.password) {
+      return new NextResponse('Invalid url credentials', { status: 400 });
+    }
+
+    const targetHost = normalizeHost(targetUrl.hostname);
+    const allowedHosts = getAllowedHosts(req);
+    if (!allowedHosts.has(targetHost)) {
+      return new NextResponse('URL host not allowed', { status: 403 });
     }
 
     // Decide environment: production serverless vs local/dev
@@ -22,7 +57,6 @@ export async function GET(req: NextRequest) {
 
     // We'll try a production-safe Chromium first when in prod (e.g., Vercel serverless)
     // using @sparticuz/chromium with puppeteer-core. Fallback to full puppeteer locally.
-    let browser: any = null;
     let lastError: any = null;
 
     if (isProd) {
@@ -101,7 +135,7 @@ export async function GET(req: NextRequest) {
     }
 
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto(targetUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 });
     // give the page a short moment to settle for client-side rendered parts
     await new Promise((r) => setTimeout(r, 500));
 
@@ -136,7 +170,6 @@ export async function GET(req: NextRequest) {
       margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
     })) as unknown as Uint8Array | Buffer | ArrayBuffer;
 
-    await browser.close();
     if (!pdf) {
       throw new Error('Failed to generate PDF (empty result)');
     }
@@ -156,5 +189,9 @@ export async function GET(req: NextRequest) {
         ? String(e?.message || e)
         : 'Failed to generate PDF';
     return new NextResponse(message, { status: 500 });
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
   }
 }

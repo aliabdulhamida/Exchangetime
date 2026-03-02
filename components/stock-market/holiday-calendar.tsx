@@ -56,54 +56,50 @@ export default function HolidayCalendar() {
   };
 
   return (
-    <div className="rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#1F1F23]">
-      <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+    <div className="px-1 pb-1 sm:px-2 sm:pb-2">
+      <h2 className="mb-3 pr-16 text-base font-semibold text-foreground sm:mb-4 sm:pr-20">
         Holiday Calendar
       </h2>
-      <div className="flex flex-col gap-4 sm:gap-6">
-        <div className="w-full flex justify-center">
-          <Calendar
-            value={selected ? new Date(selected) : undefined}
-            onChange={(value) => {
-              if (Array.isArray(value)) return;
-              setSelected(value ? toISODateString(value) : undefined);
-            }}
-            tileClassName={({ date }) =>
-              holidayDates.includes(toISODateString(date))
-                ? 'bg-red-200 border-red-400 border-2 text-red-700 dark:text-red-400 font-bold hover:bg-gray-300 dark:hover:bg-gray-800'
-                : 'hover:bg-gray-300 dark:hover:bg-gray-800'
-            }
-          />
+      <div className="flex flex-col gap-4 sm:gap-5">
+        <div className="w-full overflow-x-auto pb-1">
+          <div className="mx-auto w-fit">
+            <Calendar
+              value={selected ? new Date(selected) : undefined}
+              onChange={(value) => {
+                if (Array.isArray(value)) return;
+                setSelected(value ? toISODateString(value) : undefined);
+              }}
+              tileClassName={({ date }) =>
+                holidayDates.includes(toISODateString(date))
+                  ? 'border-2 border-red-400 bg-red-200 font-bold text-red-700 hover:bg-gray-300 dark:text-red-400 dark:hover:bg-gray-800'
+                  : 'hover:bg-gray-300 dark:hover:bg-gray-800'
+              }
+            />
+          </div>
         </div>
-        <div className="flex-1 min-w-0 sm:min-w-[220px] pr-0 sm:pr-4 max-h-60 sm:max-h-80 overflow-y-auto flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto pr-1 sm:max-h-80 sm:pr-2">
           {/* Feiertagsdetails anzeigen, falls ein Feiertag ausgewählt ist */}
           {selected &&
             (getHolidayForDate(selected).length > 0 ? (
-              <div className="mb-2 sm:mb-4 p-0">
+              <div className="mb-2 p-0 sm:mb-3">
                 {getHolidayForDate(selected).map((h, i) => (
-                  <div key={i} className="mb-2 last:mb-0 flex items-start gap-2">
+                  <div key={i} className="mb-2 flex items-start gap-2 last:mb-0">
                     <span className="mt-1 text-xl">
                       <i className="bi bi-dot"></i>
                     </span>
                     <div>
-                      <div className="font-medium text-sm text-gray-900 dark:text-white">
-                        {h.name}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-300">
-                        {h.markets.join(', ')}
-                      </div>
+                      <div className="text-sm font-medium text-foreground">{h.name}</div>
+                      <div className="text-xs text-muted-foreground">{h.markets.join(', ')}</div>
                       {h.earlyCloseTime && (
-                        <div className="text-xs text-yellow-700 dark:text-yellow-300">
-                          Early Close: {h.earlyCloseTime}
-                        </div>
+                        <div className="text-xs text-yellow-300">Early Close: {h.earlyCloseTime}</div>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center flex-1 min-h-[60px] text-sm text-gray-500 dark:text-gray-400">
-                <CalendarX className="w-5 h-5 mb-1" />
+              <div className="flex min-h-[72px] flex-1 flex-col items-center justify-center text-sm text-muted-foreground">
+                <CalendarX className="mb-1 h-5 w-5" />
                 <span className="block text-center">No holidays for this date.</span>
               </div>
             ))}

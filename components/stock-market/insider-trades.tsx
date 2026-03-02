@@ -89,15 +89,23 @@ export default function InsiderTrades() {
     );
   }
 
+  const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
+  const sellRegex = /sell|sale|dispose|disposition/i;
+
+  function getSignedTradeValue(trade: InsiderTrade | undefined) {
+    if (!trade) return 0;
+    const rawValue =
+      typeof trade.value === 'number' && Number.isFinite(trade.value)
+        ? trade.value
+        : trade.shares * trade.price;
+    const absValue = Math.abs(rawValue || 0);
+    if (buyRegex.test(trade.transaction)) return absValue;
+    if (sellRegex.test(trade.transaction)) return -absValue;
+    return 0;
+  }
+
   const selectedSum = selectedIndexes
-    .map((i) => {
-      const trade = trades[i];
-      if (!trade) return 0;
-      // If transaction contains 'Buy', add value; if 'Sale', subtract value
-      if (trade.transaction.toLowerCase().includes('buy')) return trade.value;
-      if (trade.transaction.toLowerCase().includes('sale')) return -trade.value;
-      return 0;
-    })
+    .map((i) => getSignedTradeValue(trades[i]))
     .reduce((a, b) => a + b, 0);
 
   const fetchInsiderTrades = async () => {
@@ -138,8 +146,6 @@ export default function InsiderTrades() {
   };
 
   // Statistiken für Buy/Sell
-  const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
-  const sellRegex = /sell|sale|dispose|disposition/i;
   const buyCount = trades.filter((t) => buyRegex.test(t.transaction)).length;
   const sellCount = trades.filter((t) => sellRegex.test(t.transaction)).length;
   const buyVolume = trades
@@ -209,24 +215,16 @@ export default function InsiderTrades() {
               label?: string;
             }) => {
               if (!active || !payload || !payload.length) return null;
-              // Theme detection: prefers dark if available
-              let isDark = false;
-              if (typeof document !== 'undefined') {
-                isDark =
-                  document.documentElement.classList.contains('dark') ||
-                  (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-              }
-              const bg = isDark ? '#23232a' : '#f3f4f6';
-              const text = isDark ? '#fff' : '#222';
               return (
                 <div
                   style={{
-                    background: bg,
-                    color: text,
+                    background: '#000',
+                    color: '#fff',
+                    border: '1px solid #262626',
                     borderRadius: 6,
                     padding: '4px 8px',
                     minWidth: 70,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
                     fontSize: '11px',
                     lineHeight: 1.2,
                   }}
@@ -234,7 +232,7 @@ export default function InsiderTrades() {
                   <div
                     style={{
                       marginBottom: 2,
-                      color: isDark ? '#a5b4fc' : '#2563eb',
+                      color: '#e5e7eb',
                       fontWeight: 600,
                       fontSize: '11px',
                     }}
@@ -242,13 +240,13 @@ export default function InsiderTrades() {
                     {label}
                   </div>
                   <div>
-                    <span style={{ color: '#38FFB7', fontWeight: 600, fontSize: '11px' }}>
+                    <span style={{ color: '#22c55e', fontWeight: 600, fontSize: '11px' }}>
                       Buy:
                     </span>{' '}
                     {formatCompactNumber(payload[0]?.payload?.buy ?? 0)} $
                   </div>
                   <div>
-                    <span style={{ color: '#FF3860', fontWeight: 600, fontSize: '11px' }}>
+                    <span style={{ color: '#ef4444', fontWeight: 600, fontSize: '11px' }}>
                       Sell:
                     </span>{' '}
                     {formatCompactNumber(payload[0]?.payload?.sell ?? 0)} $
@@ -257,16 +255,16 @@ export default function InsiderTrades() {
               );
             }}
           />
-          <Bar dataKey="buy" fill="#38FFB7" name="Buy Volume" />
-          <Bar dataKey="sell" fill="#FF3860" name="Sell Volume" />
+          <Bar dataKey="buy" fill="#22c55e" name="Buy Volume" />
+          <Bar dataKey="sell" fill="#ef4444" name="Sell Volume" />
         </BarChart>
       </ResponsiveContainer>
     );
   }
 
   return (
-  <div className="rounded-xl pt-3 px-4 sm:px-8 pb-6 border border-gray-200 dark:border-[#1F1F23]">
-      <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2 mt-0 ml-0">
+    <div className="pt-0">
+      <h2 className="mb-2 mt-0 ml-0 flex items-center gap-2 text-lg font-bold text-foreground">
         Insider Trades
       </h2>
       <div className="flex gap-2 mb-4">
@@ -279,33 +277,62 @@ export default function InsiderTrades() {
             }
           }}
           placeholder="Enter ticker (e.g. AAPL)"
-          className="flex-1 min-w-[220px]"
+          className="min-w-0 flex-1"
         />
         <Button onClick={fetchInsiderTrades} disabled={loading}>
           <Search className="w-4 h-4" />
         </Button>
       </div>
       {companyName && trades.length > 0 && (
-        <div className="mb-3 rounded-md border border-gray-700/40 bg-gray-900/30 px-3 py-2 text-sm text-gray-200">
-          <span className="font-semibold">{companyName}</span>
-          {typeof latestPrice === 'number' && (
-            <span className="ml-2 tabular-nums">${latestPrice.toFixed(2)}</span>
-          )}
-          {typeof dailyChange === 'number' && (
-            <span
-              className={`ml-2 tabular-nums ${dailyChange >= 0 ? 'text-green-400' : 'text-red-400'}`}
-            >
-              {dailyChange >= 0 ? '+' : ''}
-              {dailyChange.toFixed(2)}%
-            </span>
-          )}
+        <div className="mb-4 rounded-xl border border-border bg-card/50 px-3 py-3 sm:px-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Company</p>
+              <p className="truncate text-base font-semibold text-foreground sm:text-lg">{companyName}</p>
+            </div>
+
+            <div className="flex items-end gap-3">
+              {typeof latestPrice === 'number' && (
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Price</p>
+                  <p className="tabular-nums text-base font-semibold text-foreground sm:text-lg">
+                    ${latestPrice.toFixed(2)}
+                  </p>
+                </div>
+              )}
+              {typeof dailyChange === 'number' && (
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Today</p>
+                  <p
+                    className={`tabular-nums text-base font-semibold sm:text-lg ${dailyChange >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                  >
+                    {dailyChange >= 0 ? '+' : ''}
+                    {dailyChange.toFixed(2)}%
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
       {/* Disclaimer ähnlich wie Stock Analysis */}
       {!loading && !error && trades.length === 0 && (
-         <div className="mt-4 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center gap-2 border border-blue-200 dark:border-blue-800">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-500 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <span className="text-xs text-blue-700 dark:text-blue-300 font-normal">
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 text-muted-foreground"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          <span className="text-xs font-normal text-muted-foreground">
             Insider trading data is reported with a delay and should be used for informational
             purposes only.
           </span>
@@ -323,9 +350,9 @@ export default function InsiderTrades() {
               </CardContent>
             </Card>
           ))}
-          <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[600px] h-[600px] overflow-y-auto pr-2 mt-4">
+          <div className="col-span-1 mt-4 grid max-h-[420px] h-[420px] grid-cols-2 gap-4 overflow-y-auto pr-1 sm:col-span-2 sm:h-[600px] sm:grid-cols-2 sm:gap-6 sm:pr-2">
             {[...Array(4)].map((_, i) => (
-              <Card key={i} className="flex flex-col px-6 py-5 min-h-[160px] relative">
+              <Card key={i} className="relative flex min-h-[160px] flex-col px-4 py-4 sm:px-6 sm:py-5">
                 <CardContent className="flex flex-col p-0 h-full">
                   <div className="flex items-start justify-between w-full mb-1">
                     <Skeleton className="h-4 w-24" />
@@ -347,10 +374,10 @@ export default function InsiderTrades() {
       {error && (
         <Alert
           variant="destructive"
-          className="mb-6 border-red-400 bg-red-100/60 dark:bg-red-900/30 text-red-700 dark:text-red-300 border flex flex-col items-center justify-center text-center relative py-8 px-4"
+          className="relative mb-6 flex flex-col items-center justify-center border border-red-400 bg-red-900/20 px-4 py-8 text-center text-red-300"
         >
           <div className="flex flex-col items-center w-full">
-            <AlertTriangle className="w-8 h-8 mb-2 text-red-600 dark:text-red-200" />
+            <AlertTriangle className="mb-2 h-8 w-8 text-red-300" />
             <div className="text-lg mb-1 mx-auto max-w-xs break-words">{error}</div>
           </div>
         </Alert>
@@ -365,14 +392,14 @@ export default function InsiderTrades() {
       {/* Statistikkarten und Chart */}
       {trades.length > 0 && (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-4 text-sm sm:grid-cols-2">
+          <div className="mb-6 grid grid-cols-2 gap-4 text-sm">
             <Card className="flex flex-col justify-center min-h-[48px] w-full">
               <CardContent className="p-3">
                 <div className="flex items-center justify-between w-full">
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     Buy Transactions
                   </span>
-                  <span className="text-base font-bold text-green-400 dark:text-[#38FFB7] break-words">
+                  <span className="break-words text-base font-bold text-green-400">
                     {buyCount}
                   </span>
                 </div>
@@ -384,7 +411,7 @@ export default function InsiderTrades() {
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     Sell Transactions
                   </span>
-                  <span className="text-base font-bold text-red-500 dark:text-[#FF3860] break-words">
+                  <span className="break-words text-base font-bold text-red-500">
                     {sellCount}
                   </span>
                 </div>
@@ -396,7 +423,7 @@ export default function InsiderTrades() {
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     Buy Volume
                   </span>
-                  <span className="text-base font-bold text-green-400 dark:text-[#38FFB7] break-words">
+                  <span className="break-words text-base font-bold text-green-400">
                     ${formatCompactNumber(buyVolume)}
                   </span>
                 </div>
@@ -408,7 +435,7 @@ export default function InsiderTrades() {
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     Sell Volume
                   </span>
-                  <span className="text-base font-bold text-red-500 dark:text-[#FF3860] break-words">
+                  <span className="break-words text-base font-bold text-red-500">
                     ${formatCompactNumber(sellVolume)}
                   </span>
                 </div>
@@ -426,19 +453,15 @@ export default function InsiderTrades() {
         <>
           {selectedIndexes.length > 0 && (
             <div className="mb-4 flex items-center justify-center">
-              <span className="text-sm font-semibold text-blue-700 dark:text-blue-900 bg-white dark:bg-[#18181b] px-4 py-2 rounded-lg shadow border border-blue-100 dark:border-blue-900">
-                <span className="text-black">
-                  Total value of selected trades: ${formatSelectedTotal(selectedSum)}
-                </span>
+              <span className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground">
+                Total value of selected trades: ${formatSelectedTotal(selectedSum)}
               </span>
             </div>
-
-            // Helper for correct compact formatting with decimals and sign
           )}
-          <div className="mb-2 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
+          <div className="mb-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-3 w-3 text-gray-500 dark:text-white"
+              className="h-3 w-3 text-muted-foreground"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -450,13 +473,13 @@ export default function InsiderTrades() {
             <span>Select transactions to show the total value.</span>
           </div>
           <div className="relative">
-            <div className="grid grid-cols-2 gap-6 max-h-[320px] overflow-y-auto pr-2 ml-4">
+            <div className="grid max-h-[360px] grid-cols-2 gap-4 overflow-y-auto pr-1 sm:max-h-[420px] sm:grid-cols-2 sm:gap-6 sm:pr-2">
               {trades.map((trade, index) => {
                 const selected = selectedIndexes.includes(index);
                 return (
                   <Card
                     key={index}
-                    className={`flex flex-col px-6 py-5 min-h-[160px] relative cursor-pointer transition-all duration-150 border border-gray-400 dark:border-gray-600 ${selected ? 'border-white dark:border-white shadow-lg' : ''}`}
+                    className={`relative flex min-h-[160px] cursor-pointer flex-col border border-border px-4 py-4 transition-all duration-150 sm:px-6 sm:py-5 ${selected ? 'border-foreground shadow-lg' : ''}`}
                     onClick={() => toggleSelect(index)}
                     tabIndex={0}
                     aria-pressed={selected}
@@ -469,10 +492,10 @@ export default function InsiderTrades() {
                           {trade.position}
                         </div>
                         {/* Badges absolut oben rechts platzieren */}
-                        <div className="absolute -right-4 -top-2 flex gap-1">
+                        <div className="absolute -right-2 -top-2 flex gap-1 sm:-right-4">
                           {sellRegex.test(trade.transaction) && (
                             <span
-                              className="text-red-400 text-[8px] sm:text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1"
+                              className="flex items-center gap-1 px-1 py-0.5 text-[8px] font-bold text-red-300 sm:text-[10px]"
                               style={{ letterSpacing: 1 }}
                             >
                               <ArrowDownCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" /> Sale
@@ -480,7 +503,7 @@ export default function InsiderTrades() {
                           )}
                           {buyRegex.test(trade.transaction) && (
                             <span
-                              className="text-green-400 text-[8px] sm:text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1"
+                              className="flex items-center gap-1 px-1 py-0.5 text-[8px] font-bold text-green-300 sm:text-[10px]"
                               style={{ letterSpacing: 1 }}
                             >
                               <ArrowUpCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" /> Buy
@@ -530,7 +553,7 @@ export default function InsiderTrades() {
           </div>
         </>
       )}
-      
+
     </div>
   );
 }

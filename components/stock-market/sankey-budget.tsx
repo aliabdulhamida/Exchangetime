@@ -1,704 +1,509 @@
-import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
-import { Download, Trash2 } from 'lucide-react';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-interface RevenueInput {
-  name: string;
-  amount: number;
-}
-interface ExpenseSubcategory {
-  name: string;
-  amount: number;
-}
-interface ExpenseInput {
-  name: string;
-  amount: number;
-  subcategories?: ExpenseSubcategory[];
+type StrategyType = 'long_call' | 'long_put' | 'covered_call' | 'cash_secured_put';
+
+interface SavedState {
+  strategy: StrategyType;
+  spot: number;
+  strike: number;
+  premium: number;
+  contracts: number;
+  stockCost: number;
+  scenarioMove: number;
+  expiryPrice: number;
 }
 
-const defaultRevenues: RevenueInput[] = [
-  { name: 'Salary', amount: 3000 },
-  { name: 'Freelance', amount: 1200 },
-];
-const defaultExpenses: ExpenseInput[] = [
-  {
-    name: 'Rent',
-    amount: 1200,
-    subcategories: [
-      { name: 'Base rent', amount: 600 },
-      { name: 'Utilities', amount: 600 },
-    ],
-  },
-  {
-    name: 'Groceries',
-    amount: 400,
-    subcategories: [
-      { name: 'Supermarkt', amount: 300 },
-      { name: 'Restaurant', amount: 100 },
-    ],
-  },
-  { name: 'Savings', amount: 800, subcategories: [] },
-];
+const STORAGE_KEY = 'exchangetime.options-payoff-lab.v1';
 
-export default function SankeyBudget({ onClose }: { onClose?: () => void }) {
-  const [revenues, setRevenues] = useState<RevenueInput[]>(defaultRevenues);
-  const [expenses, setExpenses] = useState<ExpenseInput[]>(defaultExpenses);
-  // Theme detection (Tailwind/Next.js: 'dark' class on <html> or <body>)
-  const [isDark, setIsDark] = useState(false);
-  // Overlay für großes Sankey
-  const [showSankeyOverlay, setShowSankeyOverlay] = useState(false);
-  useEffect(() => {
-    const checkTheme = () => {
-      if (typeof window !== 'undefined') {
-        setIsDark(
-          document.documentElement.classList.contains('dark') ||
-            document.body.classList.contains('dark'),
-        );
-      }
+const DEFAULTS: SavedState = {
+  strategy: 'long_call',
+  spot: 185,
+  strike: 190,
+  premium: 4.2,
+  contracts: 1,
+  stockCost: 180,
+  scenarioMove: 20,
+  expiryPrice: 195,
+};
+
+const STRATEGY_LABEL: Record<StrategyType, string> = {
+  long_call: 'Long Call',
+  long_put: 'Long Put',
+  covered_call: 'Covered Call',
+  cash_secured_put: 'Cash-Secured Put',
+};
+
+const STRATEGY_HINT: Record<StrategyType, string> = {
+  long_call: 'Bullish directional bet with limited risk.',
+  long_put: 'Bearish directional bet with limited risk.',
+  covered_call: 'Income strategy with capped upside.',
+  cash_secured_put: 'Income strategy to potentially buy lower.',
+};
+
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+});
+
+function formatCurrency(value: number) {
+  return currencyFormatter.format(value);
+}
+
+function normalizeNumber(value: number, min = 0) {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, value);
+}
+
+function parseSaved(raw: string | null): SavedState | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<SavedState>;
+    const strategy =
+      parsed.strategy === 'long_call' ||
+      parsed.strategy === 'long_put' ||
+      parsed.strategy === 'covered_call' ||
+      parsed.strategy === 'cash_secured_put'
+        ? parsed.strategy
+        : DEFAULTS.strategy;
+
+    return {
+      strategy,
+      spot: normalizeNumber(Number(parsed.spot), 0),
+      strike: normalizeNumber(Number(parsed.strike), 0),
+      premium: normalizeNumber(Number(parsed.premium), 0),
+      contracts: Math.max(1, Math.round(normalizeNumber(Number(parsed.contracts), 1))),
+      stockCost: normalizeNumber(Number(parsed.stockCost), 0),
+      scenarioMove: Math.min(50, Math.max(5, normalizeNumber(Number(parsed.scenarioMove), 20))),
+      expiryPrice: normalizeNumber(Number(parsed.expiryPrice), 0),
     };
-    checkTheme();
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
+  } catch {
+    return null;
+  }
+}
+
+function payoffPerShare(strategy: StrategyType, price: number, strike: number, premium: number, stockCost: number) {
+  if (strategy === 'long_call') return Math.max(price - strike, 0) - premium;
+  if (strategy === 'long_put') return Math.max(strike - price, 0) - premium;
+  if (strategy === 'covered_call') return (price - stockCost) + premium - Math.max(price - strike, 0);
+  return premium - Math.max(strike - price, 0);
+}
+
+export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () => void }) {
+  const [strategy, setStrategy] = useState<StrategyType>(DEFAULTS.strategy);
+  const [spot, setSpot] = useState(DEFAULTS.spot);
+  const [strike, setStrike] = useState(DEFAULTS.strike);
+  const [premium, setPremium] = useState(DEFAULTS.premium);
+  const [contracts, setContracts] = useState(DEFAULTS.contracts);
+  const [stockCost, setStockCost] = useState(DEFAULTS.stockCost);
+  const [scenarioMove, setScenarioMove] = useState(DEFAULTS.scenarioMove);
+  const [expiryPrice, setExpiryPrice] = useState(DEFAULTS.expiryPrice);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = parseSaved(window.localStorage.getItem(STORAGE_KEY));
+    if (saved) {
+      setStrategy(saved.strategy);
+      setSpot(saved.spot);
+      setStrike(saved.strike);
+      setPremium(saved.premium);
+      setContracts(saved.contracts);
+      setStockCost(saved.stockCost);
+      setScenarioMove(saved.scenarioMove);
+      setExpiryPrice(saved.expiryPrice);
+    }
+    setHydrated(true);
   }, []);
 
-  // Revenue Handlers
-  const handleRevenueChange = (idx: number, field: keyof RevenueInput, value: string | number) => {
-    setRevenues((prev) => {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], [field]: field === 'amount' ? Number(value) : value };
-      return updated;
-    });
-  };
-  const addRevenue = () => setRevenues((prev) => [...prev, { name: '', amount: 0 }]);
-  const removeRevenue = (idx: number) => setRevenues((prev) => prev.filter((_, i) => i !== idx));
-
-  // Expense Handlers
-  const handleExpenseChange = (idx: number, field: keyof ExpenseInput, value: string | number) => {
-    setExpenses((prev) => {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], [field]: field === 'amount' ? Number(value) : value };
-      return updated;
-    });
-  };
-
-  // Subcategory Handlers
-  const handleSubcategoryChange = (
-    expenseIdx: number,
-    subIdx: number,
-    field: keyof ExpenseSubcategory,
-    value: string | number,
-  ) => {
-    setExpenses((prev) => {
-      const updated = [...prev];
-      const expense = { ...updated[expenseIdx] };
-      const subcategories = expense.subcategories ? [...expense.subcategories] : [];
-      subcategories[subIdx] = {
-        ...subcategories[subIdx],
-        [field]: field === 'amount' ? Number(value) : value,
-      };
-      expense.subcategories = subcategories;
-      updated[expenseIdx] = expense;
-      return updated;
-    });
-  };
-  const addSubcategory = (expenseIdx: number) => {
-    setExpenses((prev) => {
-      const updated = [...prev];
-      const expense = { ...updated[expenseIdx] };
-      expense.subcategories = expense.subcategories
-        ? [...expense.subcategories, { name: '', amount: 0 }]
-        : [{ name: '', amount: 0 }];
-      updated[expenseIdx] = expense;
-      return updated;
-    });
-  };
-  const removeSubcategory = (expenseIdx: number, subIdx: number) => {
-    setExpenses((prev) => {
-      const updated = [...prev];
-      const expense = { ...updated[expenseIdx] };
-      expense.subcategories = expense.subcategories?.filter((_, i) => i !== subIdx) || [];
-      updated[expenseIdx] = expense;
-      return updated;
-    });
-  };
-  const addExpense = () =>
-    setExpenses((prev) => [...prev, { name: '', amount: 0, subcategories: [] }]);
-  const removeExpense = (idx: number) => setExpenses((prev) => prev.filter((_, i) => i !== idx));
-
-  // D3 Sankey Daten vorbereiten
-  const nodeNames: string[] = [];
-  nodeNames.push('Budget');
-  const mainCategories = expenses.map((e) => e.name).filter(Boolean);
-  mainCategories.forEach((name) => nodeNames.push(name));
-  const subCategories: string[] = [];
-  expenses.forEach((e) => {
-    if (e.subcategories && e.subcategories.length > 0) {
-      e.subcategories.forEach((s) => {
-        if (s.name && !subCategories.includes(s.name)) subCategories.push(s.name);
-      });
-    }
-  });
-  subCategories.forEach((name) => nodeNames.push(name));
-  revenues.forEach((r) => {
-    if (r.name && !nodeNames.includes(r.name)) nodeNames.push(r.name);
-  });
-
-  const nodeIndex = (name: string) => nodeNames.indexOf(name);
-  const links: { source: number; target: number; value: number }[] = [];
-  revenues
-    .filter((r) => r.name && r.amount > 0)
-    .forEach((r) => {
-      links.push({ source: nodeIndex(r.name), target: nodeIndex('Budget'), value: r.amount });
-    });
-  expenses.forEach((e) => {
-    if (e.name && e.amount > 0) {
-      links.push({ source: nodeIndex('Budget'), target: nodeIndex(e.name), value: e.amount });
-    }
-    if (e.subcategories && e.subcategories.length > 0) {
-      e.subcategories
-        .filter((s) => s.name && s.amount > 0)
-        .forEach((s) => {
-          links.push({ source: nodeIndex(e.name), target: nodeIndex(s.name), value: s.amount });
-        });
-    }
-  });
-  const nodes = nodeNames.map((name) => ({ name }));
-
-  // D3 Sankey Diagramm als Komponente
-  function SankeyD3({
-    width = 700,
-    height = 400,
-    textSize,
-  }: {
-    width?: number;
-    height?: number;
-    textSize?: number;
-  }) {
-    // Responsive Werte berechnen
-    // SVG skaliert mit Container, Textgröße und nodeWidth passen sich an
-    const containerRef = useRef<HTMLDivElement | null>(null);
-    const [containerWidth, setContainerWidth] = useState(width);
-    useEffect(() => {
-      function handleResize() {
-        if (containerRef.current) {
-          setContainerWidth(containerRef.current.offsetWidth);
-        }
-      }
-      handleResize();
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-    }, []);
-    // Werte für nodeWidth und Textgröße dynamisch
-    const effectiveWidth = containerWidth || width;
-    const nodeW = Math.max(12, Math.round(effectiveWidth / 50));
-    const fontSz =
-      textSize !== undefined ? textSize : Math.max(10, Math.round(effectiveWidth / 60));
-    // Tooltip State
-    const [tooltip, setTooltip] = useState<{
-      x: number;
-      y: number;
-      content: React.ReactNode;
-      visible: boolean;
-    }>({ x: 0, y: 0, content: '', visible: false });
-    const svgRef = useRef<SVGSVGElement | null>(null);
-    // Theme detection jetzt in der Elternkomponente
-
-    // Farben je nach Theme
-    const colors = isDark
-      ? {
-          node: '#ECEFF1',
-          text: '#fff',
-          link: '#B0BEC5',
-          linkOpacity: 0.25,
-        }
-      : {
-          node: '#111',
-          text: '#111',
-          link: '#90A4AE',
-          linkOpacity: 0.18,
-        };
-
-    // Minimalistisches D3 Sankey Layout
-    const sankeyGen = d3Sankey()
-      .nodeWidth(nodeW)
-      .nodePadding(Math.max(16, Math.round(effectiveWidth / 30)))
-      .extent([
-        [0, 0],
-        [effectiveWidth, height],
-      ]);
-    const graph = sankeyGen({
-      nodes: nodes.map((d, i) => ({ ...d, index: i })),
-      links: links.map((l) => ({ ...l })),
-    });
-    // Hilfsfunktion: Ist Endknoten (kein outgoing link)?
-    function isEndNode(node: any) {
-      return !graph.links.some((l: any) => l.source.index === node.index);
-    }
-    // Hilfsfunktion: Ist Startknoten (kein incoming link)?
-    function isStartNode(node: any) {
-      return !graph.links.some((l: any) => l.target.index === node.index);
-    }
-    // Tooltip-Handler
-    const handleShowTooltip = (evt: React.MouseEvent, content: React.ReactNode) => {
-      const svgRect = svgRef.current?.getBoundingClientRect();
-      setTooltip({
-        x: evt.clientX - (svgRect?.left || 0) + 10,
-        y: evt.clientY - (svgRect?.top || 0) + 10,
-        content,
-        visible: true,
-      });
+  useEffect(() => {
+    if (!hydrated || typeof window === 'undefined') return;
+    const payload: SavedState = {
+      strategy,
+      spot,
+      strike,
+      premium,
+      contracts,
+      stockCost,
+      scenarioMove,
+      expiryPrice,
     };
-    const handleHideTooltip = () => setTooltip((t) => ({ ...t, visible: false }));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [hydrated, strategy, spot, strike, premium, contracts, stockCost, scenarioMove, expiryPrice]);
 
-    return (
-      <div
-        ref={containerRef}
-        style={{ width: '100%', maxWidth: width, overflowX: 'auto', position: 'relative' }}
-      >
-        <svg
-          ref={svgRef}
-          width={effectiveWidth}
-          height={height}
-          viewBox={`0 0 ${effectiveWidth} ${height}`}
-          id="sankey-chart"
-          style={{ background: 'none', display: 'block', width: '100%', height: height }}
-        >
-          <g>
-            {/* Minimalistische Links */}
-            {graph.links.map((link: any, i: number) => (
-              <path
-                key={i}
-                d={sankeyLinkHorizontal()(link) || undefined}
-                style={{
-                  fill: 'none',
-                  stroke: colors.link,
-                  strokeOpacity: colors.linkOpacity,
-                  strokeWidth: link.width, // D3 berechnet die Breite proportional zum Wert
-                }}
-                onMouseMove={(evt) =>
-                  handleShowTooltip(
-                    evt,
-                    <div>
-                      <b>
-                        {link.source.name} → {link.target.name}
-                      </b>
-                      <br />
-                      {link.value}
-                    </div>,
-                  )
-                }
-                onMouseLeave={handleHideTooltip}
-                cursor="pointer"
-              />
-            ))}
-            {/* Minimalistische Knoten */}
-            {graph.nodes.map((node: any, i: number) => {
-              const endNode = isEndNode(node);
-              const startNode = isStartNode(node);
-              // Wert für Tooltip berechnen (Summe aller eingehenden oder ausgehenden Links)
-              const nodeValue = graph.links
-                .filter((l: any) => l.source.index === node.index || l.target.index === node.index)
-                .reduce((sum: number, l: any) => sum + l.value, 0);
-              return (
-                <g key={i} transform={`translate(${node.x0},${node.y0})`}>
-                  <rect
-                    height={node.y1 - node.y0} // D3 berechnet die Höhe proportional zum Wert
-                    width={node.x1 - node.x0}
-                    fill={colors.node}
-                    opacity={1}
-                    rx={2}
-                    stroke="none"
-                    onMouseMove={(evt) =>
-                      handleShowTooltip(
-                        evt,
-                        <div>
-                          <b>{node.name}</b>
-                          <br />
-                          {nodeValue}
-                        </div>,
-                      )
-                    }
-                    onMouseLeave={handleHideTooltip}
-                    cursor="pointer"
-                  />
-                  <text
-                    x={endNode ? -8 : node.x1 - node.x0 + 8}
-                    y={(node.y1 - node.y0) / 2}
-                    dy="0.35em"
-                    fontSize={fontSz}
-                    fill={colors.text}
-                    textAnchor={endNode ? 'end' : 'start'}
-                    style={{
-                      pointerEvents: 'none',
-                      userSelect: 'none',
-                      fontWeight: 400,
-                      letterSpacing: 0.1,
-                    }}
-                  >
-                    {node.name}
-                  </text>
-                </g>
-              );
-            })}
-          </g>
-        </svg>
-        {/* Tooltip-Element */}
-        {tooltip.visible && (
-          <div
-            style={{
-              position: 'absolute',
-              left: tooltip.x,
-              top: tooltip.y,
-              background: isDark ? '#23232a' : '#fff',
-              color: isDark ? '#fff' : '#222',
-              border: '1px solid #bbb',
-              borderRadius: 4,
-              padding: '6px 10px',
-              fontSize: 13,
-              pointerEvents: 'none',
-              boxShadow: '0 2px 8px 0 rgba(0,0,0,0.08)',
-              zIndex: 10,
-              minWidth: 80,
-              maxWidth: 220,
-              whiteSpace: 'pre-line',
-            }}
-          >
-            {tooltip.content}
-          </div>
-        )}
-      </div>
-    );
-  }
+  const contractSize = 100;
+  const totalMultiplier = contracts * contractSize;
 
-  const downloadChart = () => {
-    const chart = document.querySelector('#sankey-chart');
-    if (!chart) return;
-    // SVG klonen, damit keine Änderungen im UI sichtbar sind
-    const clone = chart.cloneNode(true);
-    if (!(clone instanceof SVGSVGElement)) return;
-    // Farben für White-Theme setzen
-    // Knoten (rect)
-    clone.querySelectorAll('rect').forEach((rect) => {
-      rect.setAttribute('fill', '#111');
+  const summary = useMemo(() => {
+    const breakEven =
+      strategy === 'long_call'
+        ? strike + premium
+        : strategy === 'long_put'
+          ? strike - premium
+          : strategy === 'covered_call'
+            ? stockCost - premium
+            : strike - premium;
+
+    const maxProfitPerShare =
+      strategy === 'long_call'
+        ? Number.POSITIVE_INFINITY
+        : strategy === 'long_put'
+          ? strike - premium
+          : strategy === 'covered_call'
+            ? strike - stockCost + premium
+            : premium;
+
+    const maxLossPerShare =
+      strategy === 'long_call'
+        ? premium
+        : strategy === 'long_put'
+          ? premium
+          : strategy === 'covered_call'
+            ? stockCost - premium
+            : strike - premium;
+
+    const currentPnL = payoffPerShare(strategy, expiryPrice, strike, premium, stockCost) * totalMultiplier;
+    const rr =
+      Number.isFinite(maxProfitPerShare) && maxLossPerShare > 0
+        ? maxProfitPerShare / maxLossPerShare
+        : null;
+
+    return {
+      breakEven,
+      maxProfitPerShare,
+      maxLossPerShare,
+      currentPnL,
+      rr,
+    };
+  }, [strategy, strike, premium, stockCost, expiryPrice, totalMultiplier]);
+
+  const scenarioRows = useMemo(() => {
+    const percents = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1];
+    return percents.map((factor) => {
+      const movePct = factor * scenarioMove;
+      const price = Math.max(0, spot * (1 + movePct / 100));
+      const pnl = payoffPerShare(strategy, price, strike, premium, stockCost) * totalMultiplier;
+      return {
+        key: `${movePct}`,
+        movePct,
+        price,
+        pnl,
+      };
     });
-    // Text
-    clone.querySelectorAll('text').forEach((text) => {
-      text.setAttribute('fill', '#263238');
-    });
-    // Links (Pfad)
-    clone.querySelectorAll('path').forEach((path) => {
-      path.setAttribute('stroke', '#90A4AE');
-      path.setAttribute('stroke-opacity', '0.18');
-    });
-    // SVG serialisieren und downloaden
-    const svgData = new XMLSerializer().serializeToString(clone);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'personal-budget-sankey.svg';
-    a.click();
-    URL.revokeObjectURL(url);
+  }, [scenarioMove, spot, strategy, strike, premium, stockCost, totalMultiplier]);
+
+  const warnings = useMemo(() => {
+    const list: string[] = [];
+
+    if (strategy === 'long_call' && strike <= spot) {
+      list.push('Call is in-the-money. Premium can be high; compare with spread alternatives.');
+    }
+    if (strategy === 'long_put' && strike >= spot) {
+      list.push('Put is in-the-money. Check if premium already prices in the move.');
+    }
+    if (strategy === 'covered_call' && strike <= stockCost) {
+      list.push('Covered call strike is at/below cost basis, which can cap at a loss.');
+    }
+    if (strategy === 'cash_secured_put' && strike > spot * 1.1) {
+      list.push('Strike is far above spot. Assignment risk is high for this setup.');
+    }
+
+    const currentMaxLoss = summary.maxLossPerShare * totalMultiplier;
+    if (currentMaxLoss > 0 && currentMaxLoss > spot * totalMultiplier * 0.25) {
+      list.push('Max loss exceeds 25% of underlying notional. Consider reducing contracts.');
+    }
+
+    if (list.length === 0) {
+      list.push('Setup looks internally consistent. Double-check implied volatility before execution.');
+    }
+
+    return list;
+  }, [strategy, strike, spot, stockCost, summary.maxLossPerShare, totalMultiplier]);
+
+  const preset = (type: 'bull' | 'bear' | 'income') => {
+    if (type === 'bull') {
+      setStrategy('long_call');
+      setSpot(185);
+      setStrike(190);
+      setPremium(4.2);
+      setContracts(2);
+      setStockCost(180);
+      setExpiryPrice(198);
+      return;
+    }
+    if (type === 'bear') {
+      setStrategy('long_put');
+      setSpot(185);
+      setStrike(178);
+      setPremium(3.6);
+      setContracts(2);
+      setStockCost(180);
+      setExpiryPrice(170);
+      return;
+    }
+    setStrategy('cash_secured_put');
+    setSpot(185);
+    setStrike(175);
+    setPremium(2.9);
+    setContracts(1);
+    setStockCost(180);
+    setExpiryPrice(178);
   };
+
+  const maxProfitDisplay = Number.isFinite(summary.maxProfitPerShare)
+    ? formatCurrency(summary.maxProfitPerShare * totalMultiplier)
+    : 'Unlimited';
 
   return (
-    <div
-      className="rounded-xl border border-gray-200 dark:border-[#1F1F23] max-w-full w-full"
-      id="personal-budget-container"
-    >
-      <div className="flex items-center justify-between p-6 pb-0">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Personal Budget</h2>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 dark:hover:text-white"
-            aria-label="Schließen"
-            style={{ zIndex: 10 }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line
-                x1="18"
-                y1="6"
-                x2="6"
-                y2="18"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <line
-                x1="6"
-                y1="6"
-                x2="18"
-                y2="18"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-        )}
+    <div className="w-full max-w-full" id="options-payoff-lab-container">
+      <div className="px-4 pb-0 pt-0 pr-16 sm:px-5 sm:pr-20">
+        <h2 className="text-lg font-semibold text-foreground">Options Payoff Lab</h2>
       </div>
-      {/* ...restlicher Inhalt bleibt unverändert, aber ohne doppelten Titel ... */}
-      <div className="p-6 pt-2">
-        {/* Inputs und Sankey nebeneinander */}
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Linke Spalte: Inputs */}
-          <div className="flex flex-col flex-1 max-w-md">
-            {/* Income Streams */}
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Income Streams</h3>
-            <div className="space-y-3 mb-6">
-              {revenues.map((input, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col sm:flex-row items-center gap-2 mb-2 sm:gap-2 sm:items-center sm:justify-start w-full"
-                >
-                  <div className="flex flex-row items-center w-full">
-                    <input
-                      className="border rounded px-2 py-1 w-full sm:w-60 bg-transparent"
-                      value={input.name}
-                      onChange={(e) => handleRevenueChange(idx, 'name', e.target.value)}
-                      placeholder="Income Source"
-                    />
-                    <input
-                      type="number"
-                      className="border rounded px-2 py-1 w-full sm:w-32 bg-transparent ml-2"
-                      value={input.amount}
-                      onChange={(e) => handleRevenueChange(idx, 'amount', e.target.value)}
-                      min={0}
-                      placeholder="Amount"
-                    />
-                    <button
-                      className="text-red-500 hover:text-red-700 px-2 ml-2"
-                      onClick={() => removeRevenue(idx)}
-                      aria-label="Delete income"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <div className="flex-1" />
-                  </div>
-                </div>
-              ))}
+
+      <div className="space-y-4 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+        <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-foreground">Strategy Builder</h3>
+            <div className="flex flex-wrap gap-1.5">
               <button
-                className="mt-2 px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 text-sm w-full sm:w-auto"
-                onClick={addRevenue}
+                type="button"
+                onClick={() => preset('bull')}
+                className="rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-muted/40"
               >
-                + Add Income
+                Bullish
               </button>
-            </div>
-            {/* Expenses unter Income Streams */}
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Expenses</h3>
-            <div className="space-y-3">
-              {expenses.map((input, idx) => (
-                <div key={idx} className="mb-4">
-                  <div className="flex flex-row items-center w-full mb-2">
-                    <input
-                      className="border rounded px-2 py-1 w-full sm:w-60 bg-transparent"
-                      value={input.name}
-                      onChange={(e) => handleExpenseChange(idx, 'name', e.target.value)}
-                      placeholder="Expense Name"
-                    />
-                    <input
-                      type="number"
-                      className="border rounded px-2 py-1 w-full sm:w-32 bg-transparent ml-2"
-                      value={input.amount}
-                      onChange={(e) => handleExpenseChange(idx, 'amount', e.target.value)}
-                      min={0}
-                      placeholder="Amount"
-                    />
-                    <button
-                      className="text-red-500 hover:text-red-700 px-2 ml-2"
-                      onClick={() => removeExpense(idx)}
-                      aria-label="Delete expense"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <div className="flex-1" />
-                  </div>
-                  {/* Subcategories */}
-                  <div className="ml-4">
-                    {(input.subcategories || []).map((sub, subIdx) => (
-                      <div key={subIdx} className="flex flex-row items-center w-full mb-1">
-                        <input
-                          className="border rounded px-2 py-1 w-full sm:w-48 bg-transparent"
-                          value={sub.name}
-                          onChange={(e) =>
-                            handleSubcategoryChange(idx, subIdx, 'name', e.target.value)
-                          }
-                          placeholder="Subcategory Name"
-                        />
-                        <input
-                          type="number"
-                          className="border rounded px-2 py-1 w-full sm:w-28 bg-transparent ml-2"
-                          value={sub.amount}
-                          onChange={(e) =>
-                            handleSubcategoryChange(idx, subIdx, 'amount', e.target.value)
-                          }
-                          min={0}
-                          placeholder="Amount"
-                        />
-                        <button
-                          className="text-red-400 hover:text-red-700 px-2 ml-2"
-                          onClick={() => removeSubcategory(idx, subIdx)}
-                          aria-label="Delete subcategory"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                        <div className="flex-1" />
-                      </div>
-                    ))}
-                    <button
-                      className="mt-1 p-0.5 rounded flex items-center justify-center text-xs border border-gray-300 bg-white text-gray-800 hover:bg-gray-200 dark:bg-[#23232a] dark:text-gray-100 dark:border-gray-700 dark:hover:bg-[#353542]"
-                      style={{ width: '22px', height: '22px' }}
-                      onClick={() => addSubcategory(idx)}
-                      aria-label="Add subcategory"
-                    >
-                      <span className="text-base leading-none transition-colors duration-150">
-                        ＋
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              ))}
               <button
-                className="mt-2 px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm w-full sm:w-auto"
-                onClick={addExpense}
+                type="button"
+                onClick={() => preset('bear')}
+                className="rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-muted/40"
               >
-                + Add Expense
+                Bearish
+              </button>
+              <button
+                type="button"
+                onClick={() => preset('income')}
+                className="rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-muted/40"
+              >
+                Income
               </button>
             </div>
           </div>
-          {/* Rechte Spalte: Sankey Diagramm */}
-          <div className="flex-1 flex flex-col items-center justify-start mt-8 lg:mt-0 w-full">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 w-full text-left">
-              Sankey Diagram
-            </h3>
-            <div className="mb-2 w-full flex justify-end gap-2">
-              <button
-                onClick={() => setShowSankeyOverlay(true)}
-                className={
-                  `flex items-center px-3 py-1.5 rounded text-sm border transition-colors duration-150 ` +
-                  (isDark
-                    ? 'bg-white text-black border-white hover:bg-gray-200'
-                    : 'bg-black text-white border-black hover:bg-gray-900')
-                }
-                title="Show Sankey large"
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
+            <label className="flex flex-col gap-1 xl:col-span-2">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Strategy</span>
+              <select
+                value={strategy}
+                onChange={(event) => setStrategy(event.target.value as StrategyType)}
+                className="h-9 rounded border border-border bg-background px-2 text-sm"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <rect
-                    x="4"
-                    y="4"
-                    width="16"
-                    height="16"
-                    rx="2"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    fill="none"
-                  />
-                  <path d="M8 8h8v8H8z" stroke="currentColor" strokeWidth="2" fill="none" />
-                </svg>
-              </button>
-              <button
-                onClick={downloadChart}
-                className={
-                  `flex items-center px-3 py-1.5 rounded text-sm border transition-colors duration-150 ` +
-                  (isDark
-                    ? 'bg-white text-black border-white hover:bg-gray-200'
-                    : 'bg-black text-white border-black hover:bg-gray-900')
+                <option value="long_call">Long Call</option>
+                <option value="long_put">Long Put</option>
+                <option value="covered_call">Covered Call</option>
+                <option value="cash_secured_put">Cash-Secured Put</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Spot</span>
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                value={spot}
+                onChange={(event) => setSpot(normalizeNumber(Number(event.target.value), 0))}
+                className="h-9 rounded border border-border bg-background px-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Strike</span>
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                value={strike}
+                onChange={(event) => setStrike(normalizeNumber(Number(event.target.value), 0))}
+                className="h-9 rounded border border-border bg-background px-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Premium</span>
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                value={premium}
+                onChange={(event) => setPremium(normalizeNumber(Number(event.target.value), 0))}
+                className="h-9 rounded border border-border bg-background px-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Contracts</span>
+              <input
+                type="number"
+                step={1}
+                min={1}
+                value={contracts}
+                onChange={(event) =>
+                  setContracts(Math.max(1, Math.round(normalizeNumber(Number(event.target.value), 1))))
                 }
-                title="Download SVG"
-              >
-                <Download className="w-4 h-4" />
-              </button>
+                className="h-9 rounded border border-border bg-background px-2 text-sm"
+              />
+            </label>
+          </div>
+
+          {(strategy === 'covered_call' || strategy === 'cash_secured_put') && (
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {strategy === 'covered_call' ? 'Stock Cost Basis' : 'Reference Cost Basis'}
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={stockCost}
+                  onChange={(event) => setStockCost(normalizeNumber(Number(event.target.value), 0))}
+                  className="h-9 rounded border border-border bg-background px-2 text-sm"
+                />
+              </label>
+              <div className="flex items-end pb-1 text-xs text-muted-foreground">{STRATEGY_HINT[strategy]}</div>
             </div>
-            <SankeyD3 width={700} height={400} />
-            {/* Overlay für großes Sankey */}
-            {showSankeyOverlay && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="sankey-dialog-title"
-              >
+          )}
+
+          {strategy !== 'covered_call' && strategy !== 'cash_secured_put' && (
+            <p className="mt-2 text-xs text-muted-foreground">{STRATEGY_HINT[strategy]}</p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="rounded-md border border-border bg-background/70 p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Break-even</p>
+            <p className="text-sm font-semibold text-foreground">{formatCurrency(summary.breakEven)}</p>
+          </div>
+          <div className="rounded-md border border-border bg-background/70 p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Max Profit</p>
+            <p className="text-sm font-semibold text-foreground">{maxProfitDisplay}</p>
+          </div>
+          <div className="rounded-md border border-border bg-background/70 p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Max Loss</p>
+            <p className="text-sm font-semibold text-foreground">
+              {formatCurrency(summary.maxLossPerShare * totalMultiplier)}
+            </p>
+          </div>
+          <div className="rounded-md border border-border bg-background/70 p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Expiry P/L</p>
+            <p
+              className={`text-sm font-semibold ${
+                summary.currentPnL >= 0
+                  ? 'text-emerald-700 dark:text-emerald-300'
+                  : 'text-rose-700 dark:text-rose-300'
+              }`}
+            >
+              {formatCurrency(summary.currentPnL)}
+            </p>
+          </div>
+          <div className="rounded-md border border-border bg-background/70 p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">R:R Estimate</p>
+            <p className="text-sm font-semibold text-foreground">
+              {summary.rr && Number.isFinite(summary.rr) ? `${summary.rr.toFixed(2)}R` : '-'}
+            </p>
+          </div>
+          <div className="rounded-md border border-border bg-background/70 p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Position Notional</p>
+            <p className="text-sm font-semibold text-foreground">{formatCurrency(spot * totalMultiplier)}</p>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border/70 bg-background/60 p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-foreground">Scenario Matrix (Expiry)</h3>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Range %</label>
+              <input
+                type="number"
+                min={5}
+                max={50}
+                step={1}
+                value={scenarioMove}
+                onChange={(event) =>
+                  setScenarioMove(Math.min(50, Math.max(5, normalizeNumber(Number(event.target.value), 20))))
+                }
+                className="h-8 w-16 rounded border border-border bg-background px-2 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="max-h-[360px] overflow-auto rounded border border-border/70">
+            <div className="divide-y divide-border/70">
+              {scenarioRows.map((row) => (
                 <div
-                  className="relative rounded-lg shadow-lg p-6 max-w-5xl w-full flex flex-col items-center"
-                  style={{ background: isDark ? '#000' : '#fff' }}
+                  key={row.key}
+                  className="grid grid-cols-[4.5rem_1fr_1fr] items-center gap-2 px-3 py-2 text-xs"
                 >
-                  {/* Visually hidden DialogTitle for accessibility */}
-                  <h2
-                    id="sankey-dialog-title"
-                    style={{
-                      position: 'absolute',
-                      width: 1,
-                      height: 1,
-                      padding: 0,
-                      margin: -1,
-                      overflow: 'hidden',
-                      clip: 'rect(0,0,0,0)',
-                      whiteSpace: 'nowrap',
-                      border: 0,
-                    }}
+                  <span
+                    className={
+                      row.movePct >= 0
+                        ? 'font-medium text-emerald-700 dark:text-emerald-300'
+                        : 'font-medium text-rose-700 dark:text-rose-300'
+                    }
                   >
-                    Sankey Diagram
-                  </h2>
-                  <button
-                    onClick={() => setShowSankeyOverlay(false)}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white"
-                    aria-label="Schließen"
-                    style={{ zIndex: 10 }}
+                    {row.movePct > 0 ? '+' : ''}
+                    {row.movePct.toFixed(1)}%
+                  </span>
+                  <span className="text-foreground">{formatCurrency(row.price)}</span>
+                  <span
+                    className={
+                      row.pnl >= 0
+                        ? 'justify-self-end font-medium text-emerald-700 dark:text-emerald-300'
+                        : 'justify-self-end font-medium text-rose-700 dark:text-rose-300'
+                    }
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-6 h-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <line
-                        x1="18"
-                        y1="6"
-                        x2="6"
-                        y2="18"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1="6"
-                        y1="6"
-                        x2="18"
-                        y2="18"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 w-full text-left">
-                    Sankey Diagram
-                  </h3>
-                  <div className="overflow-auto w-full flex justify-center">
-                    <SankeyD3 width={1100} height={600} textSize={18} />
-                  </div>
+                    {formatCurrency(row.pnl)}
+                  </span>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[9rem_1fr] sm:items-end">
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Test Expiry Price</span>
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                value={expiryPrice}
+                onChange={(event) => setExpiryPrice(normalizeNumber(Number(event.target.value), 0))}
+                className="h-9 rounded border border-border bg-background px-2 text-sm"
+              />
+            </label>
+            <div className="rounded border border-border/70 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+              {STRATEGY_LABEL[strategy]} at {formatCurrency(expiryPrice)} results in{' '}
+              <span
+                className={
+                  summary.currentPnL >= 0
+                    ? 'font-semibold text-emerald-700 dark:text-emerald-300'
+                    : 'font-semibold text-rose-700 dark:text-rose-300'
+                }
+              >
+                {formatCurrency(summary.currentPnL)}
+              </span>{' '}
+              total P/L.
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+          <h3 className="text-sm font-semibold text-foreground">Risk Notes</h3>
+          <div className="mt-2 space-y-1.5">
+            {warnings.map((warning, index) => (
+              <div
+                key={`${warning}-${index}`}
+                className="rounded border border-border/70 bg-background/80 px-2.5 py-1.5 text-xs text-muted-foreground"
+              >
+                {warning}
               </div>
-            )}
+            ))}
           </div>
         </div>
       </div>

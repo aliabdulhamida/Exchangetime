@@ -1,6 +1,7 @@
 // Preload patch to harden stdout/stderr and fs writes against undefined values
 const crypto = require('crypto');
 const fs = require('fs');
+const DEBUG_PATCH = process.env.DEBUG_BUILD_PATCH === '1';
 
 function coerceChunk(chunk) {
   return chunk === undefined || chunk === null ? '' : chunk;
@@ -37,15 +38,16 @@ try {
 // Patch crypto hashing to detect undefined chunks passed into update()
 try {
   const origCreateHash = crypto.createHash.bind(crypto);
+  let warnedCryptoUpdate = false;
   crypto.createHash = function patchedCreateHash(algorithm, options) {
     const hash = origCreateHash(algorithm, options);
     const origUpdate = hash.update.bind(hash);
     hash.update = function patchedUpdate(data, inputEncoding) {
       if (data === undefined || data === null) {
-        try {
+        if (DEBUG_PATCH && !warnedCryptoUpdate) {
+          warnedCryptoUpdate = true;
           console.error(`[patch-stdio] crypto.update received undefined for algo=${algorithm}`);
-          console.error(new Error('Stacktrace for undefined crypto.update').stack);
-        } catch {}
+        }
         data = '';
       }
       return origUpdate(data, inputEncoding);

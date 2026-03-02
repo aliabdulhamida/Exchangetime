@@ -54,11 +54,12 @@ export default function BlogPage() {
   return (
     <BlogLayout>
       <div className="blog-container">
-        <div className="blog-header">
-          <h1>Exchange Time Blog</h1>
-          <p>
-            Current insights into markets, trading strategies and financial education for informed
-            investment decisions.
+        <div className="blog-header blog-header-minimal">
+          <p className="blog-header-kicker">Exchange Time Blog</p>
+          <h1 className="blog-header-title">Market Insights</h1>
+          <p className="blog-header-subtitle">
+            Actionable market analysis, practical trading strategies, and financial education to
+            help you make smarter long-term investment decisions.
           </p>
         </div>
 

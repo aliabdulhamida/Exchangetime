@@ -1,10 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
+const ALLOWED_INTERVALS = new Set([
+  '1m',
+  '2m',
+  '5m',
+  '15m',
+  '30m',
+  '60m',
+  '90m',
+  '1h',
+  '1d',
+  '5d',
+  '1wk',
+  '1mo',
+  '3mo',
+]);
+const ALLOWED_RANGES = new Set([
+  '1d',
+  '5d',
+  '1mo',
+  '3mo',
+  '6mo',
+  '1y',
+  '2y',
+  '5y',
+  '10y',
+  'ytd',
+  'max',
+]);
+const ALLOWED_EVENTS = new Set(['div', 'split', 'div,splits', 'capitalGain', 'history']);
+
+function normalizeSymbol(raw: string): string | null {
+  const normalized = raw.trim().toUpperCase();
+  if (!normalized || !SYMBOL_PATTERN.test(normalized)) return null;
+  return normalized;
+}
+
+function normalizeUnixParam(raw: string): string {
+  if (!raw) return '';
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return '';
+  return String(Math.floor(parsed));
+}
+
+function normalizeBooleanParam(raw: string): string {
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'true' || normalized === '1') return 'true';
+  if (normalized === 'false' || normalized === '0') return 'false';
+  return '';
+}
+
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const symbol = (url.searchParams.get('symbol') || '').trim().toUpperCase();
-    if (!symbol) return NextResponse.json({ error: 'Missing symbol' }, { status: 400 });
+    const symbol = normalizeSymbol(url.searchParams.get('symbol') || '');
+    if (!symbol) return NextResponse.json({ error: 'Missing or invalid symbol' }, { status: 400 });
 
     // Server-side Yahoo proxy to avoid brittle browser CORS proxies.
     const fetchWithHeaders = (u: string) =>
@@ -22,17 +73,20 @@ export async function GET(req: NextRequest) {
 
     if (wantChart) {
       const chartParams = new URLSearchParams();
-      const interval = (urlParams.get('interval') || '1d').trim();
-      const range = (urlParams.get('range') || '').trim();
-      const period1 = (urlParams.get('period1') || '').trim();
-      const period2 = (urlParams.get('period2') || '').trim();
-      const includePrePost = (urlParams.get('includePrePost') || '').trim();
-      const events = (urlParams.get('events') || '').trim();
+      const intervalRaw = (urlParams.get('interval') || '').trim().toLowerCase();
+      const interval = ALLOWED_INTERVALS.has(intervalRaw) ? intervalRaw : '1d';
+      const rangeRaw = (urlParams.get('range') || '').trim().toLowerCase();
+      const range = ALLOWED_RANGES.has(rangeRaw) ? rangeRaw : '7d';
+      const period1 = normalizeUnixParam((urlParams.get('period1') || '').trim());
+      const period2 = normalizeUnixParam((urlParams.get('period2') || '').trim());
+      const includePrePost = normalizeBooleanParam((urlParams.get('includePrePost') || '').trim());
+      const eventsRaw = (urlParams.get('events') || '').trim();
+      const events = ALLOWED_EVENTS.has(eventsRaw) ? eventsRaw : '';
 
       chartParams.set('interval', interval);
       if (period1) chartParams.set('period1', period1);
       if (period2) chartParams.set('period2', period2);
-      if (!period1 && !period2) chartParams.set('range', range || '7d');
+      if (!period1 && !period2) chartParams.set('range', range);
       if (includePrePost) chartParams.set('includePrePost', includePrePost);
       if (events) chartParams.set('events', events);
 

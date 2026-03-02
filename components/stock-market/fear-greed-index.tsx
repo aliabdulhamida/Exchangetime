@@ -119,52 +119,65 @@ export default function FearGreedIndex() {
         {trend === 'up' && <TrendingUp className="w-3 h-3 text-green-500 ml-1" />}
         {trend === 'down' && <TrendingDown className="w-3 h-3 text-red-500 ml-1" />}
       </div>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <span className="text-lg font-bold">Fear & Greed Index – Explanation</span>
+          <span className="text-xl font-semibold tracking-tight">Fear & Greed Index</span>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A sentiment gauge for market psychology, from panic to exuberance.
+          </p>
         </DialogHeader>
-        <div className="mt-2 text-sm text-gray-700">
-          The <span className="font-semibold">Fear & Greed Index</span> measures the emotions of
-          investors in the stock market. A low value means fear, a high value means greed. The index
-          is based on various market indicators and helps to identify extreme phases.
-          <br />
-          <br />
-          <b>How is the index calculated?</b>
-          <br />
-          The index combines several factors such as market volatility, stock price momentum, put
-          and call options, market volume, and safe haven demand. These components are weighted to
-          reflect the overall sentiment.
-          <br />
-          <br />
-          <b>Why is it useful?</b>
-          <br />
-          The Fear & Greed Index can help investors recognize periods of excessive pessimism or
-          optimism, which often precede market reversals. It is not a direct trading signal, but a
-          tool for better understanding market psychology.
-          <br />
-          <br />
-          <ul className="mt-2 list-disc pl-4">
-            <li>
-              <span className="font-bold text-red-600">Extreme Fear (0-25):</span> Investors are
-              very cautious.
-            </li>
-            <li>
-              <span className="font-bold text-orange-500">Fear (26-45):</span> Predominantly
-              cautious sentiment.
-            </li>
-            <li>
-              <span className="font-bold text-yellow-500">Neutral (46-55):</span> Balanced market
-              sentiment.
-            </li>
-            <li>
-              <span className="font-bold text-green-600">Greed (56-75):</span> Investors are
-              becoming more risk-seeking.
-            </li>
-            <li>
-              <span className="font-bold text-green-700">Extreme Greed (76-100):</span> Very high
-              risk appetite.
-            </li>
-          </ul>
+
+        <div className="mt-4 space-y-4 text-sm">
+          <div className="rounded-xl border border-border bg-card/60 p-4">
+            <p className="text-foreground/90">
+              The <span className="font-semibold text-foreground">Fear & Greed Index</span> tracks
+              investor sentiment. Lower values suggest fear and risk aversion, while higher values
+              indicate optimism and stronger risk appetite.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-border bg-card/40 p-4">
+              <h4 className="mb-1 text-sm font-semibold text-foreground">How It Is Calculated</h4>
+              <p className="text-muted-foreground">
+                The score combines market volatility, momentum, options positioning, volume, and
+                safe-haven demand into one weighted sentiment signal.
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card/40 p-4">
+              <h4 className="mb-1 text-sm font-semibold text-foreground">How To Use It</h4>
+              <p className="text-muted-foreground">
+                It helps spot emotional extremes that can precede reversals. It is context, not a
+                standalone buy or sell signal.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card/40 p-4">
+            <h4 className="mb-3 text-sm font-semibold text-foreground">Sentiment Ranges</h4>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
+                <span className="font-semibold text-red-500">Extreme Fear</span>
+                <span className="text-xs font-medium text-muted-foreground">0-25</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2">
+                <span className="font-semibold text-orange-400">Fear</span>
+                <span className="text-xs font-medium text-muted-foreground">26-45</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2">
+                <span className="font-semibold text-yellow-400">Neutral</span>
+                <span className="text-xs font-medium text-muted-foreground">46-55</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2">
+                <span className="font-semibold text-green-500">Greed</span>
+                <span className="text-xs font-medium text-muted-foreground">56-75</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                <span className="font-semibold text-emerald-500">Extreme Greed</span>
+                <span className="text-xs font-medium text-muted-foreground">76-100</span>
+              </div>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

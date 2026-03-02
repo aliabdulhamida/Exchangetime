@@ -26,7 +26,7 @@ export default function EarningsCalendar() {
         }
       }
     }
-    return 'border-gray-200 dark:border-neutral-800';
+    return 'border-border';
   }
   // Helper to format EPS to 2 decimal places
   function formatEPS(num: number | null | undefined): string {
@@ -207,95 +207,85 @@ export default function EarningsCalendar() {
   }
 
   return (
-    <div className="rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#1F1F23]">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          Earnings Calendar
-        </h2>
+    <div className="px-1 pb-1 sm:px-2 sm:pb-2">
+      <div className="mb-3 flex items-center justify-between pr-16 sm:mb-4 sm:pr-20">
+        <h2 className="text-base font-semibold text-foreground sm:text-lg">Earnings Calendar</h2>
       </div>
-      {/* Calendar Week centered above Day Selector */}
-      <div className="w-full flex items-center mb-3 relative" style={{ minHeight: '32px' }}>
-        <div className="flex-1 flex justify-center">
-          <h3 className="font-semibold text-gray-900 dark:text-white text-lg text-center">
-            Calendar Week {getISOWeek(selectedDate)}
-          </h3>
+
+      <div className="mb-2 text-center">
+        <h3 className="text-base font-semibold text-foreground sm:text-lg">
+          Calendar Week {getISOWeek(selectedDate)}
+        </h3>
+      </div>
+
+      <div className="mb-4 overflow-x-auto pb-1">
+        <div className="mx-auto flex w-max gap-2 px-1 sm:gap-3">
+          {weekDates.map((date, idx) => {
+            const isSelected = selectedDayIdx === idx;
+            return (
+              <button
+                key={date.toISOString()}
+                onClick={() => setSelectedDayIdx(idx)}
+                className={`flex min-w-[42px] flex-col items-center justify-center rounded-md border px-2 py-1.5 text-sm font-semibold transition-all duration-150 sm:min-w-[46px]
+                    ${isSelected ? 'scale-[1.02] border-white text-white shadow-[0_0_0_1px_rgba(255,255,255,0.14)]' : 'border-border text-foreground hover:bg-muted/40'}`}
+              >
+                <span className="text-base font-bold">{date.getDate()}</span>
+                <span className="mt-0.5 text-[11px] font-medium">
+                  {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
-      {/* Day Selector */}
-      <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
-        <div className="w-full max-w-full overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 flex justify-center py-2">
-          <div className="flex gap-4 min-w-max px-2 justify-center">
-            {weekDates.map((date, idx) => {
-              const isSelected = selectedDayIdx === idx;
-              return (
-                <button
-                  key={date.toISOString()}
-                  onClick={() => setSelectedDayIdx(idx)}
-                  className={`flex flex-col items-center justify-center min-w-[44px] px-2 py-1.5 rounded-md border transition-all duration-150
-                      ${isSelected ? 'text-black dark:text-white border-gray-900 dark:border-white shadow-lg scale-105' : 'text-black dark:text-white border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-[#232329]'}
-                      font-semibold text-sm`}
-                  style={{ boxShadow: isSelected ? '0 4px 16px rgba(0,0,0,0.12)' : undefined }}
-                >
-                  <span className="text-base font-bold">{date.getDate()}</span>
-                  <span className="text-[11px] font-medium mt-0.5">
-                    {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      {/* Earnings List für ausgewählten Tag */}
-      <div className="pl-4">
-        {/* Filter hamburger menu and company count above cards section */}
-        <div className="flex items-center justify-between -mt-2 mb-2">
-          {/* Hamburger menu and reload button */}
+
+      <div className="space-y-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="relative flex items-center gap-2">
             <button
-              className="flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-black hover:bg-gray-100 dark:hover:bg-black transition-all duration-150 shadow-sm"
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-transparent transition-all duration-150 hover:bg-muted/40"
               onClick={() => setFilterOpen((v) => !v)}
               aria-label="Filter key metrics"
             >
-              <Menu className="w-5 h-5 text-gray-700 dark:text-white" />
+              <Menu className="h-5 w-5 text-foreground" />
             </button>
             <button
               onClick={fetchEarnings}
-              className="h-7 w-7 p-0 flex items-center justify-center text-gray-400 hover:text-teal-600 transition-colors"
+              className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
               title="Reload earnings data"
               aria-label="Reload earnings data"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="h-4 w-4" />
             </button>
             {filterOpen && (
-              <div className="absolute left-0 mt-2 z-10 bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 min-w-[240px] animate-fade-in">
-                <div className="mb-3 flex items-center gap-2 text-base font-bold text-gray-900 dark:text-white">
-                  <Filter className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <div className="animate-fade-in absolute left-0 top-full z-20 mt-2 w-[min(92vw,260px)] rounded-lg border border-border bg-card p-4 shadow-lg">
+                <div className="mb-3 flex items-center gap-2 text-base font-semibold text-foreground">
+                  <Filter className="h-4 w-4 text-foreground" />
                   <button
-                    className="ml-auto p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                    className="ml-auto rounded p-1 hover:bg-muted"
                     onClick={() => setFilterOpen(false)}
                     aria-label="Close filter"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <BarChart2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <BarChart2 className="h-4 w-4 text-muted-foreground" />
                     <input
                       type="text"
-                      className="flex-1 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#232329] text-xs"
+                      className="h-8 flex-1 rounded border border-border bg-transparent px-2 text-xs"
                       value={filters.ticker}
                       onChange={(e) => setFilters((f) => ({ ...f, ticker: e.target.value }))}
                       placeholder="Ticker"
                     />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    <div className="flex gap-2 items-center">
+                  <div className="flex items-start gap-2">
+                    <Clock className="mt-1 h-4 w-4 text-muted-foreground" />
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors duration-150 focus:outline-none ${filters.marketCap === 'bmo' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-[#232329] text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                        className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors duration-150 focus:outline-none ${filters.marketCap === 'bmo' ? 'border-white bg-white text-black' : 'border-border bg-transparent text-foreground hover:bg-muted/40'}`}
                         onClick={() =>
                           setFilters((f) => ({
                             ...f,
@@ -308,7 +298,7 @@ export default function EarningsCalendar() {
                       </button>
                       <button
                         type="button"
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors duration-150 focus:outline-none ${filters.marketCap === 'amc' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-[#232329] text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                        className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors duration-150 focus:outline-none ${filters.marketCap === 'amc' ? 'border-white bg-white text-black' : 'border-border bg-transparent text-foreground hover:bg-muted/40'}`}
                         onClick={() =>
                           setFilters((f) => ({
                             ...f,
@@ -322,9 +312,9 @@ export default function EarningsCalendar() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <BarChart2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <BarChart2 className="h-4 w-4 text-muted-foreground" />
                     <select
-                      className="flex-1 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#232329] text-xs"
+                      className="h-8 flex-1 rounded border border-border bg-transparent px-2 text-xs"
                       value={filters.epsForecast}
                       onChange={(e) => setFilters((f) => ({ ...f, epsForecast: e.target.value }))}
                     >
@@ -336,15 +326,15 @@ export default function EarningsCalendar() {
                     </select>
                   </div>
                 </div>
-                <div className="flex justify-between mt-4 gap-2">
+                <div className="mt-4 flex justify-between gap-2">
                   <button
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600"
+                    className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-foreground hover:bg-muted/40"
                     onClick={() => setFilters({ marketCap: '', ticker: '', epsForecast: '' })}
                   >
-                    <X className="w-3 h-3" /> Reset
+                    <X className="h-3 w-3" /> Reset
                   </button>
                   <button
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-teal-600 text-white hover:bg-teal-700"
+                    className="rounded border border-white bg-white px-2 py-1 text-xs text-black"
                     onClick={() => setFilterOpen(false)}
                   >
                     Apply
@@ -353,14 +343,15 @@ export default function EarningsCalendar() {
               </div>
             )}
           </div>
-          {/* Company count */}
+
           <span
-            className="text-gray-900 dark:text-white text-xs font-bold rounded-full px-2 py-0.5"
+            className="rounded-full px-2 py-0.5 text-xs font-semibold text-foreground"
             title="Number of companies reporting"
           >
             {filteredItems.length} reporting
           </span>
         </div>
+
         <style jsx>{`
           @keyframes fade-in {
             from {
@@ -376,30 +367,29 @@ export default function EarningsCalendar() {
             animation: fade-in 0.2s ease;
           }
         `}</style>
-        {/* Datum entfernt */}
+
         {filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-[60px] text-sm text-gray-400">
-            <CalendarX className="w-5 h-5 mb-1" />
+          <div className="flex min-h-[80px] flex-1 flex-col items-center justify-center text-sm text-muted-foreground">
+            <CalendarX className="mb-1 h-5 w-5" />
             <span className="block text-center">No earnings scheduled.</span>
           </div>
         ) : (
-          <div className="max-h-[420px] overflow-y-auto space-y-3 px-4 md:px-8 rounded-lg scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+          <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1 sm:pr-2">
             {filteredItems.map((item: any, idx: number) => (
               <div
                 key={idx}
-                className={`border ${getBorderColor(item)} rounded-lg px-4 py-4 flex flex-col items-center justify-center shadow hover:shadow-md transition-shadow duration-200 min-h-[120px] md:min-h-[150px] w-full`}
+                className={`w-full rounded-lg border ${getBorderColor(item)} px-3 py-3 transition-shadow duration-200 hover:shadow-md sm:px-4 sm:py-4`}
                 style={{ height: 'auto' }}
               >
-                {/* Symbol and Market Time */}
-                <div className="flex flex-col items-center w-full mb-2">
-                  <span className="text-2xl font-extrabold text-white tracking-wide leading-tight">
+                <div className="mb-2 flex flex-col items-center">
+                  <span className="text-xl font-bold leading-tight tracking-wide text-foreground sm:text-2xl">
                     {item.symbol || '–'}
                   </span>
                   {(() => {
                     const hourLabel = formatHour(item.hour);
                     if (hourLabel === 'After Market' || hourLabel === 'Pre Market') {
                       return (
-                        <span className="text-white text-sm font-semibold leading-tight mt-1">
+                        <span className="mt-1 text-xs font-semibold leading-tight text-muted-foreground sm:text-sm">
                           {hourLabel}
                         </span>
                       );
@@ -407,34 +397,32 @@ export default function EarningsCalendar() {
                     return null;
                   })()}
                 </div>
-                {/* ...removed quarter and year display... */}
-                {/* EPS and Revenue Info */}
-                <div className="grid grid-cols-2 gap-4 w-full">
+                <div className="grid w-full grid-cols-2 gap-3 sm:gap-4">
                   <div className="flex flex-col items-center">
-                    <span className="text-gray-700 dark:text-neutral-400 text-xs font-bold mb-1">
+                    <span className="mb-1 text-xs font-semibold text-muted-foreground">
                       EPS Estimate
                     </span>
-                    <span className="text-black dark:text-white font-extrabold text-base mb-2">
+                    <span className="mb-2 text-base font-bold text-foreground">
                       {formatEPS(item.epsEstimate)}
                     </span>
-                    <span className="text-gray-700 dark:text-neutral-400 text-xs font-bold mb-1">
+                    <span className="mb-1 text-xs font-semibold text-muted-foreground">
                       EPS Actual
                     </span>
-                    <span className="text-black dark:text-white font-extrabold text-base">
+                    <span className="text-base font-bold text-foreground">
                       {formatEPS(item.epsActual)}
                     </span>
                   </div>
                   <div className="flex flex-col items-center">
-                    <span className="text-gray-700 dark:text-neutral-400 text-xs font-bold mb-1">
+                    <span className="mb-1 text-xs font-semibold text-muted-foreground">
                       Revenue Estimate
                     </span>
-                    <span className="text-black dark:text-white font-extrabold text-base mb-2">
+                    <span className="mb-2 text-base font-bold text-foreground">
                       {formatNumber(item.revenueEstimate)}
                     </span>
-                    <span className="text-gray-700 dark:text-neutral-400 text-xs font-bold mb-1">
+                    <span className="mb-1 text-xs font-semibold text-muted-foreground">
                       Revenue Actual
                     </span>
-                    <span className="text-black dark:text-white font-extrabold text-base">
+                    <span className="text-base font-bold text-foreground">
                       {formatNumber(item.revenueActual)}
                     </span>
                   </div>

@@ -1,19 +1,19 @@
 'use client';
 
-import { Info, RotateCcw } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { useMemo, useState, type InputHTMLAttributes } from 'react';
 import type React from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-// Charts removed per request
 
 type FilingStatus = 'single' | 'married';
 type Country = 'USA' | 'Germany';
+type DeTaxClass = 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI';
 
 // DTA country presets for dividends (German calculator)
 type DeDtaCountry =
@@ -48,13 +48,20 @@ function Segmented({
   value,
   onChange,
   options,
+  fullWidth = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: { label: string; value: string }[];
+  fullWidth?: boolean;
 }) {
   return (
-    <div className="inline-flex items-center rounded-md border border-input bg-background p-0.5">
+    <div
+      className={
+        'inline-flex items-center rounded-md border border-input bg-background p-0.5 ' +
+        (fullWidth ? 'w-full' : '')
+      }
+    >
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -64,6 +71,8 @@ function Segmented({
             onClick={() => onChange(opt.value)}
             className={
               'px-2 py-1 text-xs rounded-md transition-colors ' +
+              (fullWidth ? 'flex-1 text-center' : '') +
+              ' ' +
               (active
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'text-foreground hover:bg-muted')
@@ -245,37 +254,42 @@ function usaLTCGTax(ltcg: number, status: FilingStatus, taxableOrdinary: number)
   return tax + Math.max(0, remaining) * thresholds[thresholds.length - 1].rate;
 }
 
-// --- Germany (simplified) ---
-// Capital income flat tax: 25% + 5.5% Solidaritätszuschlag on that tax + optional church tax 8% or 9% on that tax.
+// --- Germany (updated to 2026 legal parameters where available) ---
+// Capital income withholding (Abgeltungsteuer):
+// Base rate is reduced when church tax applies (deductibility effect), then Soli/church apply to that base.
 function deCapitalIncomeTaxBase(amount: number, allowance: number) {
   return Math.max(0, amount - Math.max(0, allowance));
 }
 
 function deCapitalTax(amountAfterAllowance: number, churchTaxPct: 0 | 8 | 9) {
   if (amountAfterAllowance <= 0) return 0;
-  const baseTax = amountAfterAllowance * 0.25;
+  const churchRate = churchTaxPct / 100;
+  const baseRate = churchRate > 0 ? 0.25 / (1 + churchRate * 0.25) : 0.25;
+  const baseTax = amountAfterAllowance * baseRate;
   const soli = baseTax * 0.055;
-  const church = baseTax * (churchTaxPct / 100);
+  const church = baseTax * churchRate;
   return baseTax + soli + church;
 }
 
-// §32a EStG 2025 Grundtarif (exact, rounded down to full euro). Splittingtarif via x/2 * 2.
-function deIncomeTax2025(zvE: number, status: FilingStatus) {
+// §32a EStG (VZ 2026) Grundtarif; Splittingtarif via x/2 * 2.
+const DE_BASIC_ALLOWANCE_2026 = 12348;
+
+function deIncomeTax2026(zvE: number, status: FilingStatus) {
   const grundtarif = (x: number) => {
     const X = Math.max(0, Math.floor(x)); // zvE rounded down to full €
-    const y = (X - 12096) / 10000;
-    const z = (X - 17443) / 10000;
+    const y = (X - 12348) / 10000;
+    const z = (X - 17799) / 10000;
     let est = 0;
-    if (X <= 12096) {
+    if (X <= 12348) {
       est = 0;
-    } else if (X <= 17443) {
-      est = (932.3 * y + 1400) * y;
-    } else if (X <= 68480) {
-      est = (176.64 * z + 2397) * z + 1015.13;
+    } else if (X <= 17799) {
+      est = (914.51 * y + 1400) * y;
+    } else if (X <= 69878) {
+      est = (173.1 * z + 2397) * z + 1034.87;
     } else if (X <= 277825) {
-      est = 0.42 * X - 10911.92;
+      est = 0.42 * X - 11135.63;
     } else {
-      est = 0.45 * X - 19246.67;
+      est = 0.45 * X - 19470.38;
     }
     return Math.max(0, Math.floor(est)); // tax rounded down to full €
   };
@@ -285,9 +299,9 @@ function deIncomeTax2025(zvE: number, status: FilingStatus) {
   return grundtarif(zvE);
 }
 
-// Solidaritätszuschlag 2025 with Freigrenze + Gleitzone (based on income tax amount, not including church tax)
-function deSoliOnIncomeTax2025(incomeTaxAmount: number, status: FilingStatus) {
-  const F = status === 'married' ? 39900 : 19950; // Freigrenze (ESt-Betrag)
+// Soli with Freigrenze + Milderungszone (SolzG §3, current thresholds)
+function deSoliOnIncomeTax2026(incomeTaxAmount: number, status: FilingStatus) {
+  const F = status === 'married' ? 40700 : 20350; // Freigrenze (ESt-Betrag)
   const E = Math.max(0, incomeTaxAmount);
   if (E <= F) return 0;
   const cap = 0.119 * (E - F);
@@ -297,28 +311,26 @@ function deSoliOnIncomeTax2025(incomeTaxAmount: number, status: FilingStatus) {
 
 // Payroll withholding approximation by Steuerklasse
 // Note: This is an approximation for monthly Lohnsteuer following the logic of §39b EStG in broad strokes.
-// We annualize salary and compute using deIncomeTax2025 with status depending on class rules, then de-annualize monthly withholding.
+// We annualize salary and compute using deIncomeTax2026 with status depending on class rules, then de-annualize monthly withholding.
 function dePayrollWithholdingByClass(
   annualSalary: number,
   taxClass: 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI',
   opts: {
-    spouseAnnualSalary?: number;
     childrenCount?: number; // used to suppress PV childless surcharge and class II relief approximation
   },
 ) {
   const income = Math.max(0, annualSalary);
-  const spouse = Math.max(0, opts.spouseAnnualSalary ?? 0);
   const kids = Math.max(0, Math.floor(opts.childrenCount ?? 0));
 
   // Basic class handling
-  // - I/IV: taxed as single for withholding; IV for married spouse working
-  // - II: like I but include a small fixed relief (Entlastungsbetrag) approximation per year
-  // - III/V: split combined income with advantage to III
-  // - VI: higher withholding (second job) – approximate with a 10% surcharge on computed ESt
+  // - I/IV: taxed as single for withholding
+  // - II: like I with Entlastungsbetrag for single parents
+  // - III: approximate splitting effect (double basic allowance) via married tariff on own taxable wage
+  // - V/VI: no basic allowance in withholding, approximated via taxable-income uplift
 
-  // Helper: compute annual tax via deIncomeTax2025 given a zvE approx; we exclude allowances here
+  // Helper: compute annual tax via deIncomeTax2026 given a zvE approx; we exclude allowances here
   const computeAnnualESt = (zve: number, filing: FilingStatus) =>
-    deIncomeTax2025(Math.max(0, zve), filing);
+    deIncomeTax2026(Math.max(0, zve), filing);
 
   let annualESt = 0;
   let filingForSoli: FilingStatus = 'single';
@@ -330,49 +342,36 @@ function dePayrollWithholdingByClass(
       break;
     case 'II': {
       filingForSoli = 'single';
-      const relief = 4260; // 2025 Entlastungsbetrag (approx) for single parents
-      annualESt = Math.max(0, computeAnnualESt(income, 'single') - Math.floor(relief));
+      const relief = 4260 + Math.max(0, kids - 1) * 240; // §24b EStG
+      annualESt = Math.max(0, computeAnnualESt(Math.max(0, income - relief), 'single'));
       break;
     }
     case 'IV':
-      filingForSoli = 'married';
-      // Withholding like married with no splitting advantage per person (approx)
-      // We compute tax on each spouse income and sum (both class IV); here we approximate using this person's income only
+      filingForSoli = 'single'; // Soli thresholds for class IV follow non-class-III limits
       annualESt = computeAnnualESt(income, 'single');
       break;
-    case 'III': {
+    case 'III':
       filingForSoli = 'married';
-      // Favorable splitting: tax on combined income with splitting method, allocate majority to class III holder
-      const combined = income + spouse;
-      const totalTax = computeAnnualESt(combined, 'married');
-      // Allocate by income share, but skew 60/40 to III/V for realism
-      const share = combined > 0 ? income / combined : 1;
-      const skewed = Math.min(1, Math.max(0, 0.6 + 0.4 * share));
-      annualESt = totalTax * skewed;
+      annualESt = computeAnnualESt(income, 'married');
       break;
-    }
-    case 'V': {
-      filingForSoli = 'married';
-      const combined = income + spouse;
-      const totalTax = computeAnnualESt(combined, 'married');
-      const share = combined > 0 ? income / combined : 0;
-      const skewed = Math.max(0, Math.min(1, 0.4 * share));
-      annualESt = totalTax * skewed;
+    case 'V':
+      filingForSoli = 'single'; // Soli thresholds for class V follow non-class-III limits
+      annualESt = computeAnnualESt(income + DE_BASIC_ALLOWANCE_2026, 'single');
       break;
-    }
     case 'VI':
       filingForSoli = 'single';
-      annualESt = Math.floor(computeAnnualESt(income, 'single') * 1.1);
+      annualESt = computeAnnualESt(income + DE_BASIC_ALLOWANCE_2026 * 1.25, 'single');
       break;
   }
 
-  const soli = deSoliOnIncomeTax2025(annualESt, filingForSoli);
+  const soli = deSoliOnIncomeTax2026(annualESt, filingForSoli);
   return { annualESt, annualSoli: soli, filingForSoli };
 }
 
 export default function TaxCalculator() {
   const [country, setCountry] = useState<Country>('USA');
   const [status, setStatus] = useState<FilingStatus>('single');
+  const [inputMode, setInputMode] = useState<'simple' | 'advanced'>('simple');
 
   // Common inputs
   const [salaryIncome, setSalaryIncome] = useState(80000);
@@ -405,12 +404,12 @@ export default function TaxCalculator() {
   const [usAMTAdjustments, setUsAMTAdjustments] = useState(0);
   const [usAMTExemption, setUsAMTExemption] = useState(0);
   const [usAMTRate, setUsAMTRate] = useState<'26' | '28'>('26');
+  const [usSpouseSalary, setUsSpouseSalary] = useState(0);
 
   // Germany specific
   const [deAllowance, setDeAllowance] = useState(() => (status === 'single' ? 1000 : 2000)); // Sparer-Pauschbetrag
   const [deChurchTaxPct, setDeChurchTaxPct] = useState<0 | 8 | 9>(0);
   // Germany: Steuerklasse (payroll withholding class)
-  type DeTaxClass = 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI';
   const [deTaxClass, setDeTaxClass] = useState<DeTaxClass>(() =>
     status === 'married' ? 'IV' : 'I',
   );
@@ -440,16 +439,19 @@ export default function TaxCalculator() {
     0 | 15 | 30 | 60 | 80
   >(30);
   // Always include income Soli and use payroll-style calculations (constants; employer pays ~half)
-  // Social insurance rates (totals); employee share ≈ half. PV childless surcharge paid by employee.
-  const deRvTotalPct = 18.6; // pension total
-  const deAlvTotalPct = 2.6; // unemployment total
-  const deKvTotalPct = 17.1; // health total (incl. Zusatzbeitrag avg.)
-  const dePvTotalPct = 4.2; // long-term care total
-  const dePvChildlessSurchargePct = 0.3; // employee-only surcharge
-  // Simple BBGs (only apply if salary exceeds; for 55k they don’t bind, so defaults are fine)
-  const DE_RV_BBG = 90600;
-  const DE_ALV_BBG = 90600;
-  const DE_KV_PV_BBG = 62100;
+  // Social insurance rates (2026 assumptions based on current legal values/announcements):
+  // RV 18.6%, ALV 2.6%, KV 14.6% + avg Zusatz 2.9% => 17.5%, PV base 3.6%.
+  const deRvTotalPct = 18.6;
+  const deAlvTotalPct = 2.6;
+  const deKvTotalPct = 17.5;
+  const dePvBaseTotalPct = 3.6;
+  const dePvChildlessSurchargePct = 0.6; // employee-only surcharge (SGB XI §55 Abs. 3)
+  const dePvPerAdditionalChildDiscountPct = 0.25; // from 2nd to 5th child (SGB XI §55 Abs. 3)
+  const dePvMaxDiscountChildren = 4;
+  // BBGs 2026: RV/ALV 101,400; KV/PV linked to JAEG §6(7) SGB V = 69,750.
+  const DE_RV_BBG = 101400;
+  const DE_ALV_BBG = 101400;
+  const DE_KV_PV_BBG = 69750;
   // Basic allowances in payroll approx
   const deWerbungskostenPauschale = 1230;
   const deSonderausgabenPauschbetrag = 36;
@@ -457,12 +459,25 @@ export default function TaxCalculator() {
   // Keep deductions/allowances in sync with filing status when country changes filing context
   function onStatusChange(next: FilingStatus) {
     setStatus(next);
-    if (country === 'USA') setUsStandardDeduction(getUsStandardDeduction(next));
-    if (country === 'Germany') setDeAllowance(next === 'single' ? 1000 : 2000);
-    if (country === 'Germany') setDeTaxClass(next === 'married' ? 'IV' : 'I');
+    setUsStandardDeduction(getUsStandardDeduction(next));
+    setDeAllowance(next === 'single' ? 1000 : 2000);
+    setDeTaxClass(next === 'married' ? 'IV' : 'I');
   }
 
   const result = useMemo(() => {
+    const effectiveUsStandardDeduction =
+      inputMode === 'simple' ? getUsStandardDeduction(status) : usStandardDeduction;
+    const effectiveUsExtraSDAmount = inputMode === 'simple' ? 0 : usExtraSDAmount;
+    const effectiveUsItemizedDeductions = inputMode === 'simple' ? 0 : usItemizedDeductions;
+    const effectiveIncludeNIIT = inputMode === 'advanced' && includeNIIT;
+    const effectiveUsQBIEnabled = inputMode === 'advanced' && usQBIEnabled;
+    const effectiveUsAMTEnabled = inputMode === 'advanced' && usAMTEnabled;
+
+    const effectiveDeTaxClass: DeTaxClass = deTaxClass;
+    const effectiveDtaMode = inputMode === 'simple' ? 'simple' : deDtaMode;
+    const effectivePayrollPrecision = inputMode === 'simple' ? 'simple' : dePayrollPrecision;
+    const effectiveVorabEnabled = inputMode === 'simple' ? false : deVorabEnabled;
+
     // Aggregate capital income inputs handled per-country; Vorabpauschale may augment capital income in Germany
     // Vorabpauschale (optional)
     let vorab: null | {
@@ -478,7 +493,7 @@ export default function TaxCalculator() {
       taxable: number;
     } = null;
 
-    if (deVorabEnabled && deVorabStartValue > 0) {
+    if (effectiveVorabEnabled && deVorabStartValue > 0) {
       const months = Math.min(12, Math.max(0, Math.floor(deVorabMonthsEligible)));
       const basiszins = Math.max(0, deVorabBasiszinsPct) / 100;
       const basisertrag = deVorabStartValue * basiszins * 0.7 * (months / 12);
@@ -509,7 +524,9 @@ export default function TaxCalculator() {
     const capIncomeTotal = baseCapIncome + (vorab?.taxable || 0);
 
     if (country === 'USA') {
-      const wages = Math.max(0, salaryIncome);
+      const primaryWages = Math.max(0, salaryIncome);
+      const spouseWages = status === 'married' ? Math.max(0, usSpouseSalary) : 0;
+      const wages = primaryWages + spouseWages;
       const interest = Math.max(0, interestIncome);
       const div = Math.max(0, dividends);
       const cap = capitalGains; // allow negative for loss handling
@@ -518,7 +535,7 @@ export default function TaxCalculator() {
       const stGains = !holdingPeriodLong ? Math.max(0, cap) : 0;
       const ltGains = holdingPeriodLong ? Math.max(0, cap) : 0;
       const capLoss = cap < 0 ? -cap : 0; // absolute value of loss if any
-      const capLossOrdinaryOffsetLimit = status === 'married' ? 3000 : 3000; // MFJ & Single/HoH: $3,000
+      const capLossOrdinaryOffsetLimit = 3000; // MFJ & Single/HoH: $3,000
       const capLossOrdinaryOffset = Math.min(capLoss, capLossOrdinaryOffsetLimit);
 
       const ordinaryBase = wages + interest + (qualifiedDividends ? 0 : div) + stGains;
@@ -530,9 +547,10 @@ export default function TaxCalculator() {
       const prefIncome = (qualifiedDividends ? div : 0) + ltGains;
 
       // Deductions: higher of (standard + extra SD) vs. itemized
-      const SD = Math.max(0, usStandardDeduction + Math.max(0, usExtraSDAmount));
-      const itemized = Math.max(0, usItemizedDeductions);
+      const SD = Math.max(0, effectiveUsStandardDeduction + Math.max(0, effectiveUsExtraSDAmount));
+      const itemized = Math.max(0, effectiveUsItemizedDeductions);
       const deduction = Math.max(SD, itemized);
+      const deductionType = itemized > SD ? 'itemized' : 'standard';
 
       // Allocate deduction: first to ordinary, leftover to preferential
       const shelteredOrdinary = Math.min(ordinaryAfterAdj, deduction);
@@ -540,7 +558,7 @@ export default function TaxCalculator() {
       const taxableOrdinaryBeforeQBI = Math.max(0, ordinaryAfterAdj - deduction);
       // QBI (199A) estimator: 20% of min(QBI income, taxable ordinary pre-QBI); ignores wage/property limits and phaseouts
       const qbiDeduction =
-        usQBIEnabled && usQBIIncome > 0
+        effectiveUsQBIEnabled && usQBIIncome > 0
           ? Math.max(0, Math.min(0.2 * usQBIIncome, 0.2 * taxableOrdinaryBeforeQBI))
           : 0;
       const taxableOrdinary = Math.max(0, taxableOrdinaryBeforeQBI - qbiDeduction);
@@ -552,7 +570,7 @@ export default function TaxCalculator() {
 
       // NIIT 3.8%: lesser of NII vs MAGI excess above threshold
       let niit = 0;
-      if (includeNIIT) {
+      if (effectiveIncludeNIIT) {
         const niitThreshold = status === 'married' ? 250000 : 200000; // MFJ vs Single/HoH
         const MAGIapprox = wages + interest + div + Math.max(0, cap);
         const netInvestmentIncome = interest + div + stGains + ltGains; // NII cannot be negative
@@ -567,7 +585,9 @@ export default function TaxCalculator() {
 
       // Payroll taxes (FICA)
       const SSA_WAGE_BASE_2025 = 176100;
-      const ssTax = Math.min(wages, SSA_WAGE_BASE_2025) * 0.062;
+      const ssTaxPrimary = Math.min(primaryWages, SSA_WAGE_BASE_2025) * 0.062;
+      const ssTaxSpouse = Math.min(spouseWages, SSA_WAGE_BASE_2025) * 0.062;
+      const ssTax = ssTaxPrimary + ssTaxSpouse;
       const addlMedicareThreshold = status === 'married' ? 250000 : 200000; // Single/HoH $200k
       const medicareBase = wages * 0.0145;
       const medicareAddl = Math.max(0, wages - addlMedicareThreshold) * 0.009;
@@ -575,7 +595,7 @@ export default function TaxCalculator() {
 
       // AMT estimator: tentative minimum tax less regular federal (if positive)
       let amtTopUp = 0;
-      if (usAMTEnabled) {
+      if (effectiveUsAMTEnabled) {
         const amti = taxableOrdinary + taxablePref + Math.max(0, usAMTAdjustments);
         const amtEx = Math.max(0, usAMTExemption);
         const amtBase = Math.max(0, amti - amtEx);
@@ -589,6 +609,10 @@ export default function TaxCalculator() {
         federalOrdinaryTax + federalLTCGTax + stateTax + niit + payrollTax + amtTopUp;
       const totalIncome = wages + interest + div + Math.max(0, cap);
       const effectiveRate = totalIncome > 0 ? totalTax / totalIncome : 0;
+      const annualNet = Math.max(0, totalIncome - totalTax);
+      const monthlyNet = annualNet / 12;
+      const investmentGrossAnnual = interest + div + Math.max(0, cap);
+      const investmentAfterTaxAnnual = Math.max(0, investmentGrossAnnual - federalLTCGTax);
 
       return {
         locale: 'en-US' as const,
@@ -597,12 +621,21 @@ export default function TaxCalculator() {
         capitalTax: federalLTCGTax,
         totalTax,
         effectiveRate,
+        totalIncome,
+        annualNet,
+        monthlyNet,
+        salaryGrossAnnual: wages,
+        investmentGrossAnnual,
+        investmentAfterTaxAnnual,
         _details: {
+          wagesPrimary: primaryWages,
+          wagesSpouse: spouseWages,
           ordinaryIncome: ordinaryBase,
           prefIncome,
           standardDeduction: SD,
           itemizedDeductions: itemized,
           deductionUsed: deduction,
+          deductionType,
           taxableOrdinary,
           taxablePref,
           federalOrdinaryTax,
@@ -610,8 +643,8 @@ export default function TaxCalculator() {
           stateTax,
           niit,
           capLossOrdinaryOffset,
-          qbi: usQBIEnabled ? { income: usQBIIncome, deduction: qbiDeduction } : undefined,
-          amt: usAMTEnabled
+          qbi: effectiveUsQBIEnabled ? { income: usQBIIncome, deduction: qbiDeduction } : undefined,
+          amt: effectiveUsAMTEnabled
             ? {
                 adjustments: usAMTAdjustments,
                 exemption: usAMTExemption,
@@ -621,7 +654,10 @@ export default function TaxCalculator() {
             : undefined,
           payroll: usIncludePayroll
             ? {
+                wagesTotal: wages,
                 ss: ssTax,
+                ssPrimary: ssTaxPrimary,
+                ssSpouse: ssTaxSpouse,
                 medicare: medicareBase,
                 medicareAddl: medicareAddl,
                 total: payrollTax,
@@ -657,11 +693,20 @@ export default function TaxCalculator() {
       const rvRate = deRvTotalPct / 2 / 100;
       const alvRate = deAlvTotalPct / 2 / 100;
       const kvRate = deKvTotalPct / 2 / 100;
-      // PV childless surcharge applies only if no children
-      // Saxony: employee PV share is approx. +0.5 percentage points vs the employer
-      const pvEmployeeSharePct = dePvTotalPct / 2 + (deResidenceSaxony ? 0.5 : 0);
-      const pvRate =
-        pvEmployeeSharePct / 100 + (deChildrenCount > 0 ? 0 : dePvChildlessSurchargePct / 100);
+      // PV employee share:
+      // - Base split: half of total, with +0.5 pp employee shift in Saxony
+      // - Childless surcharge: +0.6 pp
+      // - Child relief: -0.25 pp per additional child (2nd..5th)
+      const pvEmployeeBasePct = dePvBaseTotalPct / 2 + (deResidenceSaxony ? 0.5 : 0);
+      const pvChildlessAddPct = deChildrenCount > 0 ? 0 : dePvChildlessSurchargePct;
+      const pvAdditionalChildDiscountPct =
+        Math.min(dePvMaxDiscountChildren, Math.max(0, deChildrenCount - 1)) *
+        dePvPerAdditionalChildDiscountPct;
+      const pvEmployeeSharePct = Math.max(
+        0,
+        pvEmployeeBasePct + pvChildlessAddPct - pvAdditionalChildDiscountPct,
+      );
+      const pvRate = pvEmployeeSharePct / 100;
 
       const rv = Math.min(salaryIncome, DE_RV_BBG) * rvRate;
       const alv = Math.min(salaryIncome, DE_ALV_BBG) * alvRate;
@@ -681,7 +726,7 @@ export default function TaxCalculator() {
       const kvBaseRate = 7.3; // % half of 14.6% base rate
       const kvZusatzHalf = Math.max(0, deKvTotalPct - 14.6) / 2; // total extra split in half
       const vpKvRate = kvBaseRate + kvZusatzHalf; // %
-      const vpPvRate = dePvTotalPct / 2; // exclude childless surcharge here
+      const vpPvRate = pvEmployeeSharePct; // include childless surcharge / child discounts
       const vpPart2b = (kvPvBase * (vpKvRate + vpPvRate)) / 100;
       const vorsorgePauschale = vpPart1 + Math.max(vpPart2a, vpPart2b);
 
@@ -699,7 +744,7 @@ export default function TaxCalculator() {
         const kvBaseRate2 = 7.3; // %
         const kvZusatzHalf2 = Math.max(0, deKvTotalPct - 14.6) / 2;
         const vpKvRate2 = kvBaseRate2 + kvZusatzHalf2; // %
-        const vpPvRate2 = dePvTotalPct / 2; // exclude childless surcharge
+        const vpPvRate2 = pvEmployeeSharePct; // include childless surcharge / child discounts
         const vpPart2b_2 = (kvPvBase2 * (vpKvRate2 + vpPvRate2)) / 100;
         const vorsorge2 = vpPart1_2 + Math.max(vpPart2a_2, vpPart2b_2);
         const out = Math.max(
@@ -722,20 +767,19 @@ export default function TaxCalculator() {
       );
 
       // Compute income tax via Steuerklasse-based withholding approximation (annualized)
-      // We use zvE as the base for tax function by class; provide spouse salary where relevant
-      const baseWithholding = dePayrollWithholdingByClass(zvE, deTaxClass, {
-        spouseAnnualSalary: deSpouseSalary,
+      // We use zvE as the base for class-specific withholding behavior.
+      const baseWithholding = dePayrollWithholdingByClass(zvE, effectiveDeTaxClass, {
         childrenCount: deChildrenCount,
       });
       // Optional detailed mode: IV/IV mit Faktor – auto or manual factor scaling
       let eSt = baseWithholding.annualESt;
       let soliOnIncome = baseWithholding.annualSoli;
       let usedFaktor: number | null = null;
-      if (dePayrollPrecision === 'detailed' && deTaxClass === 'IV') {
+      if (effectivePayrollPrecision === 'detailed' && effectiveDeTaxClass === 'IV') {
         if (deIVFaktorAuto && deSpouseSalary > 0) {
           const zvE_spouse = approxZveFromSalary(deSpouseSalary);
-          const estMarried = deIncomeTax2025(zvE + zvE_spouse, 'married');
-          const estSingles = deIncomeTax2025(zvE, 'single') + deIncomeTax2025(zvE_spouse, 'single');
+          const estMarried = deIncomeTax2026(zvE + zvE_spouse, 'married');
+          const estSingles = deIncomeTax2026(zvE, 'single') + deIncomeTax2026(zvE_spouse, 'single');
           const f = estSingles > 0 ? estMarried / estSingles : 1.0;
           usedFaktor = Math.min(2, Math.max(0.1, f));
         } else if (Number.isFinite(deIVFaktor) && deIVFaktor > 0) {
@@ -743,7 +787,7 @@ export default function TaxCalculator() {
         }
         if (usedFaktor && usedFaktor > 0) {
           eSt = Math.max(0, baseWithholding.annualESt * usedFaktor);
-          soliOnIncome = deSoliOnIncomeTax2025(eSt, baseWithholding.filingForSoli);
+          soliOnIncome = deSoliOnIncomeTax2026(eSt, baseWithholding.filingForSoli);
         }
         usedFaktorForDetails = usedFaktor ?? deIVFaktor;
       }
@@ -761,7 +805,9 @@ export default function TaxCalculator() {
       const foreignPortion = Math.min(Math.max(0, deForeignDividends), capAfterAllowance);
       // Determine rates based on mode
       const { whtPct, capPct } =
-        deDtaMode === 'simple' ? { whtPct: 15, capPct: 15 } : DTA_COUNTRY_RATES[deDtaCountry];
+        effectiveDtaMode === 'simple'
+          ? { whtPct: 15, capPct: 15 }
+          : DTA_COUNTRY_RATES[deDtaCountry];
       const treatyCap = Math.max(0, Math.min(30, capPct)) / 100;
       const withheld = Math.max(0, Math.min(35, whtPct)) / 100;
       const baseTaxOnForeign = foreignPortion * 0.25; // only the 25% base is creditable
@@ -769,9 +815,14 @@ export default function TaxCalculator() {
       const credit = Math.min(baseTaxOnForeign * withheld, creditCap);
       capTax = Math.max(0, capTax - credit);
     }
+    const socialContributionsAnnual = payroll?.socialSum ?? 0;
     const totalTax = incomeTax + capTax;
     const totalIncome = Math.max(0, salaryIncome) + capIncomeTotal;
     const effectiveRate = totalIncome > 0 ? totalTax / totalIncome : 0;
+    const annualNet = Math.max(0, totalIncome - totalTax - socialContributionsAnnual);
+    const monthlyNet = annualNet / 12;
+    const investmentGrossAnnual = capIncomeTotal;
+    const investmentAfterTaxAnnual = Math.max(0, investmentGrossAnnual - capTax);
 
     return {
       currencyCode: 'EUR' as const,
@@ -780,46 +831,54 @@ export default function TaxCalculator() {
       capitalTax: capTax,
       totalTax,
       effectiveRate,
+      totalIncome,
+      annualNet,
+      monthlyNet,
+      salaryGrossAnnual: Math.max(0, salaryIncome),
+      investmentGrossAnnual,
+      investmentAfterTaxAnnual,
       _details: {
         taxableIncome,
         capAfterAllowance,
         churchTaxPct: deChurchTaxPct,
-        taxClass: deTaxClass,
+        taxClass: effectiveDeTaxClass,
         spouseSalary: deSpouseSalary,
         childrenCount: deChildrenCount,
         incomeSoliIncluded: true,
         payroll,
         saxony: deResidenceSaxony,
-        payrollPrecision: dePayrollPrecision,
+        payrollPrecision: effectivePayrollPrecision,
         ivFaktor: usedFaktorForDetails ?? deIVFaktor,
         ivFaktorAuto: deIVFaktorAuto,
         vorab,
         foreignDividends: country === 'Germany' ? deForeignDividends : 0,
         foreignWHTPct:
           country === 'Germany'
-            ? deDtaMode === 'simple'
+            ? effectiveDtaMode === 'simple'
               ? 15
               : DTA_COUNTRY_RATES[deDtaCountry].whtPct
             : 0,
         treatyCapPct:
           country === 'Germany'
-            ? deDtaMode === 'simple'
+            ? effectiveDtaMode === 'simple'
               ? 15
               : DTA_COUNTRY_RATES[deDtaCountry].capPct
             : 0,
-        dtaMode: country === 'Germany' ? deDtaMode : 'simple',
+        dtaMode: country === 'Germany' ? effectiveDtaMode : 'simple',
         dtaCountry: country === 'Germany' ? deDtaCountry : undefined,
       },
     };
   }, [
     country,
     status,
+    inputMode,
     salaryIncome,
     capitalGains,
     holdingPeriodLong,
     dividends,
     qualifiedDividends,
     interestIncome,
+    usSpouseSalary,
     usStandardDeduction,
     usItemizedDeductions,
     usPretaxAdjustments,
@@ -842,8 +901,10 @@ export default function TaxCalculator() {
     deRvTotalPct,
     deAlvTotalPct,
     deKvTotalPct,
-    dePvTotalPct,
+    dePvBaseTotalPct,
     dePvChildlessSurchargePct,
+    dePvPerAdditionalChildDiscountPct,
+    dePvMaxDiscountChildren,
     deWerbungskostenPauschale,
     deSonderausgabenPauschbetrag,
     deVorabEnabled,
@@ -864,26 +925,23 @@ export default function TaxCalculator() {
 
   return (
     <TooltipProvider delayDuration={100}>
-      <Card className="border rounded-2xl shadow-sm bg-transparent">
-        <CardHeader className="py-3">
+      <Card className="border-0 bg-transparent shadow-none">
+        <CardHeader className="p-0 pb-4 pr-16 sm:pr-20">
           <div>
             <CardTitle className="text-lg">Tax Calculator</CardTitle>
-            <CardDescription className="text-xs">
-              Estimate income and investment taxes for USA or Germany. Simplified and for
-              illustration only.
-            </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-3">
-          <div className="grid md:grid-cols-2 gap-3">
+        <CardContent className="grid gap-3 p-0">
+          <div className="grid gap-3 lg:grid-cols-2 lg:gap-4">
             {/* Left: Inputs */}
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <div>
                   <Label className="text-xs mb-1 block">Country</Label>
                   <Segmented
                     value={country}
                     onChange={(v: string) => setCountry(v as Country)}
+                    fullWidth
                     options={[
                       { label: 'USA', value: 'USA' },
                       { label: 'Germany', value: 'Germany' },
@@ -895,74 +953,161 @@ export default function TaxCalculator() {
                   <Segmented
                     value={status}
                     onChange={(v: string) => onStatusChange(v as FilingStatus)}
+                    fullWidth
                     options={[
                       { label: 'Single', value: 'single' },
                       { label: 'Married', value: 'married' },
                     ]}
                   />
                 </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Label className="text-xs">Input mode</Label>
+                    {country === 'Germany' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Germany simple mode tip"
+                            className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Info className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
+                          Simple mode keeps core Germany inputs visible and uses a standard 15%
+                          foreign tax credit cap for dividends.
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  <Segmented
+                    value={inputMode}
+                    onChange={(v: string) => setInputMode(v as 'simple' | 'advanced')}
+                    fullWidth
+                    options={[
+                      { label: 'Simple', value: 'simple' },
+                      { label: 'Advanced', value: 'advanced' },
+                    ]}
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="salary" className="text-xs mb-1 block">
-                  Annual salary income
-                </Label>
-                <div className="flex items-center gap-2">
+                <div>
+                  <Label htmlFor="salary" className="text-xs mb-1 block">
+                    Annual salary income
+                  </Label>
                   <InputAdornment
                     id="salary"
+                    className="w-full"
                     prefix={country === 'USA' ? '$' : '€'}
                     step={1000}
                     min={0}
                     value={salaryIncome}
                     onChange={(e) => setSalaryIncome(Number(e.target.value))}
                   />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2"
-                    title="Reset inputs to defaults"
-                    onClick={() => {
-                      setSalaryIncome(80000);
-                      setCapitalGains(5000);
-                      setDividends(2000);
-                      setInterestIncome(0);
-                      setHoldingPeriodLong(true);
-                      setQualifiedDividends(true);
-                      onStatusChange('single');
-                      setCountry('USA');
-                      setUsStandardDeduction(getUsStandardDeduction('single'));
-                      setUsItemizedDeductions(0);
-                      setUsPretaxAdjustments(0);
-                      setUsIncludePayroll(true);
-                      setUsStateTaxRate(0);
-                      setUsExtraSDAmount(0);
-                      setUsStatePreset('custom');
-                      setUsQBIEnabled(false);
-                      setUsQBIIncome(0);
-                      setUsAMTEnabled(false);
-                      setUsAMTAdjustments(0);
-                      setUsAMTExemption(0);
-                      setUsAMTRate('26');
-                      setDeAllowance(1000);
-                      setDeChurchTaxPct(0);
-                      setDeTaxClass('I');
-                      setDeChildrenCount(0);
-                      setDeSpouseSalary(0);
-                      setDeResidenceSaxony(false);
-                      setDePayrollPrecision('simple');
-                      setDeIVFaktor(1.0);
-                      setDeIVFaktorAuto(true);
-                      setDeForeignDividends(0);
-                      setDeDtaMode('simple');
-                      setDeDtaCountry('GENERIC_15');
-                    }}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span className="sr-only">Reset</span>
-                  </Button>
                 </div>
               </div>
+              {country === 'USA' && status === 'married' && (
+                <div>
+                  <Label htmlFor="usSpouseSalary" className="text-xs mb-1 block">
+                    Spouse salary income
+                  </Label>
+                  <InputAdornment
+                    id="usSpouseSalary"
+                    prefix="$"
+                    step={1000}
+                    min={0}
+                    value={usSpouseSalary}
+                    onChange={(e) => setUsSpouseSalary(Number(e.target.value))}
+                  />
+                </div>
+              )}
+              {country === 'Germany' && (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4 items-start">
+                  <div>
+                    <Label
+                      htmlFor="allowance"
+                      className="text-xs mb-1 block"
+                      title="Tax-free allowance for investment income"
+                    >
+                      Sparer-Pauschbetrag
+                    </Label>
+                    <InputAdornment
+                      id="allowance"
+                      className="h-8 text-sm"
+                      min={0}
+                      step={50}
+                      value={deAllowance}
+                      onChange={(e) => setDeAllowance(Number(e.target.value))}
+                      prefix="€"
+                    />
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="church"
+                      className="text-xs mb-1 block"
+                      title="Church tax rate varies by state"
+                    >
+                      Church tax
+                    </Label>
+                    <select
+                      id="church"
+                      className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
+                      value={deChurchTaxPct}
+                      onChange={(e) => setDeChurchTaxPct(Number(e.target.value) as 0 | 8 | 9)}
+                    >
+                      <option value={0}>No church tax</option>
+                      <option value={8}>8%</option>
+                      <option value={9}>9%</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="steuerklasse"
+                      className="text-xs mb-1 block"
+                      title="German payroll withholding class"
+                    >
+                      Steuerklasse
+                    </Label>
+                    <select
+                      id="steuerklasse"
+                      className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
+                      value={deTaxClass}
+                      onChange={(e) => setDeTaxClass(e.target.value as DeTaxClass)}
+                    >
+                      <option value="I">I</option>
+                      <option value="II">II</option>
+                      <option value="III">III</option>
+                      <option value="IV">IV</option>
+                      <option value="V">V</option>
+                      <option value="VI">VI</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="childrenCount" className="text-xs mb-1 block">
+                      Children
+                    </Label>
+                    <InputAdornment
+                      id="childrenCount"
+                      min={0}
+                      step={1}
+                      value={deChildrenCount}
+                      onChange={(e) =>
+                        setDeChildrenCount(Math.max(0, Math.floor(Number(e.target.value))))
+                      }
+                    />
+                  </div>
+                </div>
+              )}
 
-              <div className="grid md:grid-cols-3 gap-2">
+              <div
+                className={`grid grid-cols-1 gap-2 sm:grid-cols-2 ${
+                  country === 'Germany' && inputMode !== 'advanced'
+                    ? 'xl:grid-cols-2'
+                    : 'xl:grid-cols-3'
+                }`}
+              >
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Label htmlFor="capGains" className="text-xs">
@@ -1033,7 +1178,7 @@ export default function TaxCalculator() {
                     </div>
                   )}
                 </div>
-                {country === 'Germany' && (
+                {country === 'Germany' && inputMode === 'advanced' && (
                   <div>
                     <Label className="text-xs mb-1 block">DTA mode</Label>
                     <Segmented
@@ -1044,19 +1189,6 @@ export default function TaxCalculator() {
                         { label: 'By country', value: 'advanced' },
                       ]}
                     />
-                    <div className={deDtaMode === 'simple' ? '' : 'hidden'}>
-                      <Label htmlFor="foreignDivs" className="text-xs mb-1 block">
-                        Foreign portion (default 15% credit)
-                      </Label>
-                      <InputAdornment
-                        id="foreignDivs"
-                        min={0}
-                        step={50}
-                        value={deForeignDividends}
-                        onChange={(e) => setDeForeignDividends(Number(e.target.value))}
-                        prefix="€"
-                      />
-                    </div>
                     <div className={deDtaMode === 'advanced' ? 'space-y-2' : 'hidden'}>
                       <div>
                         <Label htmlFor="dtaCountry" className="text-xs mb-1 block">
@@ -1085,19 +1217,6 @@ export default function TaxCalculator() {
                           {DTA_COUNTRY_RATES[deDtaCountry].capPct}%
                         </div>
                       </div>
-                      <div>
-                        <Label htmlFor="foreignDivsAdv" className="text-xs mb-1 block">
-                          Foreign portion
-                        </Label>
-                        <InputAdornment
-                          id="foreignDivsAdv"
-                          min={0}
-                          step={50}
-                          value={deForeignDividends}
-                          onChange={(e) => setDeForeignDividends(Number(e.target.value))}
-                          prefix="€"
-                        />
-                      </div>
                     </div>
                   </div>
                 )}
@@ -1116,138 +1235,167 @@ export default function TaxCalculator() {
                     prefix={country === 'USA' ? '$' : '€'}
                   />
                 </div>
+                {country === 'Germany' && (
+                  <div>
+                    <Label htmlFor="foreignDividends" className="text-xs mb-1 block">
+                      Foreign dividends
+                    </Label>
+                    <InputAdornment
+                      id="foreignDividends"
+                      min={0}
+                      step={50}
+                      value={deForeignDividends}
+                      onChange={(e) => setDeForeignDividends(Number(e.target.value))}
+                      prefix="€"
+                    />
+                  </div>
+                )}
                 {/* Removed duplicate Sparer-Pauschbetrag field for Germany here; single field kept in Germany-specific section below */}
               </div>
 
               {country === 'USA' ? (
-                <div className="grid md:grid-cols-3 gap-2">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Label htmlFor="stdDed" className="text-xs">
-                        Standard deduction
-                      </Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label="Standard deduction defaults"
-                            className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Info className="h-3.5 w-3.5" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
-                          2025 defaults: Single $15,000 · MFJ $30,000 · HoH $22,500.
-                        </TooltipContent>
-                      </Tooltip>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 items-start">
+                  {inputMode === 'simple' && (
+                    <div className="col-span-full rounded-md border border-border/50 bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
+                      Simple mode uses the 2025 standard deduction and common defaults. Use advanced
+                      mode for itemized deductions, NIIT, QBI, and AMT.
                     </div>
-                    <InputAdornment
-                      id="stdDed"
-                      min={0}
-                      step={100}
-                      value={usStandardDeduction}
-                      onChange={(e) => setUsStandardDeduction(Number(e.target.value))}
-                      prefix="$"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Label
-                        htmlFor="extraSD"
-                        className="text-xs"
-                        title="Additional standard deduction for age 65+ or blind"
-                      >
-                        Extra SD (age 65/blind)
-                      </Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label="Extra standard deduction tip"
-                            className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Info className="h-3.5 w-3.5" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
-                          Single/HoH ≈ $1,950 each; Married ≈ $1,550 each. Enter the total amount
-                          for all qualifying taxpayers.
-                        </TooltipContent>
-                      </Tooltip>
+                  )}
+                  {inputMode === 'advanced' && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Label htmlFor="stdDed" className="text-xs">
+                          Standard deduction
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Standard deduction defaults"
+                              className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
+                            2025 defaults: Single $15,000 · MFJ $30,000 · HoH $22,500.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <InputAdornment
+                        id="stdDed"
+                        min={0}
+                        step={100}
+                        value={usStandardDeduction}
+                        onChange={(e) => setUsStandardDeduction(Number(e.target.value))}
+                        prefix="$"
+                      />
                     </div>
-                    <InputAdornment
-                      id="extraSD"
-                      min={0}
-                      step={50}
-                      value={usExtraSDAmount}
-                      onChange={(e) => setUsExtraSDAmount(Number(e.target.value))}
-                      prefix="$"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Label htmlFor="itemized" className="text-xs">
-                        Itemized deductions
-                      </Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label="Itemized vs standard note"
-                            className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Info className="h-3.5 w-3.5" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
-                          The higher of your standard deduction or itemized deductions will apply
-                          automatically.
-                        </TooltipContent>
-                      </Tooltip>
+                  )}
+                  {inputMode === 'advanced' && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Label
+                          htmlFor="extraSD"
+                          className="text-xs"
+                          title="Additional standard deduction for age 65+ or blind"
+                        >
+                          Extra SD (age 65/blind)
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Extra standard deduction tip"
+                              className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
+                            Single/HoH ≈ $1,950 each; Married ≈ $1,550 each. Enter the total amount
+                            for all qualifying taxpayers.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <InputAdornment
+                        id="extraSD"
+                        min={0}
+                        step={50}
+                        value={usExtraSDAmount}
+                        onChange={(e) => setUsExtraSDAmount(Number(e.target.value))}
+                        prefix="$"
+                      />
                     </div>
-                    <InputAdornment
-                      id="itemized"
-                      min={0}
-                      step={100}
-                      value={usItemizedDeductions}
-                      onChange={(e) => setUsItemizedDeductions(Number(e.target.value))}
-                      prefix="$"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Label htmlFor="stateRate" className="text-xs">
-                        State tax rate (%)
-                      </Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label="State LTCG note"
-                            className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Info className="h-3.5 w-3.5" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
-                          Most states tax long-term capital gains like ordinary income. This field
-                          uses a flat approximation.
-                        </TooltipContent>
-                      </Tooltip>
+                  )}
+                  {inputMode === 'advanced' && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Label htmlFor="itemized" className="text-xs">
+                          Itemized deductions
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Itemized vs standard note"
+                              className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
+                            The higher of your standard deduction or itemized deductions will apply
+                            automatically.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <InputAdornment
+                        id="itemized"
+                        min={0}
+                        step={100}
+                        value={usItemizedDeductions}
+                        onChange={(e) => setUsItemizedDeductions(Number(e.target.value))}
+                        prefix="$"
+                      />
                     </div>
-                    <InputAdornment
-                      id="stateRate"
-                      min={0}
-                      max={20}
-                      step={0.1}
-                      value={usStateTaxRate}
-                      onChange={(e) => {
-                        setUsStatePreset('custom');
-                        setUsStateTaxRate(Number(e.target.value));
-                      }}
-                      suffix="%"
-                    />
-                  </div>
+                  )}
+                  {inputMode === 'advanced' && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Label htmlFor="stateRate" className="text-xs">
+                          State tax rate (%)
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="State LTCG note"
+                              className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
+                            Most states tax long-term capital gains like ordinary income. This field
+                            uses a flat approximation.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <InputAdornment
+                        id="stateRate"
+                        min={0}
+                        max={20}
+                        step={0.1}
+                        value={usStateTaxRate}
+                        onChange={(e) => {
+                          setUsStatePreset('custom');
+                          setUsStateTaxRate(Number(e.target.value));
+                        }}
+                        suffix="%"
+                      />
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="statePreset" className="text-xs mb-1 block">
                       State preset
@@ -1296,18 +1444,24 @@ export default function TaxCalculator() {
                       401(k), HSA, FSA (approx.)
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 col-span-full">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] opacity-80">NIIT 3.8%</span>
-                      <Segmented
-                        value={includeNIIT ? 'on' : 'off'}
-                        onChange={(v: string) => setIncludeNIIT(v === 'on')}
-                        options={[
-                          { label: 'Off', value: 'off' },
-                          { label: 'On', value: 'on' },
-                        ]}
-                      />
-                    </div>
+                  <div
+                    className={`grid grid-cols-1 gap-2 col-span-full ${
+                      inputMode === 'advanced' ? 'sm:grid-cols-2' : 'sm:grid-cols-1'
+                    }`}
+                  >
+                    {inputMode === 'advanced' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] opacity-80">NIIT 3.8%</span>
+                        <Segmented
+                          value={includeNIIT ? 'on' : 'off'}
+                          onChange={(v: string) => setIncludeNIIT(v === 'on')}
+                          options={[
+                            { label: 'Off', value: 'off' },
+                            { label: 'On', value: 'on' },
+                          ]}
+                        />
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] opacity-80">FICA</span>
                       <Segmented
@@ -1321,176 +1475,116 @@ export default function TaxCalculator() {
                     </div>
                   </div>
                   {/* USA Estimators (compact) */}
-                  <details className="col-span-full border border-border/50 rounded-lg p-2 mt-1">
-                    <summary className="cursor-pointer text-xs font-medium opacity-80 select-none">
-                      USA Estimators (QBI & AMT)
-                    </summary>
-                    <div className="grid md:grid-cols-3 gap-2 mt-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] opacity-80">QBI</span>
-                        <Segmented
-                          value={usQBIEnabled ? 'on' : 'off'}
-                          onChange={(v: string) => setUsQBIEnabled(v === 'on')}
-                          options={[
-                            { label: 'Off', value: 'off' },
-                            { label: 'On', value: 'on' },
-                          ]}
-                        />
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor="qbiIncome"
-                          className="text-xs mb-1 block"
-                          title="Qualified business income potentially eligible for 199A"
-                        >
-                          QBI income ($)
-                        </Label>
-                        <InputAdornment
-                          id="qbiIncome"
-                          min={0}
-                          step={100}
-                          value={usQBIIncome}
-                          onChange={(e) => setUsQBIIncome(Number(e.target.value))}
-                          prefix="$"
-                        />
-                        <div className="text-[10px] text-muted-foreground mt-0.5">
-                          Deduction ≈ 20% of min(QBI, taxable ordinary)
+                  {inputMode === 'advanced' && (
+                    <details className="col-span-full border border-border/50 rounded-lg p-2 mt-1">
+                      <summary className="cursor-pointer text-xs font-medium opacity-80 select-none">
+                        USA Estimators (QBI & AMT)
+                      </summary>
+                      <div className="grid md:grid-cols-3 gap-2 mt-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] opacity-80">QBI</span>
+                          <Segmented
+                            value={usQBIEnabled ? 'on' : 'off'}
+                            onChange={(v: string) => setUsQBIEnabled(v === 'on')}
+                            options={[
+                              { label: 'Off', value: 'off' },
+                              { label: 'On', value: 'on' },
+                            ]}
+                          />
                         </div>
+                        <div>
+                          <Label
+                            htmlFor="qbiIncome"
+                            className="text-xs mb-1 block"
+                            title="Qualified business income potentially eligible for 199A"
+                          >
+                            QBI income ($)
+                          </Label>
+                          <InputAdornment
+                            id="qbiIncome"
+                            min={0}
+                            step={100}
+                            value={usQBIIncome}
+                            onChange={(e) => setUsQBIIncome(Number(e.target.value))}
+                            prefix="$"
+                          />
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            Deduction ≈ 20% of min(QBI, taxable ordinary)
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] opacity-80">AMT</span>
+                          <Segmented
+                            value={usAMTEnabled ? 'on' : 'off'}
+                            onChange={(v: string) => setUsAMTEnabled(v === 'on')}
+                            options={[
+                              { label: 'Off', value: 'off' },
+                              { label: 'On', value: 'on' },
+                            ]}
+                          />
+                        </div>
+                        {usAMTEnabled && (
+                          <>
+                            <div>
+                              <Label
+                                htmlFor="amtAdj"
+                                className="text-xs mb-1 block"
+                                title="Add-backs and preference items"
+                              >
+                                AMT adjustments
+                              </Label>
+                              <InputAdornment
+                                id="amtAdj"
+                                min={0}
+                                step={100}
+                                value={usAMTAdjustments}
+                                onChange={(e) => setUsAMTAdjustments(Number(e.target.value))}
+                                prefix="$"
+                              />
+                            </div>
+                            <div>
+                              <Label
+                                htmlFor="amtEx"
+                                className="text-xs mb-1 block"
+                                title="AMT exemption amount"
+                              >
+                                AMT exemption
+                              </Label>
+                              <InputAdornment
+                                id="amtEx"
+                                min={0}
+                                step={100}
+                                value={usAMTExemption}
+                                onChange={(e) => setUsAMTExemption(Number(e.target.value))}
+                                prefix="$"
+                              />
+                            </div>
+                            <div>
+                              <Label
+                                htmlFor="amtRate"
+                                className="text-xs mb-1 block"
+                                title="AMT tentative minimum tax rate"
+                              >
+                                AMT rate
+                              </Label>
+                              <select
+                                id="amtRate"
+                                className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
+                                value={usAMTRate}
+                                onChange={(e) => setUsAMTRate(e.target.value as '26' | '28')}
+                              >
+                                <option value="26">26%</option>
+                                <option value="28">28%</option>
+                              </select>
+                            </div>
+                          </>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] opacity-80">AMT</span>
-                        <Segmented
-                          value={usAMTEnabled ? 'on' : 'off'}
-                          onChange={(v: string) => setUsAMTEnabled(v === 'on')}
-                          options={[
-                            { label: 'Off', value: 'off' },
-                            { label: 'On', value: 'on' },
-                          ]}
-                        />
-                      </div>
-                      {usAMTEnabled && (
-                        <>
-                          <div>
-                            <Label
-                              htmlFor="amtAdj"
-                              className="text-xs mb-1 block"
-                              title="Add-backs and preference items"
-                            >
-                              AMT adjustments
-                            </Label>
-                            <InputAdornment
-                              id="amtAdj"
-                              min={0}
-                              step={100}
-                              value={usAMTAdjustments}
-                              onChange={(e) => setUsAMTAdjustments(Number(e.target.value))}
-                              prefix="$"
-                            />
-                          </div>
-                          <div>
-                            <Label
-                              htmlFor="amtEx"
-                              className="text-xs mb-1 block"
-                              title="AMT exemption amount"
-                            >
-                              AMT exemption
-                            </Label>
-                            <InputAdornment
-                              id="amtEx"
-                              min={0}
-                              step={100}
-                              value={usAMTExemption}
-                              onChange={(e) => setUsAMTExemption(Number(e.target.value))}
-                              prefix="$"
-                            />
-                          </div>
-                          <div>
-                            <Label
-                              htmlFor="amtRate"
-                              className="text-xs mb-1 block"
-                              title="AMT tentative minimum tax rate"
-                            >
-                              AMT rate
-                            </Label>
-                            <select
-                              id="amtRate"
-                              className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
-                              value={usAMTRate}
-                              onChange={(e) => setUsAMTRate(e.target.value as '26' | '28')}
-                            >
-                              <option value="26">26%</option>
-                              <option value="28">28%</option>
-                            </select>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </details>
+                    </details>
+                  )}
                 </div>
               ) : (
-                <div className="grid md:grid-cols-3 gap-2">
-                  <div>
-                    <Label
-                      htmlFor="allowance"
-                      className="text-xs mb-1 block"
-                      title="Tax-free allowance for investment income"
-                    >
-                      Sparer-Pauschbetrag
-                    </Label>
-                    <InputAdornment
-                      id="allowance"
-                      className="h-8 text-sm"
-                      min={0}
-                      step={50}
-                      value={deAllowance}
-                      onChange={(e) => setDeAllowance(Number(e.target.value))}
-                      prefix="€"
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="church"
-                      className="text-xs mb-1 block"
-                      title="Church tax rate varies by state"
-                    >
-                      Church tax
-                    </Label>
-                    <select
-                      id="church"
-                      className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
-                      value={deChurchTaxPct}
-                      onChange={(e) => setDeChurchTaxPct(Number(e.target.value) as 0 | 8 | 9)}
-                    >
-                      <option value={0}>No church tax</option>
-                      <option value={8}>8%</option>
-                      <option value={9}>9%</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="steuerklasse"
-                      className="text-xs mb-1 block"
-                      title="German payroll withholding class"
-                    >
-                      Steuerklasse
-                    </Label>
-                    <select
-                      id="steuerklasse"
-                      className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
-                      value={deTaxClass}
-                      onChange={(e) => setDeTaxClass(e.target.value as any)}
-                    >
-                      <option value="I">I</option>
-                      <option value="II">II</option>
-                      <option value="III">III</option>
-                      <option value="IV">IV</option>
-                      <option value="V">V</option>
-                      <option value="VI">VI</option>
-                    </select>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      Note: Affects payroll withholding in reality; this tool estimates annual tax.
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 items-start">
                   {status === 'married' && (
                     <div>
                       <Label htmlFor="spouseSalary" className="text-xs mb-1 block">
@@ -1506,37 +1600,22 @@ export default function TaxCalculator() {
                       />
                     </div>
                   )}
-                  <div>
-                    <Label htmlFor="childrenCount" className="text-xs mb-1 block">
-                      Children
-                    </Label>
-                    <InputAdornment
-                      id="childrenCount"
-                      min={0}
-                      step={1}
-                      value={deChildrenCount}
-                      onChange={(e) =>
-                        setDeChildrenCount(Math.max(0, Math.floor(Number(e.target.value))))
-                      }
-                    />
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      Affects PV childless surcharge and class II relief.
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs mb-1 block">Vorabpauschale</Label>
-                    <div className="flex items-center justify-between h-8 rounded-md border border-input px-2">
-                      <span className="text-[11px] text-muted-foreground">Include</span>
-                      <div className="scale-90 origin-right">
-                        <Switch
-                          checked={deVorabEnabled}
-                          onCheckedChange={(v) => setDeVorabEnabled(Boolean(v))}
-                        />
+                  {inputMode === 'advanced' && (
+                    <div className="xl:col-start-1">
+                      <Label className="text-xs mb-1 block">Vorabpauschale</Label>
+                      <div className="flex items-center justify-between h-8 rounded-md border border-input px-2">
+                        <span className="text-[11px] text-muted-foreground">Include</span>
+                        <div className="scale-90 origin-right">
+                          <Switch
+                            checked={deVorabEnabled}
+                            onCheckedChange={(v) => setDeVorabEnabled(Boolean(v))}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                   {/* Advanced payroll parameters removed; using statutory constants (employee pays ~half). */}
-                  {deVorabEnabled && (
+                  {inputMode === 'advanced' && deVorabEnabled && (
                     <details
                       className="col-span-full border border-border/50 rounded-lg p-2 mt-1"
                       open={deVorabEnabled}
@@ -1663,48 +1742,12 @@ export default function TaxCalculator() {
               )}
             </div>
 
-            {/* Right: Results horizontal above a larger Breakdown */}
-            <div className="md:pl-2 flex flex-col gap-3 md:sticky md:top-4 self-start">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Card className="bg-gradient-to-b from-muted/20 to-transparent border border-border/50 rounded-xl">
-                  <CardHeader>
-                    <CardTitle className="text-sm">Income tax</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-xl font-semibold">
-                      {currency(result.incomeTax, result.locale, result.currencyCode)}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-b from-muted/20 to-transparent border border-border/50 rounded-xl">
-                  <CardHeader>
-                    <CardTitle className="text-sm">Investment taxes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-xl font-semibold">
-                      {currency(result.capitalTax, result.locale, result.currencyCode)}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-b from-muted/20 to-transparent border border-border/50 rounded-xl">
-                  <CardHeader>
-                    <CardTitle className="text-sm">Total</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-xl font-semibold">
-                      {currency(result.totalTax, result.locale, result.currencyCode)}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Effective rate: {(result.effectiveRate * 100).toFixed(1)}%
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              {'_details' in result && (
-                <Breakdown result={result as any} includeNIIT={includeNIIT} />
-              )}
+            {/* Right: Results and visual summary */}
+            <div className="lg:pl-2 flex flex-col gap-3 lg:sticky lg:top-4 self-start">
+              <TaxVisuals result={result as any} />
             </div>
           </div>
+          {'_details' in result && <Breakdown result={result as any} includeNIIT={includeNIIT} />}
 
           <p className="text-[10px] text-muted-foreground">
             This is not tax advice. Brackets and rules are simplified/approximate and may be
@@ -1716,9 +1759,156 @@ export default function TaxCalculator() {
   );
 }
 
+function TaxVisuals({ result }: { result: any }) {
+  const grossIncome = Math.max(0, Number(result.totalIncome || 0));
+  const details = result._details || {};
+  const isUSA = result.currencyCode === 'USD';
+
+  const reductionItems = isUSA
+    ? [
+        {
+          label: 'Federal income tax',
+          amount: Number(details.federalOrdinaryTax || 0),
+          color: 'bg-rose-500/80',
+        },
+        {
+          label: 'Federal capital tax',
+          amount: Number(details.federalLTCGTax || 0),
+          color: 'bg-red-500/70',
+        },
+        { label: 'State tax', amount: Number(details.stateTax || 0), color: 'bg-orange-500/70' },
+        { label: 'NIIT', amount: Number(details.niit || 0), color: 'bg-amber-500/70' },
+        { label: 'AMT top-up', amount: Number(details.amt?.topUp || 0), color: 'bg-yellow-500/70' },
+        {
+          label: 'Payroll (FICA)',
+          amount: Number(details.payroll?.total || 0),
+          color: 'bg-fuchsia-500/70',
+        },
+      ]
+    : [
+        {
+          label: 'Income tax (ESt)',
+          amount: Number(details.payroll?.est || 0),
+          color: 'bg-rose-500/80',
+        },
+        {
+          label: 'Soli (income)',
+          amount: Number(details.payroll?.soliOnIncome || 0),
+          color: 'bg-red-500/70',
+        },
+        {
+          label: 'Church tax (income)',
+          amount: Number(details.payroll?.churchTax || 0),
+          color: 'bg-orange-500/70',
+        },
+        {
+          label: 'Capital income tax',
+          amount: Number(result.capitalTax || 0),
+          color: 'bg-amber-500/70',
+        },
+        {
+          label: 'Social contributions',
+          amount: Number(details.payroll?.socialSum || 0),
+          color: 'bg-fuchsia-500/70',
+        },
+      ];
+
+  const reductions = reductionItems
+    .filter((item) => Number.isFinite(item.amount) && item.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const totalReduction = reductions.reduce((sum, item) => sum + item.amount, 0);
+  const netAfterReductions = Math.max(0, grossIncome - totalReduction);
+  const reductionPct = grossIncome > 0 ? Math.min(100, (totalReduction / grossIncome) * 100) : 0;
+  const netPct = Math.max(0, 100 - reductionPct);
+
+  const fmt = (v: number) => currency(v, result.locale, result.currencyCode);
+
+  return (
+    <Card className="bg-transparent border border-border/50">
+      <CardHeader className="py-3">
+        <CardTitle className="text-base">Income Reduction Map</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 px-4 pb-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="rounded-md border border-border/50 px-3 py-2 bg-muted/20">
+            <div className="text-[11px] text-muted-foreground">Gross income</div>
+            <div className="text-base font-semibold">{fmt(grossIncome)}</div>
+          </div>
+          <div className="rounded-md border border-border/50 px-3 py-2 bg-muted/20">
+            <div className="text-[11px] text-muted-foreground">Total reductions</div>
+            <div className="text-base font-semibold">{fmt(totalReduction)}</div>
+          </div>
+          <div className="rounded-md border border-border/50 px-3 py-2 bg-muted/20">
+            <div className="text-[11px] text-muted-foreground">Net after reductions</div>
+            <div className="text-base font-semibold">{fmt(netAfterReductions)}</div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <span>Effective rate: {(Number(result.effectiveRate || 0) * 100).toFixed(1)}%</span>
+        </div>
+
+        <div className="space-y-1">
+          <div className="h-3 rounded-full bg-muted overflow-hidden flex">
+            {reductions.map((item) => (
+              <div
+                key={item.label}
+                className={item.color}
+                style={{
+                  width:
+                    grossIncome > 0 ? `${Math.max(0, (item.amount / grossIncome) * 100)}%` : '0%',
+                }}
+                title={`${item.label}: ${fmt(item.amount)}`}
+              />
+            ))}
+            <div className="bg-emerald-500/70" style={{ width: `${netPct}%` }} />
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Reduced: {reductionPct.toFixed(1)}%</span>
+            <span>Kept: {netPct.toFixed(1)}%</span>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          {reductions.map((item) => {
+            const pctOfGross = grossIncome > 0 ? (item.amount / grossIncome) * 100 : 0;
+            return (
+              <div key={item.label} className="flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+                  <span>{item.label}</span>
+                </div>
+                <div className="text-right">
+                  <div>{fmt(item.amount)}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {pctOfGross.toFixed(1)}% of gross
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex items-center justify-between gap-3 text-sm border-t border-border/40 pt-2">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/70" />
+              <span>Net remaining</span>
+            </div>
+            <div className="text-right">
+              <div>{fmt(netAfterReductions)}</div>
+              <div className="text-[11px] text-muted-foreground">{netPct.toFixed(1)}% of gross</div>
+              <div className="text-[11px] text-muted-foreground">
+                Monthly net: {fmt(Number(result.monthlyNet || 0))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ---- UI: Breakdown (collapsible, copyable, zero-suppressed) ----
 function Breakdown({ result, includeNIIT }: { result: any; includeNIIT: boolean }) {
   const [copied, setCopied] = useState(false);
+  const [minimized, setMinimized] = useState(true);
 
   const isUSA = result.currencyCode === 'USD';
 
@@ -1726,13 +1916,19 @@ function Breakdown({ result, includeNIIT }: { result: any; includeNIIT: boolean 
     const lines: string[] = [];
     if (isUSA) {
       lines.push('USA breakdown');
+      lines.push(`Primary wages: ${fmt(result._details.wagesPrimary)}`);
+      if (result._details.wagesSpouse > 0) {
+        lines.push(`Spouse wages: ${fmt(result._details.wagesSpouse)}`);
+      }
       lines.push(`Ordinary income: ${fmt(result._details.ordinaryIncome)}`);
       lines.push(`Preferential income: ${fmt(result._details.prefIncome)}`);
       lines.push(`Standard deduction: ${fmt(result._details.standardDeduction)}`);
       if (result._details.itemizedDeductions)
         lines.push(`Itemized deductions: ${fmt(result._details.itemizedDeductions)}`);
       if (result._details.deductionUsed)
-        lines.push(`Deduction used: ${fmt(result._details.deductionUsed)}`);
+        lines.push(
+          `Deduction used (${result._details.deductionType}): ${fmt(result._details.deductionUsed)}`,
+        );
       lines.push(`Taxable ordinary: ${fmt(result._details.taxableOrdinary)}`);
       lines.push(`Taxable preferential: ${fmt(result._details.taxablePref)}`);
       lines.push(`Federal ordinary tax: ${fmt(result._details.federalOrdinaryTax)}`);
@@ -1807,189 +2003,237 @@ function Breakdown({ result, includeNIIT }: { result: any; includeNIIT: boolean 
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-base">Breakdown</CardTitle>
           <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 px-3"
+              onClick={() => setMinimized((v) => !v)}
+            >
+              {minimized ? 'Show' : 'Hide'}
+            </Button>
             <Button size="sm" variant="outline" className="h-8 px-3" onClick={copyToClipboard}>
               {copied ? 'Copied' : 'Copy'}
             </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-0 px-4 pb-4">
-        {isUSA ? (
-          <div className="text-sm text-muted-foreground space-y-4">
-            <Section title="Income base">
-              <Row label="Ordinary income" value={fmt(result._details.ordinaryIncome)} />
-              <Row label="Preferential income" value={fmt(result._details.prefIncome)} />
-              <Row label="Standard deduction" value={fmt(result._details.standardDeduction)} />
-              {result._details.itemizedDeductions > 0 && (
-                <Row label="Itemized deductions" value={fmt(result._details.itemizedDeductions)} />
-              )}
-              <Row label="Deduction used" value={fmt(result._details.deductionUsed)} />
-              {result._details.capLossOrdinaryOffset > 0 && (
-                <Row
-                  label="Capital loss vs ordinary"
-                  value={fmt(result._details.capLossOrdinaryOffset)}
-                />
-              )}
-              <Row label="Taxable ordinary" value={fmt(result._details.taxableOrdinary)} />
-              <Row label="Taxable preferential" value={fmt(result._details.taxablePref)} />
-            </Section>
-            <Section title="Taxes">
-              <Row
-                label="Federal ordinary"
-                value={fmt(result._details.federalOrdinaryTax)}
-                note={`${result.totalTax > 0 ? ((result._details.federalOrdinaryTax / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
-              />
-              <Row
-                label="Federal LTCG"
-                value={fmt(result._details.federalLTCGTax)}
-                note={`${result.totalTax > 0 ? ((result._details.federalLTCGTax / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
-              />
-              {result._details.qbi && result._details.qbi.deduction > 0 && (
-                <Row
-                  label="QBI deduction (199A)"
-                  value={`-${fmt(result._details.qbi.deduction)}`}
-                />
-              )}
-              {result._details.stateTax > 0 && (
-                <Row
-                  label="State"
-                  value={fmt(result._details.stateTax)}
-                  note={`${result.totalTax > 0 ? ((result._details.stateTax / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
-                />
-              )}
-              {includeNIIT && result._details.niit > 0 && (
-                <Row
-                  label="NIIT 3.8%"
-                  value={fmt(result._details.niit)}
-                  note={`${result.totalTax > 0 ? ((result._details.niit / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
-                />
-              )}
-              {result._details.amt && result._details.amt.topUp > 0 && (
-                <Row
-                  label="AMT top-up"
-                  value={fmt(result._details.amt.topUp)}
-                  note={`${result.totalTax > 0 ? ((result._details.amt.topUp / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
-                />
-              )}
-              {result._details.payroll && (
-                <>
+      {!minimized && (
+        <CardContent className="pt-0 px-4 pb-4">
+          {isUSA ? (
+            <div className="text-sm text-muted-foreground space-y-4">
+              <Section title="Income base">
+                <Row label="Primary wages" value={fmt(result._details.wagesPrimary)} />
+                {result._details.wagesSpouse > 0 && (
+                  <Row label="Spouse wages" value={fmt(result._details.wagesSpouse)} />
+                )}
+                <Row label="Ordinary income" value={fmt(result._details.ordinaryIncome)} />
+                <Row label="Preferential income" value={fmt(result._details.prefIncome)} />
+                <Row label="Standard deduction" value={fmt(result._details.standardDeduction)} />
+                {result._details.itemizedDeductions > 0 && (
                   <Row
-                    label="FICA: Social Security"
-                    value={fmt(result._details.payroll.ss)}
-                    note={`${result.totalTax > 0 ? ((result._details.payroll.ss / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                    label="Itemized deductions"
+                    value={fmt(result._details.itemizedDeductions)}
                   />
+                )}
+                <Row
+                  label={`Deduction used (${result._details.deductionType})`}
+                  value={fmt(result._details.deductionUsed)}
+                />
+                {result._details.capLossOrdinaryOffset > 0 && (
                   <Row
-                    label="FICA: Medicare"
-                    value={fmt(result._details.payroll.medicare)}
-                    note={`${result.totalTax > 0 ? ((result._details.payroll.medicare / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                    label="Capital loss vs ordinary"
+                    value={fmt(result._details.capLossOrdinaryOffset)}
                   />
-                  {result._details.payroll.medicareAddl > 0 && (
+                )}
+                <Row label="Taxable ordinary" value={fmt(result._details.taxableOrdinary)} />
+                <Row label="Taxable preferential" value={fmt(result._details.taxablePref)} />
+              </Section>
+              <Section title="Taxes">
+                <Row
+                  label="Federal ordinary"
+                  value={fmt(result._details.federalOrdinaryTax)}
+                  note={`${result.totalTax > 0 ? ((result._details.federalOrdinaryTax / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                />
+                <Row
+                  label="Federal LTCG"
+                  value={fmt(result._details.federalLTCGTax)}
+                  note={`${result.totalTax > 0 ? ((result._details.federalLTCGTax / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                />
+                {result._details.qbi && result._details.qbi.deduction > 0 && (
+                  <Row
+                    label="QBI deduction (199A)"
+                    value={`-${fmt(result._details.qbi.deduction)}`}
+                  />
+                )}
+                {result._details.stateTax > 0 && (
+                  <Row
+                    label="State"
+                    value={fmt(result._details.stateTax)}
+                    note={`${result.totalTax > 0 ? ((result._details.stateTax / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                  />
+                )}
+                {includeNIIT && result._details.niit > 0 && (
+                  <Row
+                    label="NIIT 3.8%"
+                    value={fmt(result._details.niit)}
+                    note={`${result.totalTax > 0 ? ((result._details.niit / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                  />
+                )}
+                {result._details.amt && result._details.amt.topUp > 0 && (
+                  <Row
+                    label="AMT top-up"
+                    value={fmt(result._details.amt.topUp)}
+                    note={`${result.totalTax > 0 ? ((result._details.amt.topUp / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                  />
+                )}
+                {result._details.payroll && (
+                  <>
+                    {result._details.payroll.ssSpouse > 0 && (
+                      <Row label="FICA: SS (you)" value={fmt(result._details.payroll.ssPrimary)} />
+                    )}
+                    {result._details.payroll.ssSpouse > 0 && (
+                      <Row
+                        label="FICA: SS (spouse)"
+                        value={fmt(result._details.payroll.ssSpouse)}
+                      />
+                    )}
                     <Row
-                      label="FICA: Additional Medicare"
-                      value={fmt(result._details.payroll.medicareAddl)}
-                      note={`${result.totalTax > 0 ? ((result._details.payroll.medicareAddl / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                      label="FICA: Social Security"
+                      value={fmt(result._details.payroll.ss)}
+                      note={`${result.totalTax > 0 ? ((result._details.payroll.ss / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
                     />
-                  )}
-                </>
-              )}
-            </Section>
-          </div>
-        ) : (
-          <div className="text-sm text-muted-foreground space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {result._details.incomeSoliIncluded && (
-                <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
-                  Income Soli 5.5%
-                </span>
-              )}
-              {result._details.churchTaxPct > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
-                  Church {result._details.churchTaxPct}%
-                </span>
-              )}
-              {result._details.taxClass && (
-                <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
-                  Tax class: {result._details.taxClass}
-                </span>
-              )}
-              {result._details.saxony && (
-                <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
-                  Saxony PV
-                </span>
-              )}
-              {result._details.payrollPrecision === 'detailed' && (
-                <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
-                  IV Faktor: {result._details.ivFaktor}
-                  {result._details.ivFaktorAuto ? ' (auto)' : ''}
-                </span>
-              )}
-              {typeof result._details.spouseSalary === 'number' &&
-                result._details.spouseSalary > 0 && (
+                    <Row
+                      label="FICA: Medicare"
+                      value={fmt(result._details.payroll.medicare)}
+                      note={`${result.totalTax > 0 ? ((result._details.payroll.medicare / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                    />
+                    {result._details.payroll.medicareAddl > 0 && (
+                      <Row
+                        label="FICA: Additional Medicare"
+                        value={fmt(result._details.payroll.medicareAddl)}
+                        note={`${result.totalTax > 0 ? ((result._details.payroll.medicareAddl / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                      />
+                    )}
+                  </>
+                )}
+              </Section>
+              <Section title="Net">
+                <Row label="Total income" value={fmt(result.totalIncome)} />
+                <Row label="Total tax" value={fmt(result.totalTax)} />
+                <Row label="Annual net" value={fmt(result.annualNet)} strong />
+                <Row label="Monthly net" value={fmt(result.monthlyNet)} />
+              </Section>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {result._details.incomeSoliIncluded && (
                   <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
-                    Spouse:{' '}
-                    {currency(result._details.spouseSalary, result.locale, result.currencyCode)}
+                    Income Soli 5.5%
                   </span>
                 )}
-              {typeof result._details.childrenCount === 'number' && (
+                {result._details.churchTaxPct > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                    Church {result._details.churchTaxPct}%
+                  </span>
+                )}
+                {result._details.taxClass && (
+                  <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                    Tax class: {result._details.taxClass}
+                  </span>
+                )}
+                {result._details.saxony && (
+                  <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                    Saxony PV
+                  </span>
+                )}
+                {result._details.payrollPrecision === 'detailed' && (
+                  <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                    IV Faktor: {result._details.ivFaktor}
+                    {result._details.ivFaktorAuto ? ' (auto)' : ''}
+                  </span>
+                )}
+                {typeof result._details.spouseSalary === 'number' &&
+                  result._details.spouseSalary > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                      Spouse:{' '}
+                      {currency(result._details.spouseSalary, result.locale, result.currencyCode)}
+                    </span>
+                  )}
+                {typeof result._details.childrenCount === 'number' && (
+                  <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
+                    Children: {result._details.childrenCount}
+                  </span>
+                )}
                 <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
-                  Children: {result._details.childrenCount}
+                  Payroll
                 </span>
+              </div>
+              <Section title="Income base">
+                <Row label="Taxable income (zvE)" value={fmt(result._details.taxableIncome)} />
+                <Row
+                  label="Capital after allowance"
+                  value={fmt(result._details.capAfterAllowance)}
+                />
+                {result._details.foreignDividends > 0 && (
+                  <Row
+                    label="Foreign dividends"
+                    value={`${fmt(result._details.foreignDividends)} · WHT ${result._details.foreignWHTPct}% · Cap ${result._details.treatyCapPct}%${result._details.dtaMode === 'simple' ? ' (Simple 15%)' : ''}`}
+                  />
+                )}
+              </Section>
+              {result._details.vorab?.enabled && (
+                <Section title="Vorabpauschale">
+                  <Row label="Basisertrag" value={fmt(result._details.vorab.basisertrag)} />
+                  <Row label="Distributions" value={fmt(result._details.vorab.distributions)} />
+                  <Row label="Gross Vorab" value={fmt(result._details.vorab.gross)} />
+                  <Row
+                    label="Teilfreistellung"
+                    value={`${result._details.vorab.teilfreistellungPct}%`}
+                  />
+                  <Row label="Taxable Vorab" value={fmt(result._details.vorab.taxable)} strong />
+                </Section>
               )}
-              <span className="px-2 py-0.5 rounded-full bg-muted text-foreground/80 text-xs">
-                Payroll
-              </span>
+              {result._details.payroll && (
+                <Section title="Payroll">
+                  <Row label="RV" value={fmt(result._details.payroll.rv)} hideZero />
+                  <Row label="ALV" value={fmt(result._details.payroll.alv)} hideZero />
+                  <Row label="KV" value={fmt(result._details.payroll.kv)} hideZero />
+                  <Row label="PV" value={fmt(result._details.payroll.pv)} hideZero />
+                  <Row
+                    label="Social total"
+                    value={fmt(result._details.payroll.socialSum)}
+                    hideZero
+                  />
+                  <Row label="zvE (approx)" value={fmt(result._details.payroll.zvE)} />
+                  <Row label="ESt (income tax)" value={fmt(result._details.payroll.est)} />
+                  {result._details.payroll.soliOnIncome > 0 && (
+                    <Row
+                      label="Soli (income)"
+                      value={fmt(result._details.payroll.soliOnIncome)}
+                      note={`${result.totalTax > 0 ? ((result._details.payroll.soliOnIncome / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                    />
+                  )}
+                  {result._details.payroll.churchTax > 0 && (
+                    <Row
+                      label="Church tax (income)"
+                      value={fmt(result._details.payroll.churchTax)}
+                      note={`${result.totalTax > 0 ? ((result._details.payroll.churchTax / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
+                    />
+                  )}
+                  <Row label="Net salary" value={fmt(result._details.payroll.netSalary)} strong />
+                </Section>
+              )}
+              <Section title="Net">
+                <Row label="Total income" value={fmt(result.totalIncome)} />
+                <Row label="Total tax" value={fmt(result.totalTax)} />
+                <Row label="Annual net" value={fmt(result.annualNet)} strong />
+                <Row label="Monthly net" value={fmt(result.monthlyNet)} />
+              </Section>
             </div>
-            <Section title="Income base">
-              <Row label="Taxable income (zvE)" value={fmt(result._details.taxableIncome)} />
-              <Row label="Capital after allowance" value={fmt(result._details.capAfterAllowance)} />
-              {result._details.foreignDividends > 0 && (
-                <Row
-                  label="Foreign dividends"
-                  value={`${fmt(result._details.foreignDividends)} · WHT ${result._details.foreignWHTPct}% · Cap ${result._details.treatyCapPct}%${result._details.dtaMode === 'simple' ? ' (Simple 15%)' : ''}`}
-                />
-              )}
-            </Section>
-            {result._details.vorab?.enabled && (
-              <Section title="Vorabpauschale">
-                <Row label="Basisertrag" value={fmt(result._details.vorab.basisertrag)} />
-                <Row label="Distributions" value={fmt(result._details.vorab.distributions)} />
-                <Row label="Gross Vorab" value={fmt(result._details.vorab.gross)} />
-                <Row
-                  label="Teilfreistellung"
-                  value={`${result._details.vorab.teilfreistellungPct}%`}
-                />
-                <Row label="Taxable Vorab" value={fmt(result._details.vorab.taxable)} strong />
-              </Section>
-            )}
-            {result._details.payroll && (
-              <Section title="Payroll">
-                <Row label="RV" value={fmt(result._details.payroll.rv)} hideZero />
-                <Row label="ALV" value={fmt(result._details.payroll.alv)} hideZero />
-                <Row label="KV" value={fmt(result._details.payroll.kv)} hideZero />
-                <Row label="PV" value={fmt(result._details.payroll.pv)} hideZero />
-                <Row label="Social total" value={fmt(result._details.payroll.socialSum)} hideZero />
-                <Row label="zvE (approx)" value={fmt(result._details.payroll.zvE)} />
-                <Row label="ESt (income tax)" value={fmt(result._details.payroll.est)} />
-                {result._details.payroll.soliOnIncome > 0 && (
-                  <Row
-                    label="Soli (income)"
-                    value={fmt(result._details.payroll.soliOnIncome)}
-                    note={`${result.totalTax > 0 ? ((result._details.payroll.soliOnIncome / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
-                  />
-                )}
-                {result._details.payroll.churchTax > 0 && (
-                  <Row
-                    label="Church tax (income)"
-                    value={fmt(result._details.payroll.churchTax)}
-                    note={`${result.totalTax > 0 ? ((result._details.payroll.churchTax / result.totalTax) * 100).toFixed(1) : '0.0'}% of total`}
-                  />
-                )}
-                <Row label="Net salary" value={fmt(result._details.payroll.netSalary)} strong />
-              </Section>
-            )}
-          </div>
-        )}
-      </CardContent>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }

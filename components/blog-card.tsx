@@ -13,6 +13,11 @@ interface BlogCardProps {
 
 export function BlogCard({ post }: BlogCardProps) {
   const [imageError, setImageError] = useState(false);
+  const fallbackReadMinutes = Math.max(
+    2,
+    Math.round((post.title.split(/\s+/).length + post.excerpt.split(/\s+/).length) / 80),
+  );
+  const readTimeMinutes = post.readTimeMinutes || fallbackReadMinutes;
 
   // Kategoriespezifische Web-Bilder von Unsplash und anderen freien Quellen
   let webFallbackImage = '';
@@ -68,20 +73,29 @@ export function BlogCard({ post }: BlogCardProps) {
           className="blog-card-image"
           onError={() => setImageError(true)}
         />
+        <div className="blog-card-image-overlay" aria-hidden="true" />
       </div>
       <div className="blog-card-content">
         <div className="blog-categories">
-          {post.categories.map((category, index) => (
-            <span key={index} className="blog-category">
+          {post.categories.map((category) => (
+            <span key={`${post.slug}-${category}`} className="blog-category">
               {category}
             </span>
           ))}
         </div>
-        <p className="blog-card-date">{post.date}</p>
+
+        <div className="blog-card-meta">
+          <p className="blog-card-date">{post.date}</p>
+          <span className="blog-card-meta-separator" aria-hidden="true">
+            •
+          </span>
+          <p className="blog-card-readtime">{readTimeMinutes} min read</p>
+        </div>
+
         <h2 className="blog-card-title">{post.title}</h2>
         <p className="blog-card-excerpt">{post.excerpt}</p>
         <span className="blog-card-link">
-          Read more <ArrowRight />
+          Read article <ArrowRight />
         </span>
       </div>
     </Link>

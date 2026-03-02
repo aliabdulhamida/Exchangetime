@@ -4,8 +4,16 @@ const NASDAQ_HEADERS = {
   Referer: 'https://www.nasdaq.com/',
 };
 
+const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const cache = new Map();
+
+function parseSymbol(raw) {
+  if (typeof raw !== 'string') return null;
+  const normalized = raw.trim().toUpperCase();
+  if (!normalized || !SYMBOL_PATTERN.test(normalized)) return null;
+  return normalized;
+}
 
 function parseNumeric(value) {
   if (value === null || value === undefined) return 0;
@@ -85,18 +93,19 @@ function mapTrades(rows, ticker, company) {
 }
 
 export default async function handler(req, res) {
-  const { symbol } = req.query;
-  if (!symbol || typeof symbol !== 'string') {
-    return res.status(400).json({ error: 'Missing or invalid symbol' });
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const ticker = symbol.trim().toUpperCase();
+  const ticker = parseSymbol(req.query?.symbol);
   if (!ticker) {
     return res.status(400).json({ error: 'Missing or invalid symbol' });
   }
 
   const cached = cache.get(ticker);
   if (cached && cached.expiresAt > Date.now()) {
+    res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=900');
     return res.status(200).json(cached.data);
   }
 
@@ -132,6 +141,7 @@ export default async function handler(req, res) {
       data: response,
     });
 
+    res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=900');
     return res.status(200).json(response);
   } catch (err) {
     console.error('Insider trades API error:', err);

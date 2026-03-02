@@ -139,8 +139,15 @@ async function fetchEarningsCalendar(): Promise<Record<string, EarningsCalendarI
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
   const now = Date.now();
   if (now - lastFetch < CACHE_DURATION && Object.keys(cachedData).length > 0) {
+    res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=21600');
     res.status(200).json(cachedData);
     return;
   }

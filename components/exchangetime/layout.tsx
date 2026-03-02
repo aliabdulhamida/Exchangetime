@@ -1,6 +1,5 @@
 'use client';
 
-import { useTheme } from 'next-themes';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -14,7 +13,6 @@ interface LayoutProps {
 }
 
 export default function Layout({ children, sidebar }: LayoutProps) {
-  const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -28,16 +26,14 @@ export default function Layout({ children, sidebar }: LayoutProps) {
   return (
     <>
       <DownloadAppOverlay />
-      <div className="flex h-screen">
+      <div className="et-app-shell flex h-screen">
         {sidebar}
-        <div className="w-full flex flex-1 flex-col">
-          {/* Sticky/fixed Header */}
-          <header className="h-16 border-b border-gray-200 dark:border-[#1F1F23] bg-white dark:bg-[#0F0F12] fixed top-0 left-0 w-full z-50">
+        <div className="relative flex w-full flex-1 flex-col">
+          <header className="et-topbar fixed left-0 top-0 z-50 h-16 w-full">
             <TopNav />
           </header>
-          {/* Kein Padding-Top mehr, damit Content ganz oben steht */}
-          <main className="flex-1 overflow-auto p-6 mt-16 bg-background">
-            {children}
+          <main className="et-scrollbar relative mt-16 flex-1 overflow-auto px-2 pb-5 pt-3 sm:px-4 sm:pt-4 lg:px-6 lg:pb-8">
+            <div className="mx-auto w-full max-w-[1800px]">{children}</div>
           </main>
         </div>
       </div>

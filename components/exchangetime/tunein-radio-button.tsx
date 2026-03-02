@@ -4,9 +4,14 @@ export default function TuneInRadioButton() {
   // Place this after all state declarations and before return
   const [open, setOpen] = useState(false);
   const wasDragging = useRef(false);
-  const [position, setPosition] = useState({
-    x: window.innerWidth - 100,
-    y: window.innerHeight - 200,
+  const [position, setPosition] = useState(() => {
+    if (typeof window === 'undefined') {
+      return { x: 24, y: 24 };
+    }
+    return {
+      x: window.innerWidth - 100,
+      y: window.innerHeight - 200,
+    };
   });
   const [dragging, setDragging] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -50,17 +55,53 @@ export default function TuneInRadioButton() {
   // Close modal on outside click
   useEffect(() => {
     if (!open || dragging) return;
-    function handleClick(e: MouseEvent) {
+    function handleClick(e: MouseEvent | TouchEvent) {
       const modal = document.getElementById('tunein-radio-modal');
       if (modal && !modal.contains(e.target as Node)) {
         setOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick);
     return () => {
       document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
     };
   }, [open, dragging]);
+
+  const getClampedPosition = useCallback(
+    (clientX: number, clientY: number) => {
+      const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+      const winHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+      const buttonWidth = 48;
+      const buttonHeight = 48;
+      const edgePadding = 8;
+
+      let sidebarWidth = 256;
+      if (typeof window !== 'undefined') {
+        const isMobile = window.innerWidth < 1024;
+        if (isMobile) {
+          sidebarWidth = edgePadding;
+        } else {
+          const collapsed = localStorage.getItem('sidebar-collapsed');
+          sidebarWidth = collapsed === 'true' ? 80 : 256;
+        }
+      }
+
+      let newX = clientX - offset.x;
+      let newY = clientY - offset.y;
+
+      if (newX < sidebarWidth) newX = sidebarWidth;
+      if (newY < edgePadding) newY = edgePadding;
+      if (newX + buttonWidth > winWidth - edgePadding) newX = winWidth - buttonWidth - edgePadding;
+      if (newY + buttonHeight > winHeight - edgePadding)
+        newY = winHeight - buttonHeight - edgePadding;
+
+      return { x: newX, y: newY };
+    },
+    [offset.x, offset.y],
+  );
+
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     setDragging(true);
     wasDragging.current = false;
@@ -69,29 +110,37 @@ export default function TuneInRadioButton() {
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (dragging) {
-        const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-        const winHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
-        const buttonWidth = 48; // Approximate button size
-        const buttonHeight = 48;
-        // Get sidebar width from localStorage
-        let sidebarWidth = 256;
-        if (typeof window !== 'undefined') {
-          const collapsed = localStorage.getItem('sidebar-collapsed');
-          sidebarWidth = collapsed === 'true' ? 80 : 256;
-        }
-        let newX = e.clientX - offset.x;
-        let newY = e.clientY - offset.y;
-        // Clamp position so button stays within viewport and not behind sidebar
-        if (newX < sidebarWidth) newX = sidebarWidth;
-        if (newY < 0) newY = 0;
-        if (newX + buttonWidth > winWidth) newX = winWidth - buttonWidth;
-        if (newY + buttonHeight > winHeight) newY = winHeight - buttonHeight;
-        setPosition({ x: newX, y: newY });
+        setPosition(getClampedPosition(e.clientX, e.clientY));
         wasDragging.current = true;
       }
     },
-    [dragging, offset],
+    [dragging, getClampedPosition],
   );
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    setDragging(true);
+    wasDragging.current = false;
+    setOffset({ x: touch.clientX - position.x, y: touch.clientY - position.y });
+  };
+
+  const handleTouchMove = useCallback(
+    (e: TouchEvent) => {
+      if (!dragging) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      setPosition(getClampedPosition(touch.clientX, touch.clientY));
+      wasDragging.current = true;
+    },
+    [dragging, getClampedPosition],
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    setDragging(false);
+  }, []);
+
   const handleMouseUp = () => {
     setDragging(false);
   };
@@ -99,15 +148,24 @@ export default function TuneInRadioButton() {
     if (dragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
+      window.addEventListener('touchcancel', handleTouchEnd);
     } else {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [dragging, handleMouseMove]);
+  }, [dragging, handleMouseMove, handleTouchMove, handleTouchEnd]);
 
   return (
     <>
@@ -119,8 +177,10 @@ export default function TuneInRadioButton() {
           top: position.y,
           zIndex: 1000,
           cursor: dragging ? 'grabbing' : 'grab',
+          touchAction: 'none',
         }}
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
       >
         <button
           className="rounded-full shadow-xl bg-white dark:bg-[#18181b] border-2 border-gray-300 dark:border-[#23232a] p-3 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none"

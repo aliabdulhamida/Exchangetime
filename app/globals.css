@@ -1,122 +1,269 @@
-input,
-textarea,
-select {
-  font-size: 16px;
-}
-/* Dark Mode für react-calendar */
-.dark .react-calendar {
-  background-color: transparent;
-  color: #f4f4f5;
-  border-color: #27272a;
-}
-.dark .react-calendar__tile {
-  background: none;
-  color: #f4f4f5;
-}
-.dark .react-calendar__tile--active,
-.dark .react-calendar__tile--now {
-  background: #27272a;
-  color: #f4f4f5;
-}
-.dark .react-calendar__tile--hover {
-  background: #27272a;
-}
-.dark .react-calendar__month-view__days__day--weekend {
-  color: #fca5a5;
-}
-.dark .react-calendar__navigation button {
-  color: #f4f4f5;
-}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 @import '../styles/blog.css';
 @import '../styles/enhanced-blog.css';
 
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .et-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border) / 0.9) transparent;
+  }
+
+  .et-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .et-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .et-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: hsl(var(--border));
   }
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 1%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 1%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 0 0% 96%;
+    --primary-foreground: 0 0% 6%;
+    --secondary: 0 0% 3%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 3%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 0 0% 3%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 68% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 13%;
+    --input: 0 0% 13%;
+    --ring: 0 0% 86%;
+    --chart-1: 0 0% 85%;
+    --chart-2: 0 0% 72%;
+    --chart-3: 0 0% 60%;
+    --chart-4: 0 0% 48%;
+    --chart-5: 0 0% 36%;
+    --radius: 0.625rem;
+    --sidebar-background: 0 0% 1%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 0 0% 96%;
+    --sidebar-primary-foreground: 0 0% 6%;
+    --sidebar-accent: 0 0% 3%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 13%;
+    --sidebar-ring: 0 0% 86%;
   }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-}
 
-@layer base {
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 1%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 1%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 0 0% 96%;
+    --primary-foreground: 0 0% 6%;
+    --secondary: 0 0% 3%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 3%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 0 0% 3%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 68% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 13%;
+    --input: 0 0% 13%;
+    --ring: 0 0% 86%;
+    --chart-1: 0 0% 85%;
+    --chart-2: 0 0% 72%;
+    --chart-3: 0 0% 60%;
+    --chart-4: 0 0% 48%;
+    --chart-5: 0 0% 36%;
+    --sidebar-background: 0 0% 1%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 0 0% 96%;
+    --sidebar-primary-foreground: 0 0% 6%;
+    --sidebar-accent: 0 0% 3%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 13%;
+    --sidebar-ring: 0 0% 86%;
+  }
+
   * {
     @apply border-border;
   }
+
+  html,
+  body {
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    color-scheme: dark;
+    font-family:
+      var(--font-display),
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      sans-serif;
     overflow: hidden;
   }
+
+  code,
+  pre,
+  .font-mono {
+    font-family:
+      var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+      'Courier New', monospace;
+  }
+}
+
+@layer components {
+  .et-app-shell {
+    position: relative;
+  }
+
+  .et-topbar {
+    border-bottom: 1px solid hsl(var(--border));
+    background: hsl(var(--background));
+  }
+
+  .et-sidebar-shell {
+    border-right: 1px solid hsl(var(--sidebar-border));
+    background: hsl(var(--background));
+  }
+
+  .et-nav-pill {
+    border: 1px solid hsl(var(--border));
+    border-radius: calc(var(--radius) + 0.05rem);
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    transition:
+      border-color 120ms ease,
+      background 120ms ease;
+  }
+
+  .et-nav-pill:hover {
+    border-color: hsl(var(--foreground) / 0.18);
+    background: hsl(var(--secondary));
+  }
+
+  .et-dropdown-panel {
+    border: 1px solid hsl(var(--border));
+    border-radius: calc(var(--radius) + 0.1rem);
+    background: hsl(var(--popover));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  }
+
+  .et-module-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+    border-radius: calc(var(--radius) + 0.1rem);
+    background: hsl(var(--card));
+    box-shadow: none;
+  }
+
+  .et-module-action {
+    height: 1.9rem;
+    width: 1.9rem;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: hsl(var(--muted-foreground));
+    transition:
+      color 120ms ease,
+      border-color 120ms ease,
+      background 120ms ease;
+  }
+
+  .et-module-action:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+    background: hsl(var(--secondary));
+  }
+
+  .et-module-action-danger:hover {
+    color: hsl(var(--destructive));
+  }
+
+  .et-sidebar-link {
+    border-radius: calc(var(--radius) + 0.05rem);
+    border: 1px solid transparent;
+    transition:
+      color 120ms ease,
+      border-color 120ms ease,
+      background 120ms ease;
+  }
+
+  .et-sidebar-link-inactive {
+    color: hsl(var(--sidebar-foreground) / 0.85);
+    background: transparent;
+  }
+
+  .et-sidebar-link-inactive:hover {
+    border-color: hsl(var(--sidebar-border));
+    color: hsl(var(--sidebar-foreground));
+    background: hsl(var(--sidebar-accent));
+  }
+
+  .et-sidebar-link-active {
+    border-color: hsl(var(--sidebar-border));
+    background: hsl(var(--sidebar-accent));
+    color: hsl(var(--sidebar-foreground));
+    cursor: default;
+  }
+}
+
+/* Dark mode tweaks for react-calendar */
+.dark .react-calendar {
+  background-color: transparent;
+  color: #f4f4f5;
+  border-color: #27272a;
+}
+
+.dark .react-calendar__tile {
+  background: none;
+  color: #f4f4f5;
+}
+
+.dark .react-calendar__tile--active,
+.dark .react-calendar__tile--now {
+  background: #27272a;
+  color: #f4f4f5;
+}
+
+.dark .react-calendar__tile--hover {
+  background: #27272a;
+}
+
+.dark .react-calendar__month-view__days__day--weekend {
+  color: #fca5a5;
+}
+
+.dark .react-calendar__navigation button {
+  color: #f4f4f5;
 }

@@ -551,18 +551,10 @@ export default function PortfolioTracker() {
   }
 
   return (
-    <div className="min-h-[50vh] text-xs sm:text-sm md:text-base">
-      <header>
-  <div className="container mx-auto px-4 sm:px-6 pt-0 pb-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">
-              Portfolio Tracker
-            </h1>
-            <div className="flex items-center gap-3">
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-[50vh] pt-0 text-xs sm:text-sm md:text-base">
+      <div className="mb-6 flex items-center justify-start">
+        <h2 className="text-lg font-bold text-foreground">Portfolio Tracker</h2>
+      </div>
 
       <main className="container mx-auto px-auto sm:px-auto py-auto sm:py-8">
         <section className="grid gap-4 mb-8 grid-cols-2 lg:grid-cols-4">
@@ -885,18 +877,18 @@ export default function PortfolioTracker() {
                         );
                       }
 
-                      // Set chart color using CSS variable for theme responsiveness
-                      let chartColor = 'var(--chart-positive-color, #000)';
+                      // Use neutral monochrome for positive performance (no green theme tint)
+                      let chartColor = '#d4d4d8';
                       if (filteredPortfolioHistory.length > 1) {
                         const first = filteredPortfolioHistory[0].value;
                         const last =
                           filteredPortfolioHistory[filteredPortfolioHistory.length - 1].value;
                         if (last > first) {
-                          chartColor = 'var(--chart-positive-color, #000)';
+                          chartColor = '#d4d4d8';
                         } else if (last < first) {
                           chartColor = '#ef4444'; // Red for negative performance
                         } else {
-                          chartColor = '#6b7280'; // Gray for neutral
+                          chartColor = '#9ca3af'; // Gray for neutral
                         }
                       }
 

@@ -25,6 +25,9 @@ function isValidSlug(slug: unknown): slug is string {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get('slug');
+  if (slug !== null && !isValidSlug(slug)) {
+    return NextResponse.json({ error: 'invalid slug' }, { status: 400 });
+  }
 
   // Wenn slug angegeben: nur diesen Eintrag liefern, sonst komplette Map
   if (slug) {
@@ -51,6 +54,9 @@ export async function GET(req: NextRequest) {
 export async function HEAD(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get('slug');
+  if (slug !== null && !isValidSlug(slug)) {
+    return new NextResponse(null, { status: 400 });
+  }
   const value = slug ? (store[slug] ?? (baseViews as ViewsMap)[slug] ?? 0) : 0;
   return new NextResponse(null, {
     status: 200,
