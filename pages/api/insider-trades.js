@@ -1,67 +1,140 @@
+const NASDAQ_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (compatible; Exchangetime/1.0)',
+  Accept: 'application/json, text/plain, */*',
+  Referer: 'https://www.nasdaq.com/',
+};
+
+const CACHE_TTL_MS = 15 * 60 * 1000;
+const cache = new Map();
+
+function parseNumeric(value) {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+
+  let text = String(value).trim();
+  if (!text) return 0;
+
+  const bracketedNegative = text.match(/^\((.*)\)$/);
+  const isNegative = Boolean(bracketedNegative);
+  if (isNegative) text = bracketedNegative[1];
+
+  text = text.replace(/[^0-9.-]/g, '');
+  if (!text || text === '-' || text === '.' || text === '-.') return 0;
+
+  const parsed = Number(text);
+  if (!Number.isFinite(parsed)) return 0;
+  return isNegative ? -Math.abs(parsed) : parsed;
+}
+
+function normalizeDate(value) {
+  if (!value) return '';
+  const str = String(value).trim();
+  const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!mdy) return str;
+
+  const [, month, day, year] = mdy;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+async function fetchNasdaqJson(url) {
+  const response = await fetch(url, {
+    headers: NASDAQ_HEADERS,
+    cache: 'no-store',
+  });
+
+  const text = await response.text();
+  let payload = null;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    payload = null;
+  }
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    payload,
+    text,
+  };
+}
+
+function mapTrades(rows, ticker, company) {
+  if (!Array.isArray(rows)) return [];
+
+  const trades = rows
+    .map((row) => {
+      const shares = parseNumeric(row?.sharesTraded);
+      const price = parseNumeric(row?.lastPrice);
+
+      return {
+        date: normalizeDate(row?.lastDate),
+        insider: row?.insider || '',
+        position: row?.relation || '',
+        transaction: row?.transactionType || '',
+        shares,
+        price,
+        value: shares * price,
+        company,
+        symbol: ticker,
+      };
+    })
+    .filter((trade) => trade.date && trade.insider)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  return trades;
+}
+
 export default async function handler(req, res) {
   const { symbol } = req.query;
   if (!symbol || typeof symbol !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid symbol' });
   }
 
-  const apiKey = process.env.FMP_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'API key not configured' });
+  const ticker = symbol.trim().toUpperCase();
+  if (!ticker) {
+    return res.status(400).json({ error: 'Missing or invalid symbol' });
+  }
+
+  const cached = cache.get(ticker);
+  if (cached && cached.expiresAt > Date.now()) {
+    return res.status(200).json(cached.data);
   }
 
   try {
-    const ticker = symbol.trim().toUpperCase();
-    const pageSize = 100;
-    const maxPages = 8;
-    let trades = [];
+    const insiderUrl = `https://api.nasdaq.com/api/company/${encodeURIComponent(ticker)}/insider-trades`;
+    const companyUrl = `https://api.nasdaq.com/api/company/${encodeURIComponent(ticker)}/company-profile`;
 
-    // Per-symbol endpoint is currently restricted for this key, so filter from latest feed pages.
-    for (let page = 0; page < maxPages; page++) {
-      const tradesRes = await fetch(
-        `https://financialmodelingprep.com/stable/insider-trading/latest?page=${page}&limit=${pageSize}&apikey=${apiKey}`,
-      );
-      if (!tradesRes.ok) {
-        if (page === 0) {
-          return res.status(502).json({ error: 'Failed to fetch insider trades', status: tradesRes.status });
-        }
-        break;
-      }
-      const pageTrades = await tradesRes.json();
-      if (!Array.isArray(pageTrades) || pageTrades.length === 0) break;
-      const filtered = pageTrades.filter((trade) => String(trade?.symbol || '').toUpperCase() === ticker);
-      trades.push(...filtered);
-      if (trades.length >= 100 || pageTrades.length < pageSize) break;
+    const [insiderResponse, companyResponse] = await Promise.all([
+      fetchNasdaqJson(insiderUrl),
+      fetchNasdaqJson(companyUrl),
+    ]);
+
+    if (!insiderResponse.ok) {
+      return res.status(502).json({
+        error: 'Failed to fetch insider trades',
+        status: insiderResponse.status,
+      });
     }
 
-    const profileRes = await fetch(
-      `https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`,
-    );
-    const profileData = await profileRes.json();
-    const profile = Array.isArray(profileData) ? profileData[0] : profileData;
+    const rows = insiderResponse.payload?.data?.transactionTable?.table?.rows;
+    const companyName =
+      companyResponse.payload?.data?.CompanyName?.value ||
+      companyResponse.payload?.data?.companyName ||
+      ticker;
 
-    // Transform FMP format to expected format
-    const transformed = (Array.isArray(trades) ? trades : []).map((trade) => {
-      const shares = Number(trade.securitiesTransacted || 0);
-      const price = Number(trade.price || trade.pricePerShare || 0);
-      return {
-      date: trade.filingDate || trade.transactionDate || '',
-      insider: trade.reportingName || '',
-      position: trade.typeOfOwner || trade.officerTitle || '',
-      transaction: trade.transactionType || '',
-      shares,
-      price,
-      value: shares * price,
-      company: profile?.companyName || ticker,
-      symbol: ticker,
+    const response = {
+      company: companyName,
+      trades: mapTrades(rows, ticker, companyName),
     };
+
+    cache.set(ticker, {
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      data: response,
     });
 
-    res.status(200).json({
-      company: profile?.companyName || ticker,
-      trades: transformed
-    });
+    return res.status(200).json(response);
   } catch (err) {
     console.error('Insider trades API error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

@@ -50,6 +50,12 @@ export default function EarningsCalendar() {
     if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
     return num.toString();
   }
+  function toLocalDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   const today = new Date();
   // Ermittle Wochenstart (Montag)
   const weekStart = new Date(today);
@@ -61,7 +67,6 @@ export default function EarningsCalendar() {
   });
   const [selectedDayIdx, setSelectedDayIdx] = useState((today.getDay() + 6) % 7);
   const selectedDate = weekDates[selectedDayIdx];
-  const key = selectedDate.toISOString().split('T')[0];
   const [earningsData, setEarningsData] = useState<Record<string, any[]>>({});
 
   // Fetch earnings data from API and store in localStorage
@@ -89,10 +94,7 @@ export default function EarningsCalendar() {
     }
   }, []);
 
-  // Shift data by one day down: show previous day's data for each day
-  // Shift data by one day down: show next day's data for each day
-  // Show data for the selected day (correct mapping)
-  const selectedKey = weekDates[selectedDayIdx].toISOString().split('T')[0];
+  const selectedKey = toLocalDateKey(weekDates[selectedDayIdx]);
   let items = earningsData[selectedKey] || [];
 
   // Filter menu state
@@ -187,15 +189,12 @@ export default function EarningsCalendar() {
       return false;
     if (filters.epsForecast && !epsForecastMatches(item.epsEstimate, filters.epsForecast))
       return false;
-    // Show company only if hour, epsEstimate, and revenueEstimate are all present (not null/undefined/empty)
+    // Nasdaq calendar data does not include revenue estimates for every symbol.
+    // Keep rows visible as long as timing + EPS estimate exist.
     const hasHour = !!item.hour;
     const hasEpsEstimate =
       item.epsEstimate !== undefined && item.epsEstimate !== null && item.epsEstimate !== '';
-    const hasRevenueEstimate =
-      item.revenueEstimate !== undefined &&
-      item.revenueEstimate !== null &&
-      item.revenueEstimate !== '';
-    if (!(hasHour && hasEpsEstimate && hasRevenueEstimate)) return false;
+    if (!(hasHour && hasEpsEstimate)) return false;
     return true;
   });
 
