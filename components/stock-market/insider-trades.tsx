@@ -104,62 +104,19 @@ export default function InsiderTrades() {
     setError(null);
     setCompanyName('');
     try {
-      const finvizUrl = `https://finviz.com/quote.ashx?t=${ticker}`;
-      const proxyUrl = 'https://corsproxy.io/?';
-      const response = await fetch(`${proxyUrl}${encodeURIComponent(finvizUrl)}`);
+      const response = await fetch(`/api/insider-trades?symbol=${ticker}`);
       if (!response.ok) throw new Error(`Error fetching data: ${response.status}`);
-      const html = await response.text();
-      // Parse HTML for trades
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      // Try to extract company name from title
-      const title = doc.querySelector('title')?.textContent || ticker;
-      let name = title;
-      if (name.includes('Stock Price and Quote')) {
-        name = name
-          .split('Stock Price and Quote')[0]
-          .replace(/^[A-Z]+\s*-\s*/, '')
-          .trim();
-      } else {
-        name = name
-          .split('(')[0]
-          .replace(/^[A-Z]+\s*-\s*/, '')
-          .trim();
-      }
-      setCompanyName(name);
-      // Find insider table
-      const insiderTable = [...doc.querySelectorAll('table.body-table')].find((table) => {
-        const headers = table.querySelectorAll('th');
-        return [...headers].some((th) => th.textContent?.includes('Insider Trading'));
-      });
-      const parsedTrades: InsiderTrade[] = [];
-      if (insiderTable) {
-        const rows = insiderTable.querySelectorAll('tr');
-        rows.forEach((row, idx) => {
-          if (idx === 0) return; // skip header
-          const cells = row.querySelectorAll('td');
-          if (cells.length >= 6) {
-            parsedTrades.push({
-              company: name,
-              symbol: ticker,
-              insider: cells[1]?.textContent?.trim() || '-',
-              position: cells[2]?.textContent?.trim() || '-',
-              transaction: cells[3]?.textContent?.trim() || '-',
-              shares: Number(cells[5]?.textContent?.replace(/[^\d.-]/g, '')) || 0,
-              price: Number(cells[4]?.textContent?.replace(/[^\d.-]/g, '')) || 0,
-              value:
-                (Number(cells[5]?.textContent?.replace(/[^\d.-]/g, '')) || 0) *
-                (Number(cells[4]?.textContent?.replace(/[^\d.-]/g, '')) || 0),
-              date: cells[0]?.textContent?.trim() || '-',
-            });
-          }
-        });
-      }
+      const data = await response.json();
+      
+      setCompanyName(data.company || ticker);
+      
+      const parsedTrades: InsiderTrade[] = data.trades || [];
       setTrades(parsedTrades);
+      
       if (parsedTrades.length === 0) {
         setError('No insider trades found.');
       } else {
-        // Hole Preis und Tagesänderung nur nach erfolgreichem Laden
+        // Fetch price and daily change after successful load
         await fetchChange(ticker);
       }
     } catch (err: any) {

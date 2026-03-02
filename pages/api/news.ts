@@ -6,29 +6,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 		return res.status(400).json({ error: 'Missing or invalid ticker parameter' });
 	}
 
+	const apiKey = process.env.FMP_API_KEY;
+	if (!apiKey) {
+		return res.status(500).json({ error: 'FMP API key not configured' });
+	}
+
 	try {
-		// Use Yahoo Finance news via CORS proxy
-		const yahooUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=news`;
-		const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+		// Use FMP API for news
+		const url = `https://financialmodelingprep.com/api/v4/fmp/articles?search=${encodeURIComponent(ticker)}&limit=20&apikey=${apiKey}`;
 		
-		const response = await fetch(proxyUrl);
+		const response = await fetch(url);
 		if (!response.ok) {
-			console.error('Yahoo Finance API error:', response.status);
+			console.error('FMP API error:', response.status);
 			return res.status(200).json([]); // Return empty array instead of error
 		}
 		
 		const data = await response.json();
-		const news = data?.quoteSummary?.result?.[0]?.news || [];
+		const articles = Array.isArray(data) ? data : [];
 		
-		// Transform Yahoo news format to match expected format
-		const transformed = news.map((item: any) => ({
-			id: item.uuid || '',
+		// Transform FMP format to standard format
+		const transformed = articles.map((item: any) => ({
+			id: item.link || '',
 			headline: item.title || '',
-			source: item.publisher || 'Yahoo Finance',
+			source: item.site || 'FMP',
 			url: item.link || '',
-			datetime: item.providerPublishTime ? item.providerPublishTime * 1000 : Date.now(),
-			image: item.thumbnail?.resolutions?.[0]?.url || '',
-			summary: item.summary || '',
+			datetime: item.publishedDate ? new Date(item.publishedDate).getTime() : Date.now(),
+			image: item.image || '',
+			summary: item.text || '',
 			category: 'General'
 		}));
 		
