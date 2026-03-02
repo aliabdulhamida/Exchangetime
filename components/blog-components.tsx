@@ -90,11 +90,11 @@ export function BlogCategories({
 export const blogPosts: BlogPost[] = [
   {
     id: 15,
-    title: 'Iran Escalation Explained: What Happened and What It Means for Global Stock Markets',
+    title: 'Iran Escalation (Feb 28-March 1, 2026): What Happened and What It Means for Stocks',
     excerpt:
-      'A comprehensive, date-anchored explainer of the Iran escalation and how oil, rates, and risk sentiment can ripple through global equities.',
-    date: 'March 2, 2026',
-    readTimeMinutes: 4,
+      'A date-anchored explainer of the Feb 28-March 1 escalation and how oil, inflation expectations, and risk premia can ripple through global equities.',
+    date: 'March 3, 2026',
+    readTimeMinutes: 6,
     image:
       'https://images.pexels.com/photos/3974150/pexels-photo-3974150.jpeg?auto=compress&cs=tinysrgb&w=2000',
     categories: ['Markets', 'Geopolitics', 'Analysis'],

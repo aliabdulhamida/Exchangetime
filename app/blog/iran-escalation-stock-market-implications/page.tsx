@@ -31,7 +31,7 @@ export default function IranEscalationStockMarketImplicationsPage() {
             </div>
 
             <h1>
-              Iran Escalation Explained: What Happened and What It Means for Global Stock Markets
+              Iran Escalation (Feb 28-March 1, 2026): What Happened and What It Means for Stocks
             </h1>
 
             <div className="article-metadata">
@@ -48,12 +48,12 @@ export default function IranEscalationStockMarketImplicationsPage() {
               <span className="separator">•</span>
               <div className="flex items-center">
                 <Calendar size={14} className="mr-1" />
-                <span>March 2, 2026</span>
+                <span>March 3, 2026</span>
               </div>
             </div>
 
             <ShareButtons
-              title="Iran Escalation Explained: What Happened and What It Means for Global Stock Markets"
+              title="Iran Escalation (Feb 28-March 1, 2026): What Happened and What It Means for Stocks"
               url={postUrl}
             />
           </header>
@@ -72,44 +72,44 @@ export default function IranEscalationStockMarketImplicationsPage() {
 
           <section>
             <p>
-              The sharp escalation involving Iran, Israel, and the United States in June 2025 was
-              one of the clearest reminders that geopolitical shocks still move markets through the
-              same old channels: oil, inflation expectations, and risk appetite. Even when the
-              military situation stayed fluid, investors began repricing assets within minutes of
-              each headline.
+              The sharp escalation involving Iran, Israel, and the United States on February 28 and
+              March 1, 2026, was a clear reminder that geopolitical shocks still move markets
+              through the same channels: oil, inflation expectations, and risk appetite. Even with
+              the military picture changing hour by hour, investors began repricing assets within
+              minutes of each headline.
             </p>
             <p>
-              This article breaks down what escalated, why markets reacted the way they did, and
-              what investors should monitor now in 2026 if tensions flare again.
+              This article breaks down what escalated over that weekend, why markets reacted the
+              way they did, and what investors should monitor now if tensions flare again.
             </p>
           </section>
 
           <section>
             <h2>What Actually Escalated: A Clear Timeline</h2>
             <p>
-              The most acute phase unfolded over less than two weeks in June 2025, but it linked
-              military action, energy-risk repricing, and broad cross-asset volatility.
+              The most acute phase unfolded over the Feb 28-Mar 1 weekend and linked military
+              action, energy-risk repricing, and broad cross-asset volatility.
             </p>
             <ul className="list-disc ml-6">
               <li>
-                <strong>June 13, 2025:</strong> Israel launched strikes inside Iran, targeting
-                military and nuclear-related sites and killing senior commanders and scientists.
+                <strong>February 28, 2026:</strong> Israel launched major strikes inside Iran on
+                military and nuclear-linked infrastructure, marking a new phase in direct regional
+                confrontation.
               </li>
               <li>
-                <strong>June 13-22, 2025:</strong> Iran responded with waves of missile and drone
-                attacks toward Israel, keeping regional assets on high alert.
+                <strong>Late February 28 to early March 1:</strong> The United States joined
+                follow-on strikes while Iran responded with missile and drone attacks toward Israeli
+                and U.S.-aligned targets.
               </li>
               <li>
-                <strong>June 21, 2025:</strong> The U.S. struck three Iranian nuclear facilities:
-                Fordo, Natanz, and Isfahan.
+                <strong>March 1, 2026:</strong> Air-defense activity intensified across the region
+                and governments raised domestic alert levels, with travel and security disruptions
+                spreading beyond the immediate conflict zone.
               </li>
               <li>
-                <strong>June 23, 2025:</strong> Iran launched missiles at Al Udeid Air Base in
-                Qatar after giving advance notice, and Qatari/U.S. defenses intercepted the strike.
-              </li>
-              <li>
-                <strong>June 24, 2025:</strong> A ceasefire framework was announced, but with
-                mutual accusations of violations and no full strategic resolution.
+                <strong>March 1, 2026 (market pricing):</strong> Oil and shipping-risk premia rose
+                sharply as traders focused on possible disruption around the Strait of Hormuz and
+                knock-on inflation risk.
               </li>
             </ul>
           </section>
@@ -117,38 +117,38 @@ export default function IranEscalationStockMarketImplicationsPage() {
           <section>
             <h2>Immediate Market Reaction: Oil First, Then Equities</h2>
             <p>
-              The first move was textbook: crude spiked, safe havens rallied, and equities sold off
-              at the open before partially recovering once traders judged the retaliation as
-              calibrated rather than maximal.
+              The first move was textbook: crude spiked, safe havens rallied, and equity futures
+              sold off before partially stabilizing once traders assessed whether the conflict would
+              remain geographically contained.
             </p>
             <ul className="list-disc ml-6">
               <li>
-                <strong>Oil shock:</strong> On June 23, 2025, U.S. benchmark crude rose 6.3% to
-                $71.23 after briefly jumping as much as 8.6%. Brent rose 6.7% to $77.74 after an
-                intraday move near 9%.
+                <strong>Oil shock:</strong> During weekend and early-session pricing, WTI and Brent
+                moved up by high single digits at peak, reflecting risk around Middle East supply
+                routes.
               </li>
               <li>
-                <strong>U.S. equities:</strong> The S&amp;P 500 opened down about 1.2% but later
-                closed up 0.3%. The Dow finished up 0.1% and the Nasdaq up 0.4%.
+                <strong>U.S. equities:</strong> Futures moved risk-off, led by energy-cost-sensitive
+                segments, while defensive and commodity-linked names held up better.
               </li>
               <li>
-                <strong>Europe and Asia:</strong> Moves were weaker abroad on the same session:
-                Germany&apos;s DAX fell 2.6%, France&apos;s CAC 40 fell 2.2%, and Hong Kong&apos;s Hang
-                Seng dropped 2.1%.
+                <strong>Europe and Asia:</strong> Markets with higher imported-energy exposure
+                generally underperformed the U.S. on the initial shock.
               </li>
               <li>
-                <strong>Rates and havens:</strong> The U.S. 10-year Treasury yield moved up to
-                around 4.04% from 3.97% late the prior week, while gold gained roughly 1.2%.
+                <strong>Rates and havens:</strong> Gold and the U.S. dollar caught safe-haven bids,
+                while rate expectations turned more cautious as traders priced a potential energy
+                inflation impulse.
               </li>
               <li>
-                <strong>Gas sensitivity:</strong> European natural-gas futures surged, at one point
-                rising over 40% from their June 12 lows.
+                <strong>Shipping and gas sensitivity:</strong> Tanker routing, insurance, and LNG
+                expectations repriced quickly, amplifying stress in energy-linked assets.
               </li>
             </ul>
             <p>
-              The key takeaway: the market priced a higher risk premium, but not a full supply
-              catastrophe. That distinction explains why equities stabilized quickly after the first
-              shock.
+              The key takeaway: markets priced a higher geopolitical risk premium, but not an
+              immediate full supply catastrophe. That distinction explains why downside was sharp but
+              not disorderly.
             </p>
           </section>
 
@@ -206,7 +206,7 @@ export default function IranEscalationStockMarketImplicationsPage() {
           <section>
             <h2>Regional Equity Impact: U.S. vs Europe vs Emerging Markets</h2>
             <p>
-              The June 2025 episode also showed regional differences in vulnerability:
+              The Feb 28-Mar 1 episode also showed regional differences in vulnerability:
             </p>
             <ul className="list-disc ml-6">
               <li>
@@ -225,7 +225,7 @@ export default function IranEscalationStockMarketImplicationsPage() {
           </section>
 
           <section>
-            <h2>Three Forward Scenarios for 2026</h2>
+            <h2>Three Forward Scenarios for Spring 2026</h2>
             <div className="overflow-x-auto">
               <table className="min-w-full table-auto border-collapse border border-gray-300 dark:border-gray-700">
                 <thead>
@@ -247,7 +247,7 @@ export default function IranEscalationStockMarketImplicationsPage() {
                       Managed de-escalation
                     </td>
                     <td className="border border-gray-300 dark:border-gray-700 px-4 py-2">
-                      Oil volatility fades, risk premium compresses
+                      Oil volatility fades and freight premia normalize
                     </td>
                     <td className="border border-gray-300 dark:border-gray-700 px-4 py-2">
                       Broad rally led by cyclicals and rate-sensitive growth
@@ -258,7 +258,7 @@ export default function IranEscalationStockMarketImplicationsPage() {
                       Intermittent flare-ups
                     </td>
                     <td className="border border-gray-300 dark:border-gray-700 px-4 py-2">
-                      Choppy crude, recurring headline shocks
+                      Choppy crude with recurring weekend headline shocks
                     </td>
                     <td className="border border-gray-300 dark:border-gray-700 px-4 py-2">
                       Range-bound indices, strong dispersion by sector
@@ -269,7 +269,7 @@ export default function IranEscalationStockMarketImplicationsPage() {
                       Severe supply disruption
                     </td>
                     <td className="border border-gray-300 dark:border-gray-700 px-4 py-2">
-                      Oil spike, tighter financial conditions, higher inflation risk
+                      Extended oil spike, tighter financial conditions, higher inflation risk
                     </td>
                     <td className="border border-gray-300 dark:border-gray-700 px-4 py-2">
                       Deep risk-off move, defensives and energy outperform
@@ -292,12 +292,16 @@ export default function IranEscalationStockMarketImplicationsPage() {
                 signals tighter near-term supply risk.
               </li>
               <li>
-                <strong>European gas benchmarks:</strong> Faster indicator of regional stress than
-                broad equity indices.
+                <strong>Hormuz traffic and tanker insurance spreads:</strong> Faster stress signal
+                than broad equity indices when shipping risk is the central transmission channel.
               </li>
               <li>
-                <strong>Shipping insurance and freight metrics:</strong> Early warning for
-                second-round cost pressure.
+                <strong>European gas benchmarks:</strong> Early warning for second-round cost
+                pressure in import-dependent economies.
+              </li>
+              <li>
+                <strong>OPEC+ output messaging:</strong> Helps determine whether policy supply can
+                offset conflict-driven risk premia.
               </li>
               <li>
                 <strong>U.S. breakeven inflation and Treasury yields:</strong> Shows whether energy
@@ -313,10 +317,10 @@ export default function IranEscalationStockMarketImplicationsPage() {
           <section>
             <h2>Bottom Line</h2>
             <p>
-              The Iran escalation was not just a geopolitical story; it was a macro-pricing event.
-              Markets treated it as a live test of energy security, inflation risk, and central-bank
-              reaction paths. That is why oil moved first, equities repriced quickly, and sector
-              divergence widened.
+              The February 28-March 1 Iran escalation was not just a geopolitical story; it was a
+              macro-pricing event. Markets treated it as a live test of energy security, inflation
+              risk, and central-bank reaction paths. That is why oil moved first, equities repriced
+              quickly, and sector divergence widened.
             </p>
             <p>
               For portfolio construction, the lesson is straightforward: in geopolitical regimes,
@@ -325,7 +329,7 @@ export default function IranEscalationStockMarketImplicationsPage() {
           </section>
 
           <ShareButtons
-            title="Iran Escalation Explained: What Happened and What It Means for Global Stock Markets"
+            title="Iran Escalation (Feb 28-March 1, 2026): What Happened and What It Means for Stocks"
             url={postUrl}
           />
 
@@ -338,15 +342,15 @@ export default function IranEscalationStockMarketImplicationsPage() {
                 '@context': 'https://schema.org',
                 '@type': 'Article',
                 headline:
-                  'Iran Escalation Explained: What Happened and What It Means for Global Stock Markets',
-                datePublished: '2026-03-02',
+                  'Iran Escalation (Feb 28-March 1, 2026): What Happened and What It Means for Stocks',
+                datePublished: '2026-03-03',
                 author: [{ '@type': 'Organization', name: 'Exchangetime Team' }],
                 image: [
                   'https://images.pexels.com/photos/3974150/pexels-photo-3974150.jpeg?auto=compress&cs=tinysrgb&w=2000',
                 ],
                 mainEntityOfPage: postUrl || undefined,
                 description:
-                  'A comprehensive, date-anchored explainer of the Iran escalation and its implications across global equities, oil, inflation expectations, and sector performance.',
+                  'A date-anchored explainer of the Feb 28-March 1, 2026 Iran escalation and its implications across global equities, oil, inflation expectations, and sector leadership.',
               }),
             }}
           />
