@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.13.1",
   "engines": {
-    "node": "^18.17.0 || ^20.11.0 || ^22.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "build": "cross-env CI=1 NEXT_TELEMETRY_DISABLED=1 FORCE_COLOR=0 TERM=dumb node scripts/build-programmatic.js",

@@ -12,20 +12,28 @@ jobs:
     env:
       FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Node.js
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20.18.1'
-      - name: Set up pnpm
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Setup pnpm 10.13.1
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 10.13.1
+
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
       - name: Lint
         run: pnpm lint
+
       - name: Build
         run: pnpm build
+
       - name: Run tests
         run: pnpm test
