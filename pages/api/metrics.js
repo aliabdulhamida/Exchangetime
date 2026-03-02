@@ -20,11 +20,12 @@ export default async function handler(req, res) {
 
   try {
     // Use current stable endpoints (legacy v3/v4 endpoints were discontinued after 2025-08-31).
-    const [profileRes, ratiosRes, growthRes, cashFlowRes] = await Promise.all([
+    const [profileRes, ratiosRes, growthRes, cashFlowRes, keyMetricsRes] = await Promise.all([
       fetch(url('profile')),
       fetch(url('ratios')),
       fetch(url('financial-growth')),
       fetch(`${base}/cash-flow-statement?symbol=${encodeURIComponent(ticker)}&limit=1&apikey=${apiKey}`),
+      fetch(url('key-metrics')),
     ]);
 
     if (!profileRes.ok || !ratiosRes.ok) {
@@ -39,19 +40,26 @@ export default async function handler(req, res) {
     const ratiosData = await ratiosRes.json();
     const growthData = growthRes.ok ? await growthRes.json() : [];
     const cashFlowData = cashFlowRes.ok ? await cashFlowRes.json() : [];
+    const keyMetricsData = keyMetricsRes.ok ? await keyMetricsRes.json() : [];
 
     const profile = Array.isArray(profileData) ? profileData[0] : profileData;
     const ratios = Array.isArray(ratiosData) ? ratiosData[0] : ratiosData;
     const growth = Array.isArray(growthData) ? growthData[0] : growthData;
     const cashFlow = Array.isArray(cashFlowData) ? cashFlowData[0] : cashFlowData;
+    const keyMetrics = Array.isArray(keyMetricsData) ? keyMetricsData[0] : keyMetricsData;
 
     const metrics = {
       peRatio: toNum(ratios?.priceToEarningsRatio),
       pbRatio: toNum(ratios?.priceToBookRatio),
       pegRatio: toNum(ratios?.priceToEarningsGrowthRatio || ratios?.forwardPriceToEarningsGrowthRatio),
-      roe: toPercent(ratios?.returnOnEquity),
+      roe: toPercent(keyMetrics?.returnOnEquity || ratios?.returnOnEquity),
       profitMargin: toPercent(ratios?.netProfitMargin),
-      roic: toPercent(ratios?.returnOnCapitalEmployed || ratios?.returnOnAssets),
+      roic: toPercent(
+        keyMetrics?.returnOnCapitalEmployed ||
+          keyMetrics?.returnOnInvestedCapital ||
+          ratios?.returnOnCapitalEmployed ||
+          ratios?.returnOnAssets,
+      ),
       debtToEquity: toNum(ratios?.debtToEquityRatio),
       currentRatio: toNum(ratios?.currentRatio),
       // Keep unit in billions to match frontend formatting logic.

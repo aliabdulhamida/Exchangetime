@@ -51,6 +51,7 @@ export default function InsiderTrades() {
   const [ticker, setTicker] = useState('');
   const [trades, setTrades] = useState<InsiderTrade[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [emptyState, setEmptyState] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string>('');
   // Auswahl-Logik für Karten
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
@@ -102,28 +103,35 @@ export default function InsiderTrades() {
   const fetchInsiderTrades = async () => {
     setLoading(true);
     setError(null);
+    setEmptyState(null);
     setCompanyName('');
+    setTrades([]);
+    setSelectedIndexes([]);
     try {
-      const response = await fetch(`/api/insider-trades?symbol=${ticker}`);
+      const cleanTicker = ticker.trim().toUpperCase();
+      const response = await fetch(`/api/insider-trades?symbol=${cleanTicker}`);
       if (!response.ok) throw new Error(`Error fetching data: ${response.status}`);
       const data = await response.json();
-      
-      setCompanyName(data.company || ticker);
-      
+
+      setCompanyName(data.company || cleanTicker);
+
       const parsedTrades: InsiderTrade[] = data.trades || [];
       setTrades(parsedTrades);
-      
+
       if (parsedTrades.length === 0) {
-        setError('No insider trades found.');
+        setEmptyState(
+          `No recent insider filings found for ${cleanTicker}. Try another symbol or check again later.`,
+        );
+        setLatestPrice(null);
+        setDailyChange(null);
       } else {
         // Fetch price and daily change after successful load
-        await fetchChange(ticker);
+        await fetchChange(cleanTicker);
       }
     } catch (err: any) {
       setError(err.message || 'Unknown error');
       setLatestPrice(null);
       setDailyChange(null);
-      setTrades([]);
     } finally {
       setLoading(false);
     }
@@ -277,6 +285,22 @@ export default function InsiderTrades() {
           <Search className="w-4 h-4" />
         </Button>
       </div>
+      {companyName && trades.length > 0 && (
+        <div className="mb-3 rounded-md border border-gray-700/40 bg-gray-900/30 px-3 py-2 text-sm text-gray-200">
+          <span className="font-semibold">{companyName}</span>
+          {typeof latestPrice === 'number' && (
+            <span className="ml-2 tabular-nums">${latestPrice.toFixed(2)}</span>
+          )}
+          {typeof dailyChange === 'number' && (
+            <span
+              className={`ml-2 tabular-nums ${dailyChange >= 0 ? 'text-green-400' : 'text-red-400'}`}
+            >
+              {dailyChange >= 0 ? '+' : ''}
+              {dailyChange.toFixed(2)}%
+            </span>
+          )}
+        </div>
+      )}
       {/* Disclaimer ähnlich wie Stock Analysis */}
       {!loading && !error && trades.length === 0 && (
          <div className="mt-4 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center gap-2 border border-blue-200 dark:border-blue-800">
@@ -330,6 +354,12 @@ export default function InsiderTrades() {
             <div className="text-lg mb-1 mx-auto max-w-xs break-words">{error}</div>
           </div>
         </Alert>
+      )}
+      {emptyState && !loading && !error && (
+        <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-4 text-center text-amber-200">
+          <div className="font-medium mb-1">No Insider Trades Available</div>
+          <div className="text-sm opacity-90">{emptyState}</div>
+        </div>
       )}
       {/* Bereich mit Company, Ticker, Preis und Tagesänderung entfernt */}
       {/* Statistikkarten und Chart */}

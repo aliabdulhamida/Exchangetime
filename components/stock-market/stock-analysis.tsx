@@ -39,7 +39,7 @@ interface StockData {
   epsGrowth?: number;
   debtEquity?: number;
   currentRatio?: number;
-  freeCashFlow?: string;
+  freeCashFlow?: number;
 }
 
 export default function StockAnalysis() {
@@ -92,6 +92,30 @@ export default function StockAnalysis() {
   const chartIsPositive =
     chartData.length > 1 && chartData[chartData.length - 1].price >= chartData[0].price;
   const chartColor = chartIsPositive ? '#38FFB7' : '#FF3860';
+
+  function formatRatio(value?: number, digits = 2) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+    return value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    });
+  }
+
+  function formatPercent(value?: number, digits = 2) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+    return `${value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    })}%`;
+  }
+
+  function formatBillions(value?: number, digits = 2) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+    return `$${value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    })}B`;
+  }
 
   // Hilfsfunktion für Prozentveränderung
   function calcPercentChange(data: { price: number }[]): number | null {
@@ -263,10 +287,7 @@ export default function StockAnalysis() {
           epsGrowth: metrics?.epsGrowth,
           debtEquity: metrics?.debtToEquity,
           currentRatio: metrics?.currentRatio,
-          freeCashFlow:
-            typeof metrics?.freeCashFlow === 'number' && metrics.freeCashFlow > 0
-              ? `$${metrics.freeCashFlow.toFixed(2)}B`
-              : '-',
+          freeCashFlow: metrics?.freeCashFlow,
         });
       } else {
         setError('Error fetching data.');
@@ -408,8 +429,8 @@ export default function StockAnalysis() {
               </h4>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">P/E Ratio</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.pe ?? '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatRatio(selectedStock.pe)}
                   {typeof selectedStock.pe === 'number' ? (
                     selectedStock.pe < 10 ? (
                       <AlertCircle className="w-4 h-4 text-red-500" />
@@ -425,8 +446,8 @@ export default function StockAnalysis() {
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">PEG Ratio</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.peg ?? '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatRatio(selectedStock.peg)}
                   {typeof selectedStock.peg === 'number' ? (
                     selectedStock.peg < 1 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -440,8 +461,8 @@ export default function StockAnalysis() {
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">P/B Ratio</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.pb ?? '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatRatio(selectedStock.pb)}
                   {typeof selectedStock.pb === 'number' ? (
                     selectedStock.pb < 1 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -461,8 +482,8 @@ export default function StockAnalysis() {
               </h4>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">ROE</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.roe ? `${selectedStock.roe}%` : '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatPercent(selectedStock.roe)}
                   {typeof selectedStock.roe === 'number' ? (
                     selectedStock.roe > 15 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -476,8 +497,8 @@ export default function StockAnalysis() {
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">Net Margin</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.netMargin ? `${selectedStock.netMargin}%` : '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatPercent(selectedStock.netMargin)}
                   {typeof selectedStock.netMargin === 'number' ? (
                     selectedStock.netMargin > 10 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -491,8 +512,8 @@ export default function StockAnalysis() {
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">ROIC</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.roic ? `${selectedStock.roic}%` : '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatPercent(selectedStock.roic)}
                   {typeof selectedStock.roic === 'number' ? (
                     selectedStock.roic > 10 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -510,8 +531,8 @@ export default function StockAnalysis() {
               <h4 className="font-semibold mb-2 text-sm text-gray-900 dark:text-white">Growth</h4>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">Revenue</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.revenueGrowth ? `${selectedStock.revenueGrowth}%` : '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatPercent(selectedStock.revenueGrowth)}
                   {typeof selectedStock.revenueGrowth === 'number' ? (
                     selectedStock.revenueGrowth > 0 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -525,8 +546,8 @@ export default function StockAnalysis() {
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">Earnings</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.earningsGrowth ? `${selectedStock.earningsGrowth}%` : '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatPercent(selectedStock.earningsGrowth)}
                   {typeof selectedStock.earningsGrowth === 'number' ? (
                     selectedStock.earningsGrowth > 0 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -540,8 +561,8 @@ export default function StockAnalysis() {
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">EPS</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.epsGrowth ? `${selectedStock.epsGrowth}%` : '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatPercent(selectedStock.epsGrowth)}
                   {typeof selectedStock.epsGrowth === 'number' ? (
                     selectedStock.epsGrowth > 0 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -561,8 +582,8 @@ export default function StockAnalysis() {
               </h4>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">Debt/Equity</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.debtEquity ?? '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatRatio(selectedStock.debtEquity)}
                   {typeof selectedStock.debtEquity === 'number' ? (
                     selectedStock.debtEquity < 1 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -576,8 +597,8 @@ export default function StockAnalysis() {
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">Current Ratio</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.currentRatio ?? '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatRatio(selectedStock.currentRatio)}
                   {typeof selectedStock.currentRatio === 'number' ? (
                     selectedStock.currentRatio >= 1.5 && selectedStock.currentRatio <= 3 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
@@ -591,8 +612,8 @@ export default function StockAnalysis() {
               </div>
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span className="text-xs sm:text-sm">FCF</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1">
-                  {selectedStock.freeCashFlow ?? '-'}
+                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
+                  {formatBillions(selectedStock.freeCashFlow)}
                   {typeof selectedStock.freeCashFlow === 'number' ? (
                     selectedStock.freeCashFlow > 0 ? (
                       <CircleCheck className="w-4 h-4 text-green-500" />
