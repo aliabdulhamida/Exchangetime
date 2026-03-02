@@ -8,10 +8,15 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key not configured' });
   }
   try {
-    const url = `https://financialmodelingprep.com/api/v3/cash-flow-statement/${symbol}?limit=1&apikey=${apiKey}`;
+    const ticker = symbol.trim().toUpperCase();
+    // Legacy v3 endpoint was sunset in 2025; use stable endpoint.
+    const url = `https://financialmodelingprep.com/stable/cash-flow-statement?symbol=${encodeURIComponent(ticker)}&limit=1&apikey=${apiKey}`;
     const response = await fetch(url);
     if (!response.ok) {
-      return res.status(response.status).json({ error: 'FMP API error' });
+      const details = await response.text().catch(() => '');
+      return res
+        .status(502)
+        .json({ error: 'Upstream cash-flow API error', status: response.status, details });
     }
     const data = await response.json();
     res.status(200).json(data);

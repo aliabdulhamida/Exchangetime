@@ -41,7 +41,7 @@ export default function MarketSummary() {
       const { start, end } = getLastCompletedWeek();
       const period1 = Math.floor((start.getTime() - 2 * 24 * 60 * 60 * 1000) / 1000); // Puffer
       const period2 = Math.floor((end.getTime() + 1 * 24 * 60 * 60 * 1000) / 1000);
-      const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d&includePrePost=false`;
+      const url = `/api/quote?symbol=${encodeURIComponent(symbol)}&chart=1&period1=${period1}&period2=${period2}&interval=1d&includePrePost=false`;
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error('Fetch failed');

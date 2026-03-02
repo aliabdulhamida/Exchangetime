@@ -90,9 +90,7 @@ export default function CurrencyConverter() {
       if (fromCurrency === toCurrency)
         throw new Error('Please select different currencies for conversion');
       const symbol = `${fromCurrency}${toCurrency}=X`;
-      const proxyUrl = 'https://corsproxy.io/?';
-      const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
-      const url = proxyUrl + encodeURIComponent(yahooUrl);
+      const url = `/api/quote?symbol=${encodeURIComponent(symbol)}&chart=1&range=5d&interval=1d`;
       const response = await fetch(url);
       const data = await response.json();
       if (data.chart && data.chart.result && data.chart.result[0]) {

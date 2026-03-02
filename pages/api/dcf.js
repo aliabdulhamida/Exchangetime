@@ -8,13 +8,17 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key not configured' });
   }
   try {
-    const url = `https://financialmodelingprep.com/api/v3/discounted-cash-flow/${symbol}?apikey=${apiKey}`;
+    const ticker = symbol.trim().toUpperCase();
+    // Legacy DCF endpoint was sunset in 2025; use stable endpoint.
+    const url = `https://financialmodelingprep.com/stable/discounted-cash-flow?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`;
     const response = await fetch(url);
     if (!response.ok) {
-      return res.status(response.status).json({ error: 'FMP API error' });
+      const details = await response.text().catch(() => '');
+      return res.status(502).json({ error: 'Upstream DCF API error', status: response.status, details });
     }
     const data = await response.json();
-    res.status(200).json(data);
+    const row = Array.isArray(data) ? data[0] : data;
+    res.status(200).json(row || { symbol: ticker, dcf: null });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

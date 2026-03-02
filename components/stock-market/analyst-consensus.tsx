@@ -21,30 +21,12 @@ export default function AnalystConsensus() {
     setError(null);
     setConsensus(null);
     try {
-      // Yahoo Finance API (inoffiziell, öffentlich)
-      const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=financialData,recommendationTrend`;
+      const url = `/api/analyst-consensus?symbol=${encodeURIComponent(symbol.trim().toUpperCase())}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Fehler beim Laden der Analystenmeinungen.');
       const json = await res.json();
-      const rec = json?.quoteSummary?.result?.[0]?.recommendationTrend?.trend?.[0];
-      const fin = json?.quoteSummary?.result?.[0]?.financialData;
-      let analystRecommendation = '-';
-      if (rec) {
-        // Finde das Rating mit der höchsten Anzahl
-        const ratings = [
-          { label: 'Strong Buy', value: rec.strongBuy },
-          { label: 'Buy', value: rec.buy },
-          { label: 'Hold', value: rec.hold },
-          { label: 'Sell', value: rec.sell },
-          { label: 'Strong Sell', value: rec.strongSell },
-        ];
-        const best = ratings.reduce((a, b) => (b.value > a.value ? b : a), ratings[0]);
-        analystRecommendation = `${best.label} (${best.value})`;
-      }
-      let targetPrice = '-';
-      if (fin?.targetMeanPrice?.fmt) {
-        targetPrice = fin.targetMeanPrice.fmt;
-      }
+      const analystRecommendation = json?.analystRecommendation || '-';
+      const targetPrice = json?.targetPrice || '-';
       setConsensus({ analystRecommendation, targetPrice });
     } catch (e: any) {
       setError(e.message || 'Unbekannter Fehler');

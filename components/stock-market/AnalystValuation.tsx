@@ -18,24 +18,12 @@ const AnalystValuation: React.FC<AnalystValuationProps> = ({ symbol, price }) =>
         return;
       }
       try {
-        const proxyUrl = 'https://corsproxy.io/?';
-        const finvizUrl = `https://finviz.com/quote.ashx?t=${symbol}`;
-        const url = proxyUrl + encodeURIComponent(finvizUrl);
+        const url = `/api/analyst-consensus?symbol=${encodeURIComponent(symbol)}`;
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Finviz API error');
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const cells = doc.querySelectorAll('td');
-        let found = false;
-        for (let i = 0; i < cells.length; i++) {
-          if (cells[i].textContent?.trim() === 'Target Price' && cells[i + 1]) {
-            setValuation(cells[i + 1].textContent?.trim() || 'Not available');
-            found = true;
-            break;
-          }
-        }
-        if (!found) setValuation('Not available');
+        if (!response.ok) throw new Error('Consensus API error');
+        const data = await response.json();
+        const tp = data?.targetPrice;
+        setValuation(tp && tp !== '-' ? String(tp) : 'Not available');
       } catch {
         setValuation('Not available');
       }

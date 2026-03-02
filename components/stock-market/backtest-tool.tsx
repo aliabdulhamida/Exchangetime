@@ -86,9 +86,7 @@ async function fetchStockData(stockSymbol: string, startDate: string, endDate: s
   try {
     const period1 = dateToUnix(startDate);
     const period2 = dateToUnix(endDate);
-    const proxyUrl = 'https://corsproxy.io/?';
-    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stockSymbol}?period1=${period1}&period2=${period2}&interval=1d`;
-    const url = proxyUrl + encodeURIComponent(yahooUrl);
+    const url = `/api/quote?symbol=${encodeURIComponent(stockSymbol)}&chart=1&period1=${period1}&period2=${period2}&interval=1d`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
     const data = await response.json();
@@ -111,9 +109,7 @@ async function fetchDividendData(stockSymbol: string, startDate: string, endDate
   try {
     const startUnix = dateToUnix(startDate);
     const endUnix = dateToUnix(endDate);
-    const proxyUrl = 'https://corsproxy.io/?';
-    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stockSymbol}?period1=${startUnix}&period2=${endUnix}&interval=1d&events=div`;
-    const url = proxyUrl + encodeURIComponent(yahooUrl);
+    const url = `/api/quote?symbol=${encodeURIComponent(stockSymbol)}&chart=1&period1=${startUnix}&period2=${endUnix}&interval=1d&events=div`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
     const data = await response.json();

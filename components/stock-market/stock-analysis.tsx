@@ -64,6 +64,7 @@ export default function StockAnalysis() {
     freeCashFlow?: number;
     forwardPE?: number;
     dividendYield?: number;
+    companyName?: string;
   };
   async function fetchAdditionalMetrics(symbol: string): Promise<Metrics> {
     try {
@@ -148,8 +149,9 @@ export default function StockAnalysis() {
     const endDate = Math.floor(Date.now() / 1000);
     // Hole immer 5 Jahre für vollen Verlauf (maximal für YTD/52W)
     const startDateFull = endDate - 5 * 365 * 24 * 60 * 60;
-    const yahooUrlFull = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${startDateFull}&period2=${endDate}&interval=1d&includePrePost=false`;
-    const yahooResFull = await fetch(yahooUrlFull);
+    const yahooResFull = await fetch(
+      `/api/quote?symbol=${encodeURIComponent(symbol)}&chart=1&period1=${startDateFull}&period2=${endDate}&interval=1d&includePrePost=false`,
+    );
     if (!yahooResFull.ok) {
       setChartData([]);
       setFullChartData([]);
@@ -208,8 +210,7 @@ export default function StockAnalysis() {
     try {
       const symbol = searchSymbol.toUpperCase();
       await fetchChartData(symbol, chartRange);
-      const yahooUrl = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
-      const yahooRes = await fetch(yahooUrl);
+      const yahooRes = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
       if (!yahooRes.ok) {
         setError(`Error fetching data: ${yahooRes.status}`);
         setSelectedStock(null);
@@ -219,9 +220,9 @@ export default function StockAnalysis() {
         return;
       }
       const yahooJson = await yahooRes.json();
-      const meta = yahooJson?.chart?.result?.[0]?.meta;
-      const price = meta?.regularMarketPrice;
-      const previousClose = meta?.previousClose;
+      const meta = yahooJson?.meta || {};
+      const price = yahooJson?.price;
+      const previousClose = yahooJson?.previousClose;
       const change = price && previousClose ? price - previousClose : 0;
       const changePercent = change && previousClose ? (change / previousClose) * 100 : 0;
 
@@ -246,7 +247,7 @@ export default function StockAnalysis() {
       if (meta && price) {
         setSelectedStock({
           symbol: symbol,
-          name: meta?.longName || meta?.shortName || meta?.symbol || symbol,
+          name: metrics?.companyName || meta?.longName || meta?.shortName || symbol,
           price: price,
           change: change,
           changePercent: changePercent,

@@ -10,35 +10,54 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get insider trading data from FMP
-    const [tradesRes, profileRes] = await Promise.all([
-      fetch(`https://financialmodelingprep.com/api/v4/insider-trading?symbol=${symbol}&limit=100&apikey=${apiKey}`),
-      fetch(`https://financialmodelingprep.com/api/v3/profile/${symbol}?apikey=${apiKey}`)
-    ]);
+    const ticker = symbol.trim().toUpperCase();
+    const pageSize = 100;
+    const maxPages = 8;
+    let trades = [];
 
-    if (!tradesRes.ok) {
-      return res.status(500).json({ error: 'Failed to fetch insider trades' });
+    // Per-symbol endpoint is currently restricted for this key, so filter from latest feed pages.
+    for (let page = 0; page < maxPages; page++) {
+      const tradesRes = await fetch(
+        `https://financialmodelingprep.com/stable/insider-trading/latest?page=${page}&limit=${pageSize}&apikey=${apiKey}`,
+      );
+      if (!tradesRes.ok) {
+        if (page === 0) {
+          return res.status(502).json({ error: 'Failed to fetch insider trades', status: tradesRes.status });
+        }
+        break;
+      }
+      const pageTrades = await tradesRes.json();
+      if (!Array.isArray(pageTrades) || pageTrades.length === 0) break;
+      const filtered = pageTrades.filter((trade) => String(trade?.symbol || '').toUpperCase() === ticker);
+      trades.push(...filtered);
+      if (trades.length >= 100 || pageTrades.length < pageSize) break;
     }
 
-    const trades = await tradesRes.json();
+    const profileRes = await fetch(
+      `https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`,
+    );
     const profileData = await profileRes.json();
     const profile = Array.isArray(profileData) ? profileData[0] : profileData;
 
     // Transform FMP format to expected format
-    const transformed = (Array.isArray(trades) ? trades : []).map(trade => ({
+    const transformed = (Array.isArray(trades) ? trades : []).map((trade) => {
+      const shares = Number(trade.securitiesTransacted || 0);
+      const price = Number(trade.price || trade.pricePerShare || 0);
+      return {
       date: trade.filingDate || trade.transactionDate || '',
       insider: trade.reportingName || '',
-      position: trade.officerTitle || '',
+      position: trade.typeOfOwner || trade.officerTitle || '',
       transaction: trade.transactionType || '',
-      shares: trade.securitiesTransacted || 0,
-      price: trade.pricePerShare || 0,
-      value: (trade.securitiesTransacted || 0) * (trade.pricePerShare || 0),
-      company: profile?.companyName || symbol,
-      symbol: symbol
-    }));
+      shares,
+      price,
+      value: shares * price,
+      company: profile?.companyName || ticker,
+      symbol: ticker,
+    };
+    });
 
     res.status(200).json({
-      company: profile?.companyName || symbol,
+      company: profile?.companyName || ticker,
       trades: transformed
     });
   } catch (err) {
