@@ -6,7 +6,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import { useTheme } from 'next-themes';
 import { X } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 import TaxCalculator from '../tax-calculator';
@@ -28,17 +28,25 @@ interface ContentProps {
   hideModule: (module: string) => void;
 }
 
+const moduleAnchorId = (moduleKey: string) => `et-module-${moduleKey}`;
+
 function ModuleWrapper({
   children,
   onClose,
   onSolo,
+  moduleKey,
 }: {
   children: React.ReactNode;
   onClose: () => void;
   onSolo?: () => void;
+  moduleKey: string;
 }) {
   return (
-    <div className="et-module-card relative p-3 sm:p-4">
+    <div
+      id={moduleAnchorId(moduleKey)}
+      className="et-module-card relative scroll-mt-20 p-3 sm:p-4"
+      data-module-key={moduleKey}
+    >
       <div className="absolute right-3 top-3 flex gap-1.5" style={{ zIndex: 10 }}>
         {onSolo && (
           <button
@@ -119,6 +127,27 @@ export default function Content(props: ContentProps) {
       }
     }
   };
+
+  useEffect(() => {
+    const onFocusModule = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      const moduleName = customEvent.detail;
+      if (typeof moduleName !== 'string' || moduleName.length === 0) return;
+
+      const moduleEl = document.getElementById(moduleAnchorId(moduleName));
+      if (!moduleEl) return;
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      moduleEl.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'start',
+        inline: 'nearest',
+      });
+    };
+
+    window.addEventListener('focusModule', onFocusModule as EventListener);
+    return () => window.removeEventListener('focusModule', onFocusModule as EventListener);
+  }, []);
   // Kein flex-zentriertes Layout mehr, sondern immer nur space-y-6
   return (
     <div className="space-y-4 pb-3 sm:space-y-6 sm:pb-4">
@@ -129,6 +158,7 @@ export default function Content(props: ContentProps) {
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {modules.includes('ExchangeTimes') && (
             <ModuleWrapper
+              moduleKey="ExchangeTimes"
               onClose={() => hideModule('ExchangeTimes')}
               onSolo={() => showOnlyModule('ExchangeTimes')}
             >
@@ -150,6 +180,7 @@ export default function Content(props: ContentProps) {
               >
                 <div className="flex h-full flex-col min-h-0 sm:min-h-[420px]">
                   <ModuleWrapper
+                    moduleKey="StockAnalysis"
                     onClose={() => hideModule('StockAnalysis')}
                     onSolo={() => showOnlyModule('StockAnalysis')}
                   >
@@ -168,6 +199,7 @@ export default function Content(props: ContentProps) {
                 }
               >
                 <ModuleWrapper
+                  moduleKey="InsiderTrades"
                   onClose={() => hideModule('InsiderTrades')}
                   onSolo={() => showOnlyModule('InsiderTrades')}
                 >
@@ -181,6 +213,7 @@ export default function Content(props: ContentProps) {
             {modules.includes('BacktestTool') && (
               <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto ' : 'w-full '}>
                 <ModuleWrapper
+                  moduleKey="BacktestTool"
                   onClose={() => hideModule('BacktestTool')}
                   onSolo={() => showOnlyModule('BacktestTool')}
                 >
@@ -201,6 +234,7 @@ export default function Content(props: ContentProps) {
               }
             >
               <ModuleWrapper
+                moduleKey="PortfolioTracker"
                 onClose={() => hideModule('PortfolioTracker')}
                 onSolo={() => showOnlyModule('PortfolioTracker')}
               >
@@ -222,6 +256,7 @@ export default function Content(props: ContentProps) {
               }
             >
               <ModuleWrapper
+                moduleKey="TechnicalAnalysis"
                 onClose={() => hideModule('TechnicalAnalysis')}
                 onSolo={() => showOnlyModule('TechnicalAnalysis')}
               >
@@ -241,7 +276,11 @@ export default function Content(props: ContentProps) {
         {/* Third Row - Trading Tools (Compound Interest + Currency Converter) */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 sm:gap-6">
           {modules.includes('CompoundInterest') && (
-            <div className="et-module-card flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 min-h-0 mt-0 md:mt-2 flex flex-col justify-center">
+            <div
+              id={moduleAnchorId('CompoundInterest')}
+              className="et-module-card flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 min-h-0 mt-0 md:mt-2 flex flex-col justify-center scroll-mt-20"
+              data-module-key="CompoundInterest"
+            >
               <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-0">
                 <h2 className="text-lg font-semibold text-foreground">
                   Compound Interest
@@ -296,6 +335,7 @@ export default function Content(props: ContentProps) {
           {modules.includes('CurrencyConverter') && (
             <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 mt-0 md:mt-2 flex flex-col">
               <ModuleWrapper
+                moduleKey="CurrencyConverter"
                 onClose={() => hideModule('CurrencyConverter')}
                 onSolo={() => showOnlyModule('CurrencyConverter')}
               >
@@ -316,6 +356,7 @@ export default function Content(props: ContentProps) {
           {modules.includes('EconomicCalendar') && (
             <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
               <ModuleWrapper
+                moduleKey="EconomicCalendar"
                 onClose={() => hideModule('EconomicCalendar')}
                 onSolo={() => showOnlyModule('EconomicCalendar')}
               >
@@ -331,6 +372,7 @@ export default function Content(props: ContentProps) {
           {modules.includes('EarningsCalendar') && (
             <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
               <ModuleWrapper
+                moduleKey="EarningsCalendar"
                 onClose={() => hideModule('EarningsCalendar')}
                 onSolo={() => showOnlyModule('EarningsCalendar')}
               >
@@ -341,6 +383,7 @@ export default function Content(props: ContentProps) {
           {modules.includes('HolidayCalendar') && (
             <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
               <ModuleWrapper
+                moduleKey="HolidayCalendar"
                 onClose={() => hideModule('HolidayCalendar')}
                 onSolo={() => showOnlyModule('HolidayCalendar')}
               >
@@ -358,6 +401,7 @@ export default function Content(props: ContentProps) {
           {modules.includes('PersonalBudget') && (
             <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-0 flex flex-col h-full">
               <ModuleWrapper
+                moduleKey="PersonalBudget"
                 onClose={() => hideModule('PersonalBudget')}
                 onSolo={() => showOnlyModule('PersonalBudget')}
               >
@@ -378,6 +422,7 @@ export default function Content(props: ContentProps) {
           {modules.includes('TaxCalculator') && (
             <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-0 flex flex-col h-full rounded-xl">
               <ModuleWrapper
+                moduleKey="TaxCalculator"
                 onClose={() => hideModule('TaxCalculator')}
                 onSolo={() => showOnlyModule('TaxCalculator')}
               >
@@ -395,6 +440,7 @@ export default function Content(props: ContentProps) {
           <div className="w-full mt-4 sm:mt-6">
             <div className="min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 flex flex-col h-full">
               <ModuleWrapper
+                moduleKey="DCFCalculator"
                 onClose={() => hideModule('DCFCalculator')}
                 onSolo={() => showOnlyModule('DCFCalculator')}
               >

@@ -149,16 +149,29 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
     label: string;
   }) {
     const isVisible = visibleModules.includes(module);
+    const scrollToModule = () => {
+      if (typeof window === 'undefined') return;
+      const emitFocusEvent = () => {
+        window.dispatchEvent(new CustomEvent('focusModule', { detail: module }));
+      };
+
+      emitFocusEvent();
+      window.setTimeout(emitFocusEvent, isVisible ? 120 : 260);
+      window.setTimeout(emitFocusEvent, 520);
+    };
 
     return (
       <button
-        onClick={() => (isVisible ? null : showModule(module))}
-        disabled={isVisible}
+        onClick={() => {
+          if (!isVisible) {
+            showModule(module);
+          }
+          handleNavigation();
+          scrollToModule();
+        }}
         className={`et-sidebar-link flex w-full items-center py-2 text-sm text-left ${
           isCollapsed ? 'mb-3 justify-center px-1' : 'px-3'
-        } ${isVisible ? 'et-sidebar-link-active' : 'et-sidebar-link-inactive'}`}
-        aria-disabled={isVisible}
-        tabIndex={isVisible ? -1 : 0}
+        } ${isVisible ? 'et-sidebar-link-active cursor-pointer' : 'et-sidebar-link-inactive'}`}
         title={isCollapsed ? label : undefined}
       >
         <Icon className={`${isCollapsed ? 'h-5 w-5' : 'h-4 w-4 mr-3'} flex-shrink-0`} />

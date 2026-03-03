@@ -21,9 +21,12 @@ export default function TuneInRadioButton() {
   const modalHeight = 225;
   const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
   const winHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+  const isMobileViewport = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
+  const buttonSize = isMobileViewport ? 42 : 48;
+  const iconSize = isMobileViewport ? 20 : 24;
   // Modal should never overlap the button
-  const buttonWidth = 48;
-  const buttonHeight = 48;
+  const buttonWidth = buttonSize;
+  const buttonHeight = buttonSize;
   let modalLeft = position.x;
   let modalTop = position.y + buttonHeight + 12; // Default: below button
 
@@ -73,14 +76,16 @@ export default function TuneInRadioButton() {
     (clientX: number, clientY: number) => {
       const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
       const winHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
-      const buttonWidth = 48;
-      const buttonHeight = 48;
+      const isMobileViewport = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
+      const buttonSize = isMobileViewport ? 42 : 48;
+      const buttonWidth = buttonSize;
+      const buttonHeight = buttonSize;
       const edgePadding = 8;
 
       let sidebarWidth = 256;
       if (typeof window !== 'undefined') {
-        const isMobile = window.innerWidth < 1024;
-        if (isMobile) {
+        const isMobileLayout = window.innerWidth < 1024;
+        if (isMobileLayout) {
           sidebarWidth = edgePadding;
         } else {
           const collapsed = localStorage.getItem('sidebar-collapsed');
@@ -183,8 +188,8 @@ export default function TuneInRadioButton() {
         onTouchStart={handleTouchStart}
       >
         <button
-          className="rounded-full shadow-xl bg-white dark:bg-[#18181b] border-2 border-gray-300 dark:border-[#23232a] p-3 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none"
-          style={{ position: 'relative', zIndex: 2 }}
+          className="rounded-full shadow-xl bg-white dark:bg-[#18181b] border-2 border-gray-300 dark:border-[#23232a] flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none"
+          style={{ position: 'relative', zIndex: 2, width: buttonSize, height: buttonSize }}
           tabIndex={0}
           aria-label="Radio öffnen"
           onClick={() => {
@@ -197,8 +202,8 @@ export default function TuneInRadioButton() {
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
+            width={iconSize}
+            height={iconSize}
             fill="currentColor"
             viewBox="0 0 16 16"
             className="text-black dark:text-white"
