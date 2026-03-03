@@ -1,11 +1,6 @@
 'use client';
 /* eslint-disable import/order */
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
-import { useTheme } from 'next-themes';
-import { X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -464,7 +459,6 @@ function CompoundInterestCalculator() {
   const [years, setYears] = useState(10);
   const [interval, setInterval] = useState(1);
   const [monthly, setMonthly] = useState(0);
-  const { theme } = useTheme();
 
   // Formel für Endkapital mit monatlichen Einzahlungen (Zinseszins mit Raten):
   // FV = P*(1+r/n)^(n*t) + PMT*(((1+r/n)^(n*t)-1)/(r/n))
@@ -531,93 +525,26 @@ function CompoundInterestCalculator() {
             onChange={(e) => setYears(Number(e.target.value))}
           />
         </label>
-        <div className="mt-4 flex flex-col text-sm font-medium text-muted-foreground">
-          <FormControl size="small" fullWidth>
-            <InputLabel
-              id="interval-label"
-              sx={
-                theme === 'dark'
-                  ? {
-                      color: '#fff',
-                      fontSize: 14,
-                      top: 2,
-                      backgroundColor: '#000',
-                      px: 0.5,
-                    }
-                  : {
-                      color: '#222',
-                      fontSize: 14,
-                      top: 2,
-                      backgroundColor: '#fff',
-                      px: 0.5,
-                    }
-              }
-            >
-              Payout Interval
-            </InputLabel>
-            <Select
-              labelId="interval-label"
+        <div className="mt-4 flex flex-col gap-1 text-sm font-medium text-muted-foreground">
+          <label
+            htmlFor="interval-select"
+            className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+          >
+            Payout Interval
+          </label>
+          <div className="relative">
+            <select
               id="interval-select"
               value={interval}
-              label="Payout Interval"
               onChange={(e) => setInterval(Number(e.target.value))}
-              sx={
-                theme === 'dark'
-                  ? {
-                      backgroundColor: '#000',
-                      color: '#fff',
-                      fontSize: 14,
-                      '.MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#444',
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#fff',
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#fff',
-                      },
-                      '.MuiSvgIcon-root': {
-                        color: '#fff',
-                      },
-                    }
-                  : {
-                      backgroundColor: '#fff',
-                      color: '#000',
-                      fontSize: 14,
-                      '.MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#ccc',
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#222',
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#222',
-                      },
-                      '.MuiSvgIcon-root': {
-                        color: '#000',
-                      },
-                    }
-              }
-              MenuProps={{
-                PaperProps: {
-                  sx:
-                    theme === 'dark'
-                      ? {
-                          backgroundColor: '#000',
-                          color: '#fff',
-                        }
-                      : {
-                          backgroundColor: '#fff',
-                          color: '#000',
-                        },
-                },
-              }}
+              className="et-tool-select"
             >
-              <MenuItem value={12}>Monthly</MenuItem>
-              <MenuItem value={4}>Quarterly</MenuItem>
-              <MenuItem value={1}>Yearly</MenuItem>
-            </Select>
-          </FormControl>
+              <option value={12}>Monthly</option>
+              <option value={4}>Quarterly</option>
+              <option value={1}>Yearly</option>
+            </select>
+            <ChevronDown className="et-tool-select-caret h-4 w-4" />
+          </div>
         </div>
       </form>
       {/* Rechte Spalte: Ergebnisse und Chart */}

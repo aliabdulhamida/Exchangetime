@@ -169,6 +169,47 @@ select {
     background: hsl(var(--secondary));
   }
 
+  .et-tool-select {
+    appearance: none;
+    width: 100%;
+    border: 1px solid hsl(var(--border));
+    border-radius: calc(var(--radius) + 0.05rem);
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition:
+      border-color 120ms ease,
+      box-shadow 120ms ease,
+      background 120ms ease;
+  }
+
+  .et-tool-select:hover {
+    border-color: hsl(var(--foreground) / 0.22);
+    background: hsl(var(--background));
+  }
+
+  .et-tool-select:focus-visible {
+    outline: none;
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+  }
+
+  .et-tool-select option {
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+  }
+
+  .et-tool-select-caret {
+    pointer-events: none;
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: hsl(var(--muted-foreground));
+  }
+
   .et-dropdown-panel {
     border: 1px solid hsl(var(--border));
     border-radius: calc(var(--radius) + 0.1rem);

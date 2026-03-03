@@ -1,12 +1,7 @@
 'use client';
 
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
-import { ArrowLeftRight, AlertTriangle } from 'lucide-react';
+import { ArrowLeftRight, AlertTriangle, ChevronDown } from 'lucide-react';
 // import { SiConvertio } from "react-icons/si"
-import { useTheme } from 'next-themes';
 import { useState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
@@ -71,8 +66,6 @@ export default function CurrencyConverter() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const { theme } = useTheme();
-
   // Helper: US-Format mit Tausendertrennzeichen
   const formatNumber = (value: number, opts: Intl.NumberFormatOptions = {}) =>
     new Intl.NumberFormat('en-US', opts).format(value);
@@ -154,140 +147,62 @@ export default function CurrencyConverter() {
             placeholder="Enter amount"
           />
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex-1 mt-6">
-            <FormControl size="small" fullWidth>
-              <InputLabel
-                id="from-currency-label"
-                sx={{
-                  color: theme === 'dark' ? '#fff' : '#222',
-                  '&.Mui-focused': { color: theme === 'dark' ? '#fff' : '#222' },
-                }}
-              >
-                From
-              </InputLabel>
-              <Select
-                labelId="from-currency-label"
+        <div className="flex items-end gap-3 sm:gap-4">
+          <div className="mt-2 flex-1">
+            <label
+              htmlFor="from-currency"
+              className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+            >
+              From
+            </label>
+            <div className="relative">
+              <select
                 id="from-currency"
                 value={fromCurrency}
-                label="From"
-                onChange={(e) => setFromCurrency(e.target.value as string)}
-                sx={{
-                  backgroundColor: theme === 'dark' ? '#1F1F23' : '#fff',
-                  color: theme === 'dark' ? '#fff' : '#000',
-                  fontSize: 14,
-                  '.MuiOutlinedInput-notchedOutline': {
-                    borderColor: theme === 'dark' ? '#444' : '#ccc',
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: theme === 'dark' ? '#fff' : '#222',
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: theme === 'dark' ? '#fff' : '#222',
-                  },
-                  '.MuiSvgIcon-root': {
-                    color: theme === 'dark' ? '#fff' : '#000',
-                  },
-                }}
-                MenuProps={{
-                  PaperProps: {
-                    sx: {
-                      backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
-                      color: theme === 'dark' ? '#fff' : '#000',
-                    },
-                  },
-                }}
+                onChange={(e) => setFromCurrency(e.target.value)}
+                className="et-tool-select"
               >
                 {currencies.map((currency) => (
-                  <MenuItem
-                    key={currency}
-                    value={currency}
-                    sx={{
-                      backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
-                      color: theme === 'dark' ? '#fff' : '#000',
-                      '&.Mui-selected': {
-                        backgroundColor: theme === 'dark' ? '#333' : '#eee',
-                        color: theme === 'dark' ? '#fff' : '#000',
-                      },
-                    }}
-                  >
+                  <option key={currency} value={currency}>
                     {currency}
-                  </MenuItem>
+                  </option>
                 ))}
-              </Select>
-            </FormControl>
+              </select>
+              <ChevronDown className="et-tool-select-caret h-4 w-4" />
+            </div>
           </div>
           <Button
             variant="outline"
             size="sm"
             type="button"
             onClick={swapCurrencies}
-            className="mt-6 bg-transparent"
+            className="mb-[1px] bg-transparent"
             aria-label="Swap currencies"
           >
             <ArrowLeftRight className="w-5 h-5" />
           </Button>
-          <div className="flex-1 mt-6">
-            <FormControl size="small" fullWidth>
-              <InputLabel
-                id="to-currency-label"
-                sx={{
-                  color: theme === 'dark' ? '#fff' : '#222',
-                  '&.Mui-focused': { color: theme === 'dark' ? '#fff' : '#222' },
-                }}
-              >
-                To
-              </InputLabel>
-              <Select
-                labelId="to-currency-label"
+          <div className="mt-2 flex-1">
+            <label
+              htmlFor="to-currency"
+              className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+            >
+              To
+            </label>
+            <div className="relative">
+              <select
                 id="to-currency"
                 value={toCurrency}
-                label="To"
-                onChange={(e) => setToCurrency(e.target.value as string)}
-                sx={{
-                  backgroundColor: theme === 'dark' ? '#1F1F23' : '#fff',
-                  color: theme === 'dark' ? '#fff' : '#000',
-                  fontSize: 14,
-                  '.MuiOutlinedInput-notchedOutline': {
-                    borderColor: theme === 'dark' ? '#444' : '#ccc',
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: theme === 'dark' ? '#fff' : '#222',
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: theme === 'dark' ? '#fff' : '#222',
-                  },
-                  '.MuiSvgIcon-root': {
-                    color: theme === 'dark' ? '#fff' : '#000',
-                  },
-                }}
-                MenuProps={{
-                  PaperProps: {
-                    sx: {
-                      backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
-                      color: theme === 'dark' ? '#fff' : '#000',
-                    },
-                  },
-                }}
+                onChange={(e) => setToCurrency(e.target.value)}
+                className="et-tool-select"
               >
                 {currencies.map((currency) => (
-                  <MenuItem
-                    key={currency}
-                    value={currency}
-                    sx={{
-                      backgroundColor: theme === 'dark' ? '#23232a' : '#fff',
-                      color: theme === 'dark' ? '#fff' : '#000',
-                      '&.Mui-selected': {
-                        backgroundColor: theme === 'dark' ? '#333' : '#eee',
-                        color: theme === 'dark' ? '#fff' : '#000',
-                      },
-                    }}
-                  >
+                  <option key={currency} value={currency}>
                     {currency}
-                  </MenuItem>
+                  </option>
                 ))}
-              </Select>
-            </FormControl>
+              </select>
+              <ChevronDown className="et-tool-select-caret h-4 w-4" />
+            </div>
           </div>
         </div>
         <div className="mb-2">
