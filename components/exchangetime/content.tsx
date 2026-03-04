@@ -1,8 +1,14 @@
 'use client';
 /* eslint-disable import/order */
 import { ChevronDown, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AreaChart, Area, CartesianGrid, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+
+import {
+  calculateCompoundInterest,
+  normalizeCompoundInterestInput,
+  type ContributionTiming,
+} from '@/lib/compound-interest';
 
 import TaxCalculator from '../tax-calculator';
 import BacktestTool from '../stock-market/backtest-tool';
@@ -30,16 +36,18 @@ function ModuleWrapper({
   onClose,
   onSolo,
   moduleKey,
+  className,
 }: {
   children: React.ReactNode;
   onClose: () => void;
   onSolo?: () => void;
   moduleKey: string;
+  className?: string;
 }) {
   return (
     <div
       id={moduleAnchorId(moduleKey)}
-      className="et-module-card relative scroll-mt-20 p-3 sm:p-4"
+      className={`et-module-card relative scroll-mt-20 p-3 sm:p-4 ${className ?? ''}`}
       data-module-key={moduleKey}
     >
       <div className="absolute right-3 top-3 flex gap-1.5" style={{ zIndex: 10 }}>
@@ -108,6 +116,9 @@ export default function Content(props: ContentProps) {
   // Wenn visibleModules nicht gesetzt oder leer ist, TechnicalAnalysis standardmäßig anzeigen
   const modules =
     !visibleModules || visibleModules.length === 0 ? DEFAULT_VISIBLE_MODULES : visibleModules;
+  const hasCompoundInterest = modules.includes('CompoundInterest');
+  const hasCurrencyConverter = modules.includes('CurrencyConverter');
+  const splitTradingToolsLayout = hasCompoundInterest && hasCurrencyConverter;
   // Wenn nur ein Modul sichtbar ist, ist es "solo". Sonst nicht.
   const isSolo = modules.length === 1 ? modules[0] : null;
   // Toggle-Funktion: Solo oder alle anzeigen
@@ -166,11 +177,11 @@ export default function Content(props: ContentProps) {
         {(modules.includes('StockAnalysis') ||
           modules.includes('InsiderTrades') ||
           modules.includes('BacktestTool')) && (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 sm:gap-6">
+          <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3 sm:gap-6">
             {modules.includes('StockAnalysis') && (
               <div
                 className={
-                  (modules.length === 1 ? 'w-full max-w-2xl mx-auto ' : '') + 'flex flex-col'
+                  (modules.length === 1 ? 'w-full max-w-2xl mx-auto ' : '') + 'flex h-full flex-col'
                 }
               >
                 <div className="flex h-full flex-col min-h-0 sm:min-h-[420px]">
@@ -178,6 +189,7 @@ export default function Content(props: ContentProps) {
                     moduleKey="StockAnalysis"
                     onClose={() => hideModule('StockAnalysis')}
                     onSolo={() => showOnlyModule('StockAnalysis')}
+                    className="h-full"
                   >
                     <div className="flex h-full flex-col min-h-0 sm:min-h-[420px]">
                       <StockAnalysis />
@@ -188,17 +200,15 @@ export default function Content(props: ContentProps) {
             )}
             {modules.includes('InsiderTrades') && (
               <div
-                className={
-                  (modules.length === 1 ? 'w-full md:max-w-xl md:mx-auto ' : 'w-full ') +
-                  'flex flex-col h-full min-h-0 sm:min-h-[420px]'
-                }
+                className={(modules.length === 1 ? 'w-full md:max-w-xl md:mx-auto ' : 'w-full ') + 'flex h-full flex-col min-h-0 sm:min-h-[420px]'}
               >
                 <ModuleWrapper
                   moduleKey="InsiderTrades"
                   onClose={() => hideModule('InsiderTrades')}
                   onSolo={() => showOnlyModule('InsiderTrades')}
+                  className="h-full"
                 >
-                  <div className="flex h-full flex-col min-h-0 sm:min-h-[420px]">
+                  <div className="et-scrollbar flex h-full min-h-0 flex-col overflow-y-auto pr-1 sm:min-h-[420px]">
                     <InsiderTrades />
                   </div>
                 </ModuleWrapper>
@@ -206,11 +216,12 @@ export default function Content(props: ContentProps) {
             )}
             {/* Backtest Tool now placed to the right of Insider Trades (3rd column) */}
             {modules.includes('BacktestTool') && (
-              <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto ' : 'w-full '}>
+              <div className={(modules.length === 1 ? 'w-full max-w-xl mx-auto ' : 'w-full ') + 'h-full'}>
                 <ModuleWrapper
                   moduleKey="BacktestTool"
                   onClose={() => hideModule('BacktestTool')}
                   onSolo={() => showOnlyModule('BacktestTool')}
+                  className="h-full"
                 >
                   <BacktestTool />
                 </ModuleWrapper>
@@ -269,11 +280,17 @@ export default function Content(props: ContentProps) {
         </div>
 
         {/* Third Row - Trading Tools (Compound Interest + Currency Converter) */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 sm:gap-6">
+        <div
+          className={`grid grid-cols-1 gap-4 sm:gap-6 ${
+            splitTradingToolsLayout ? 'xl:grid-cols-3' : ''
+          }`}
+        >
           {modules.includes('CompoundInterest') && (
             <div
               id={moduleAnchorId('CompoundInterest')}
-              className="et-module-card flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 min-h-0 mt-0 md:mt-2 flex flex-col justify-center scroll-mt-20"
+              className={`et-module-card flex min-h-0 w-full min-w-0 flex-1 flex-col justify-center scroll-mt-20 md:mt-2 ${
+                splitTradingToolsLayout ? 'xl:col-span-2' : ''
+              }`}
               data-module-key="CompoundInterest"
             >
               <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-0">
@@ -328,7 +345,7 @@ export default function Content(props: ContentProps) {
           )}
 
           {modules.includes('CurrencyConverter') && (
-            <div className="flex-1 min-w-0 w-full max-w-2xl mx-auto md:mx-0 mt-0 md:mt-2 flex flex-col">
+            <div className="mt-0 flex w-full min-w-0 flex-1 flex-col md:mt-2">
               <ModuleWrapper
                 moduleKey="CurrencyConverter"
                 onClose={() => hideModule('CurrencyConverter')}
@@ -346,14 +363,21 @@ export default function Content(props: ContentProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{/* MarketSummary removed */}</div>
 
         {/* Fifth Row - Calendar und Holiday Info */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:gap-6">
+        <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3 sm:gap-6">
           {/* Neues Modul links neben Earnings Calendar */}
           {modules.includes('EconomicCalendar') && (
-            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
+            <div
+              className={
+                modules.length === 1
+                  ? 'h-[78vh] min-h-[560px] max-h-[980px] w-full max-w-xl mx-auto md:h-[860px] lg:h-[980px]'
+                  : 'h-[78vh] min-h-[560px] max-h-[980px] md:h-[860px] lg:h-[980px]'
+              }
+            >
               <ModuleWrapper
                 moduleKey="EconomicCalendar"
                 onClose={() => hideModule('EconomicCalendar')}
                 onSolo={() => showOnlyModule('EconomicCalendar')}
+                className="h-full"
               >
                 <div className="mt-1 flex h-full min-h-0 flex-col gap-3 px-1 pb-1 sm:mt-2 sm:px-2 sm:pb-2">
                   <h2 className="pr-16 text-base font-semibold text-foreground sm:pr-20 sm:text-lg">
@@ -365,22 +389,36 @@ export default function Content(props: ContentProps) {
             </div>
           )}
           {modules.includes('EarningsCalendar') && (
-            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
+            <div
+              className={
+                modules.length === 1
+                  ? 'h-[78vh] min-h-[560px] max-h-[980px] w-full max-w-xl mx-auto md:h-[860px] lg:h-[980px]'
+                  : 'h-[78vh] min-h-[560px] max-h-[980px] md:h-[860px] lg:h-[980px]'
+              }
+            >
               <ModuleWrapper
                 moduleKey="EarningsCalendar"
                 onClose={() => hideModule('EarningsCalendar')}
                 onSolo={() => showOnlyModule('EarningsCalendar')}
+                className="h-full"
               >
                 <EarningsCalendar />
               </ModuleWrapper>
             </div>
           )}
           {modules.includes('HolidayCalendar') && (
-            <div className={modules.length === 1 ? 'w-full max-w-xl mx-auto' : ''}>
+            <div
+              className={
+                modules.length === 1
+                  ? 'h-[78vh] min-h-[560px] max-h-[980px] w-full max-w-xl mx-auto md:h-[860px] lg:h-[980px]'
+                  : 'h-[78vh] min-h-[560px] max-h-[980px] md:h-[860px] lg:h-[980px]'
+              }
+            >
               <ModuleWrapper
                 moduleKey="HolidayCalendar"
                 onClose={() => hideModule('HolidayCalendar')}
                 onSolo={() => showOnlyModule('HolidayCalendar')}
+                className="h-full"
               >
                 <HolidayCalendar />
               </ModuleWrapper>
@@ -451,172 +489,395 @@ export default function Content(props: ContentProps) {
   );
 }
 
-// --- Zinseszins-Rechner Komponente ---
+// --- Compound Interest Calculator ---
+
+const COMPOUNDING_OPTIONS = [
+  { value: 12, label: 'Monthly' },
+  { value: 4, label: 'Quarterly' },
+  { value: 1, label: 'Yearly' },
+] as const;
+
+const CONTRIBUTION_TIMING_OPTIONS: Array<{ value: ContributionTiming; label: string }> = [
+  { value: 'end', label: 'End of period' },
+  { value: 'beginning', label: 'Beginning of period' },
+];
+
+const frequencyLabel = (frequency: number): string => {
+  if (frequency === 12) return 'monthly';
+  if (frequency === 4) return 'quarterly';
+  return 'yearly';
+};
+
+const axisCurrencyLabel = (value: number): string => {
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (absolute >= 1_000) return `${(value / 1_000).toFixed(0)}k`;
+  return `${Math.round(value)}`;
+};
 
 function CompoundInterestCalculator() {
-  const [start, setStart] = useState(1000);
-  const [rate, setRate] = useState(5);
+  const [mobilePanel, setMobilePanel] = useState<'inputs' | 'results'>('inputs');
+  const [initialCapital, setInitialCapital] = useState(1000);
+  const [contributionAmount, setContributionAmount] = useState(250);
+  const [annualRatePct, setAnnualRatePct] = useState(5);
   const [years, setYears] = useState(10);
-  const [interval, setInterval] = useState(1);
-  const [monthly, setMonthly] = useState(0);
+  const [compoundingPerYear, setCompoundingPerYear] = useState(12);
+  const [contributionPerYear, setContributionPerYear] = useState(12);
+  const [contributionTiming, setContributionTiming] = useState<ContributionTiming>('end');
 
-  // Formel für Endkapital mit monatlichen Einzahlungen (Zinseszins mit Raten):
-  // FV = P*(1+r/n)^(n*t) + PMT*(((1+r/n)^(n*t)-1)/(r/n))
-  // P = Startkapital, PMT = monatliche Einzahlung, r = Zinssatz, n = Zinsperioden/Jahr, t = Jahre
-  const r = rate / 100;
-  const n = interval;
-  const t = years;
-  const PMT = (monthly * 12) / n; // monatliche Einzahlung auf Zinsperiode umgerechnet
+  const normalizedInput = useMemo(
+    () =>
+      normalizeCompoundInterestInput({
+        initialCapital,
+        contributionAmount,
+        annualRatePct,
+        years,
+        compoundingPerYear,
+        contributionPerYear,
+        contributionTiming,
+      }),
+    [
+      annualRatePct,
+      compoundingPerYear,
+      contributionAmount,
+      contributionPerYear,
+      contributionTiming,
+      initialCapital,
+      years,
+    ],
+  );
 
-  const result =
-    start * Math.pow(1 + r / n, n * t) +
-    (PMT > 0 && r > 0 ? (PMT * (Math.pow(1 + r / n, n * t) - 1)) / (r / n) : PMT * n * t);
+  const calculation = useMemo(() => calculateCompoundInterest(normalizedInput), [normalizedInput]);
 
-  // Chart data: calculate capital for each year
-  const chartData = Array.from({ length: years + 1 }, (_, i) => {
-    const base = start * Math.pow(1 + r / n, n * i);
-    const pmtPart =
-      PMT > 0 && r > 0 ? (PMT * (Math.pow(1 + r / n, n * i) - 1)) / (r / n) : PMT * n * i;
-    return { year: i, capital: base + pmtPart };
-  });
+  const inputWasAdjusted =
+    normalizedInput.initialCapital !== initialCapital ||
+    normalizedInput.contributionAmount !== contributionAmount ||
+    normalizedInput.annualRatePct !== annualRatePct ||
+    normalizedInput.years !== years ||
+    normalizedInput.compoundingPerYear !== compoundingPerYear ||
+    normalizedInput.contributionPerYear !== contributionPerYear;
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    [],
+  );
+
+  const percentFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    [],
+  );
+
+  const formatCurrency = (value: number): string => `${currencyFormatter.format(value)} €`;
+  const formatPercent = (value: number): string => `${percentFormatter.format(value)}%`;
+
+  const inputClassName =
+    'mt-1 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring';
+  const gainColorClass = calculation.totalGain >= 0 ? 'text-emerald-300' : 'text-rose-300';
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 w-full">
-      {/* Linke Spalte: Eingaben */}
-      <form className="flex w-full max-w-md flex-col gap-4 p-2 md:w-1/2">
-        <label className="flex flex-col text-sm font-medium text-muted-foreground">
-          Initial Capital
-          <input
-            type="number"
-            className="mt-1 rounded-md border border-border bg-black px-3 py-2 text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring"
-            value={start}
-            min={0}
-            onChange={(e) => setStart(Number(e.target.value))}
-          />
-        </label>
-        <label className="flex flex-col text-sm font-medium text-muted-foreground">
-          Monthly Deposit
-          <input
-            type="number"
-            className="mt-1 rounded-md border border-border bg-black px-3 py-2 text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring"
-            value={monthly}
-            min={0}
-            onChange={(e) => setMonthly(Number(e.target.value))}
-          />
-        </label>
-        <label className="flex flex-col text-sm font-medium text-muted-foreground">
-          Interest Rate (% p.a.)
-          <input
-            type="number"
-            className="mt-1 rounded-md border border-border bg-black px-3 py-2 text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring"
-            value={rate}
-            min={0}
-            step={0.01}
-            onChange={(e) => setRate(Number(e.target.value))}
-          />
-        </label>
-        <label className="flex flex-col text-sm font-medium text-muted-foreground">
-          Years
-          <input
-            type="number"
-            className="mt-1 rounded-md border border-border bg-black px-3 py-2 text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring"
-            value={years}
-            min={1}
-            onChange={(e) => setYears(Number(e.target.value))}
-          />
-        </label>
-        <div className="mt-4 flex flex-col gap-1 text-sm font-medium text-muted-foreground">
-          <label
-            htmlFor="interval-select"
-            className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+    <div className="flex w-full flex-col gap-4 xl:flex-row xl:items-start">
+      <div className="xl:hidden">
+        <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1">
+          <button
+            type="button"
+            onClick={() => setMobilePanel('inputs')}
+            className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+              mobilePanel === 'inputs'
+                ? 'bg-card text-foreground'
+                : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+            }`}
+            aria-pressed={mobilePanel === 'inputs'}
           >
-            Payout Interval
+            Inputs
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobilePanel('results')}
+            className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+              mobilePanel === 'results'
+                ? 'bg-card text-foreground'
+                : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+            }`}
+            aria-pressed={mobilePanel === 'results'}
+          >
+            Results
+          </button>
+        </div>
+      </div>
+
+      <form
+        className={`w-full rounded-xl border border-border bg-background/40 p-4 sm:p-5 xl:block xl:max-w-md ${
+          mobilePanel === 'inputs' ? 'block' : 'hidden'
+        }`}
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <div className="mb-4">
+          <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Inputs</p>
+          <h3 className="text-base font-semibold text-foreground">Projection Setup</h3>
+        </div>
+
+        <div className="space-y-3">
+          <label className="flex flex-col text-sm font-medium text-muted-foreground">
+            Initial Capital
+            <input
+              type="number"
+              className={inputClassName}
+              value={initialCapital}
+              min={0}
+              max={1000000000}
+              step={100}
+              onChange={(e) => setInitialCapital(Number(e.target.value))}
+            />
           </label>
-          <div className="relative">
-            <select
-              id="interval-select"
-              value={interval}
-              onChange={(e) => setInterval(Number(e.target.value))}
-              className="et-tool-select"
-            >
-              <option value={12}>Monthly</option>
-              <option value={4}>Quarterly</option>
-              <option value={1}>Yearly</option>
-            </select>
-            <ChevronDown className="et-tool-select-caret h-4 w-4" />
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col text-sm font-medium text-muted-foreground">
+              Contribution Amount
+              <input
+                type="number"
+                className={inputClassName}
+                value={contributionAmount}
+                min={0}
+                max={10000000}
+                step={10}
+                onChange={(e) => setContributionAmount(Number(e.target.value))}
+              />
+            </label>
+
+            <label className="flex flex-col text-sm font-medium text-muted-foreground">
+              Interest Rate (% p.a.)
+              <input
+                type="number"
+                className={inputClassName}
+                value={annualRatePct}
+                min={-99}
+                max={100}
+                step={0.01}
+                onChange={(e) => setAnnualRatePct(Number(e.target.value))}
+              />
+            </label>
+
+            <label className="flex flex-col text-sm font-medium text-muted-foreground">
+              Years
+              <input
+                type="number"
+                className={inputClassName}
+                value={years}
+                min={1}
+                max={100}
+                step={1}
+                onChange={(e) => setYears(Number(e.target.value))}
+              />
+            </label>
+
+            <div className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
+              <label
+                htmlFor="compounding-select"
+                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              >
+                Compounding Frequency
+              </label>
+              <div className="relative">
+                <select
+                  id="compounding-select"
+                  value={compoundingPerYear}
+                  onChange={(e) => setCompoundingPerYear(Number(e.target.value))}
+                  className="et-tool-select"
+                >
+                  {COMPOUNDING_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="et-tool-select-caret h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
+              <label
+                htmlFor="contribution-frequency-select"
+                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              >
+                Contribution Frequency
+              </label>
+              <div className="relative">
+                <select
+                  id="contribution-frequency-select"
+                  value={contributionPerYear}
+                  onChange={(e) => setContributionPerYear(Number(e.target.value))}
+                  className="et-tool-select"
+                >
+                  {COMPOUNDING_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="et-tool-select-caret h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
+              <label
+                htmlFor="contribution-timing-select"
+                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              >
+                Contribution Timing
+              </label>
+              <div className="relative">
+                <select
+                  id="contribution-timing-select"
+                  value={contributionTiming}
+                  onChange={(e) => setContributionTiming(e.target.value as ContributionTiming)}
+                  className="et-tool-select"
+                >
+                  {CONTRIBUTION_TIMING_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="et-tool-select-caret h-4 w-4" />
+              </div>
+            </div>
           </div>
         </div>
+
+        {inputWasAdjusted && (
+          <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            Some input values were outside valid ranges and were adjusted automatically.
+          </p>
+        )}
       </form>
-      {/* Rechte Spalte: Ergebnisse und Chart */}
-      <div className="flex flex-col gap-2 md:w-1/2 w-full justify-center">
-        <div className="rounded-md border border-border bg-card px-3 py-2 text-base font-semibold text-foreground">
-          Final Capital:{' '}
-          {result.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-          €
+
+      <div
+        className={`w-full min-w-0 flex-1 flex-col gap-3 xl:flex ${
+          mobilePanel === 'results' ? 'flex' : 'hidden'
+        }`}
+      >
+        <div className="rounded-xl border border-border bg-gradient-to-r from-card via-card to-background px-4 py-4 sm:px-5">
+          <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Final Capital</p>
+          <p className="mt-1 break-words text-xl font-semibold leading-tight text-foreground sm:text-3xl">
+            {formatCurrency(calculation.finalCapital)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {normalizedInput.years} year projection with {frequencyLabel(normalizedInput.contributionPerYear)}{' '}
+            contributions.
+          </p>
         </div>
-        <div className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
-          Initial Capital:{' '}
-          {start.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-          €<br />
-          Total Deposits:{' '}
-          {(monthly * 12 * years).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}{' '}
-          €<br />
-          Return:{' '}
-          {(result - start - monthly * 12 * years).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}{' '}
-          €
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Total Invested</p>
+            <p className="mt-1 break-words text-base font-semibold leading-tight text-foreground sm:text-lg">
+              {formatCurrency(calculation.totalInvested)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Contributions</p>
+            <p className="mt-1 break-words text-base font-semibold leading-tight text-foreground sm:text-lg">
+              {formatCurrency(calculation.totalContributions)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Interest Earned</p>
+            <p className={`mt-1 break-words text-base font-semibold leading-tight sm:text-lg ${gainColorClass}`}>
+              {formatCurrency(calculation.totalGain)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+              Annualized Return (IRR)
+            </p>
+            <p className="mt-1 text-base font-semibold text-foreground sm:text-lg">
+              {formatPercent(calculation.effectiveAnnualReturnPct)}
+            </p>
+          </div>
         </div>
-        <div className="w-full h-80 mt-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#e5e5e5" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#e5e5e5" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="year" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
-              <YAxis
-                tick={{ fill: '#a1a1aa', fontSize: 12 }}
-                tickFormatter={(v) => v.toLocaleString()}
-              />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (!active || !payload || !payload.length) return null;
-                  const item = payload[0].payload;
-                  function formatPrice(num: number) {
-                    if (typeof num !== 'number') return '-';
-                    return num
-                      .toFixed(2)
-                      .replace('.', ',')
-                      .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                  }
-                  return (
-                    <div className="flex min-w-[110px] max-w-[180px] flex-col gap-1 rounded-lg border border-border bg-black px-2 py-1 text-[11px] text-white shadow-lg">
-                      <div className="font-semibold mb-0.5">
-                        {item && item.year !== undefined ? `Year ${item.year}` : label}
+
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Capital Growth</h3>
+            <p className="text-xs text-muted-foreground">Invested vs. portfolio value</p>
+          </div>
+          <div className="h-64 w-full sm:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={calculation.chartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="compoundInvestedFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#71717a" stopOpacity={0.22} />
+                    <stop offset="95%" stopColor="#71717a" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="compoundCapitalFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#e5e5e5" stopOpacity={0.45} />
+                    <stop offset="95%" stopColor="#e5e5e5" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="year" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
+                <YAxis
+                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
+                  tickFormatter={(value) => axisCurrencyLabel(value as number)}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+
+                    const point = payload[0]?.payload as
+                      | { year: number; capital: number; invested: number; gain: number }
+                      | undefined;
+                    if (!point) return null;
+
+                    return (
+                      <div className="min-w-[170px] rounded-lg border border-border bg-black/95 px-3 py-2 text-xs text-white shadow-lg">
+                        <div className="mb-1 font-semibold">Year {point.year}</div>
+                        <div className="space-y-0.5">
+                          <div>Capital: {formatCurrency(point.capital)}</div>
+                          <div>Invested: {formatCurrency(point.invested)}</div>
+                          <div className={point.gain >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
+                            Gain: {formatCurrency(point.gain)}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-mono text-[12px]">€{formatPrice(item?.capital)}</span>
-                      </div>
-                    </div>
-                  );
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="capital"
-                stroke="#e5e5e5"
-                fillOpacity={1}
-                fill="url(#colorCapital)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+                    );
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="invested"
+                  stroke="#71717a"
+                  strokeWidth={1.5}
+                  fillOpacity={1}
+                  fill="url(#compoundInvestedFill)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="capital"
+                  stroke="#e5e7eb"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#compoundCapitalFill)"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="gain"
+                  stroke="#34d399"
+                  strokeWidth={1.5}
+                  dot={false}
+                  strokeDasharray="5 4"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
     </div>

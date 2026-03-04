@@ -369,6 +369,7 @@ function dePayrollWithholdingByClass(
 }
 
 export default function TaxCalculator() {
+  const [mobilePanel, setMobilePanel] = useState<'inputs' | 'results'>('inputs');
   const [country, setCountry] = useState<Country>('USA');
   const [status, setStatus] = useState<FilingStatus>('single');
   const [inputMode, setInputMode] = useState<'simple' | 'advanced'>('simple');
@@ -932,9 +933,37 @@ export default function TaxCalculator() {
           </div>
         </CardHeader>
         <CardContent className="grid gap-3 p-0">
+          <div className="lg:hidden">
+            <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1">
+              <button
+                type="button"
+                onClick={() => setMobilePanel('inputs')}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                  mobilePanel === 'inputs'
+                    ? 'bg-card text-foreground'
+                    : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                }`}
+                aria-pressed={mobilePanel === 'inputs'}
+              >
+                Inputs
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobilePanel('results')}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                  mobilePanel === 'results'
+                    ? 'bg-card text-foreground'
+                    : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                }`}
+                aria-pressed={mobilePanel === 'results'}
+              >
+                Results
+              </button>
+            </div>
+          </div>
           <div className="grid gap-3 lg:grid-cols-2 lg:gap-4">
             {/* Left: Inputs */}
-            <div className="space-y-3">
+            <div className={`space-y-3 ${mobilePanel === 'inputs' ? 'block' : 'hidden lg:block'}`}>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <div>
                   <Label className="text-xs mb-1 block">Country</Label>
@@ -1743,16 +1772,22 @@ export default function TaxCalculator() {
             </div>
 
             {/* Right: Results and visual summary */}
-            <div className="lg:pl-2 flex flex-col gap-3 lg:sticky lg:top-4 self-start">
+            <div
+              className={`lg:pl-2 flex-col gap-3 lg:sticky lg:top-4 self-start lg:flex ${
+                mobilePanel === 'results' ? 'flex' : 'hidden'
+              }`}
+            >
               <TaxVisuals result={result as any} />
             </div>
           </div>
-          {'_details' in result && <Breakdown result={result as any} includeNIIT={includeNIIT} />}
+          <div className={mobilePanel === 'results' ? 'block' : 'hidden lg:block'}>
+            {'_details' in result && <Breakdown result={result as any} includeNIIT={includeNIIT} />}
 
-          <p className="text-[10px] text-muted-foreground">
-            This is not tax advice. Brackets and rules are simplified/approximate and may be
-            outdated. Consult official sources or a tax professional.
-          </p>
+            <p className="text-[10px] text-muted-foreground">
+              This is not tax advice. Brackets and rules are simplified/approximate and may be
+              outdated. Consult official sources or a tax professional.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </TooltipProvider>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
+const FX_SYMBOL_PATTERN = /^[A-Z]{6}=X$/;
 const ALLOWED_INTERVALS = new Set([
   '1m',
   '2m',
@@ -33,7 +34,8 @@ const ALLOWED_EVENTS = new Set(['div', 'split', 'div,splits', 'capitalGain', 'hi
 
 function normalizeSymbol(raw: string): string | null {
   const normalized = raw.trim().toUpperCase();
-  if (!normalized || !SYMBOL_PATTERN.test(normalized)) return null;
+  if (!normalized) return null;
+  if (!SYMBOL_PATTERN.test(normalized) && !FX_SYMBOL_PATTERN.test(normalized)) return null;
   return normalized;
 }
 

@@ -6,11 +6,9 @@ import {
   ArrowUp,
   CalendarClock,
   Copy,
-  Download,
   FileUp,
   Info,
   Plus,
-  Save,
   Trash2,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -26,19 +24,7 @@ import {
   YAxis,
 } from 'recharts';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from '@/components/ui/use-toast';
 import { blackScholes } from '@/lib/options/blackScholes';
 import {
   calculateTradingCosts,
@@ -67,11 +53,6 @@ import {
   type StrategyPresetKey,
   type TradingCostInput,
 } from '@/lib/options/payoff';
-import {
-  addSavedStrategyEntry,
-  makeUniqueStrategyName,
-  sanitizeSavedStrategies,
-} from '@/lib/options/persistence';
 
 type ValuationView = 'expiry' | 'today';
 
@@ -101,14 +82,6 @@ interface PersistedLabState {
   includePremiumCreditInCashNeeded: boolean;
 }
 
-interface SavedStrategySnapshot {
-  id: string;
-  name: string;
-  timestamp: string;
-  legs: OptionLeg[];
-  settings: Omit<PersistedLabState, 'legs'>;
-}
-
 interface GreekRow {
   id: string;
   label: string;
@@ -122,7 +95,6 @@ interface GreekRow {
 type StressMode = 'spot_iv' | 'spot_time';
 
 const SETTINGS_STORAGE_KEY = 'exchangetime.options-payoff-lab.v3.settings';
-const SAVED_STRATEGIES_STORAGE_KEY = 'exchangetime.options-payoff-lab.v3.saved';
 
 const DEFAULT_SPOT = 185;
 const DEFAULT_CURRENCY = 'USD';
@@ -160,19 +132,6 @@ function parseDateTimeLocalInput(value: string): Date | null {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function downloadFile(filename: string, content: string, mimeType: string): void {
-  if (typeof window === 'undefined') return;
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
 }
 
 function legLabel(leg: OptionLeg): string {
@@ -240,6 +199,9 @@ function applyModelDefaultsToPresetLegs(
 }
 
 export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () => void }) {
+  const [mobilePanel, setMobilePanel] = useState<'inputs' | 'results'>('inputs');
+  const [desktopPanel, setDesktopPanel] = useState<'inputs' | 'results'>('inputs');
+  const [showMobileAdvancedResults, setShowMobileAdvancedResults] = useState(false);
   const [spot, setSpot] = useState(DEFAULT_SPOT);
   const [expiryPrice, setExpiryPrice] = useState(DEFAULT_SPOT);
   const [scenarioRangePct, setScenarioRangePct] = useState(20);
@@ -277,19 +239,10 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
   const [timeShockMaxDays, setTimeShockMaxDays] = useState(30);
   const [timeShockSteps, setTimeShockSteps] = useState(3);
   const [includePremiumCreditInCashNeeded, setIncludePremiumCreditInCashNeeded] = useState(true);
-
-  const [saveName, setSaveName] = useState('');
-  const [savedStrategies, setSavedStrategies] = useState<SavedStrategySnapshot[]>([]);
-  const [selectedSavedId, setSelectedSavedId] = useState('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   const currencyFormatter = useMemo(() => createCurrencyFormatter(DEFAULT_CURRENCY), []);
   const percentFormatter = useMemo(() => createPercentFormatter(), []);
-  const selectedSavedStrategy = useMemo(
-    () => savedStrategies.find((entry) => entry.id === selectedSavedId),
-    [savedStrategies, selectedSavedId],
-  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -370,16 +323,6 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
         }
       }
 
-      const rawSaved = window.localStorage.getItem(SAVED_STRATEGIES_STORAGE_KEY);
-      if (rawSaved) {
-        const parsedSaved = JSON.parse(rawSaved) as unknown;
-        setSavedStrategies(
-          sanitizeSavedStrategies<OptionLeg, Omit<PersistedLabState, 'legs'>>(parsedSaved).map((entry) => ({
-            ...entry,
-            legs: entry.legs.map(normalizeLeg),
-          })),
-        );
-      }
     } catch {
       // Ignore localStorage parsing issues to keep module resilient.
     } finally {
@@ -443,11 +386,6 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
     valuationView,
     volatilityPct,
   ]);
-
-  useEffect(() => {
-    if (!hydrated || typeof window === 'undefined') return;
-    window.localStorage.setItem(SAVED_STRATEGIES_STORAGE_KEY, JSON.stringify(savedStrategies));
-  }, [hydrated, savedStrategies]);
 
   const normalizedLegs = useMemo(() => normalizeLegs(legs), [legs]);
 
@@ -1084,201 +1022,6 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
     setPresetKey('custom');
   };
 
-  const saveCurrentStrategy = (): void => {
-    const name = saveName.trim();
-    if (!name) {
-      toast({
-        title: 'Strategy name required',
-        description: 'Enter a unique name before saving.',
-        variant: 'destructive',
-        duration: 2200,
-      });
-      return;
-    }
-
-    const uniqueName = makeUniqueStrategyName(
-      name,
-      savedStrategies.map((entry) => entry.name),
-    );
-    if (!uniqueName) return;
-
-    const snapshot: SavedStrategySnapshot = {
-      id: `saved-${Date.now()}`,
-      name: uniqueName,
-      timestamp: new Date().toISOString(),
-      legs: normalizedLegs,
-      settings: {
-        spot,
-        expiryPrice,
-        scenarioRangePct,
-        displayMode,
-        presetKey,
-        expiryDate,
-        asOfDateTime,
-        valuationView,
-        valuationHorizonDays,
-        volatilityPct,
-        riskFreeRatePct,
-        dividendYieldPct,
-        feePerContract,
-        feePerShare,
-        slippagePct,
-        stressMode,
-        stressSpotSteps,
-        ivShockRangePct,
-        ivShockSteps,
-        timeShockMaxDays,
-        timeShockSteps,
-        includePremiumCreditInCashNeeded,
-      },
-    };
-
-    setSavedStrategies((prev) => addSavedStrategyEntry(prev, snapshot, 30));
-    setSaveName('');
-    setSelectedSavedId(snapshot.id);
-    toast({
-      title: `Saved • ${new Date(snapshot.timestamp).toLocaleTimeString()}`,
-      description: uniqueName,
-      duration: 2200,
-    });
-  };
-
-  const loadSavedStrategy = (): void => {
-    if (!selectedSavedStrategy) return;
-    const found = selectedSavedStrategy;
-
-    setLegs(found.legs.map(normalizeLeg));
-    setSpot(clampNumber(found.settings.spot, DEFAULT_SPOT, 0.01));
-    setExpiryPrice(clampNumber(found.settings.expiryPrice, DEFAULT_SPOT, 0.01));
-    setScenarioRangePct(clampInt(found.settings.scenarioRangePct, 20, 5));
-    setDisplayMode(found.settings.displayMode);
-    setPresetKey(found.settings.presetKey);
-    setExpiryDate(found.settings.expiryDate);
-    setAsOfDateTime(found.settings.asOfDateTime);
-    setValuationView(found.settings.valuationView);
-    setValuationHorizonDays(clampInt(found.settings.valuationHorizonDays, 0, 0));
-    setVolatilityPct(clampNumber(found.settings.volatilityPct, DEFAULT_VOLATILITY_PCT, 0));
-    setRiskFreeRatePct(found.settings.riskFreeRatePct);
-    setDividendYieldPct(found.settings.dividendYieldPct);
-    setFeePerContract(clampNumber(found.settings.feePerContract, 0.65, 0));
-    setFeePerShare(clampNumber(found.settings.feePerShare, 0, 0));
-    setSlippagePct(clampNumber(found.settings.slippagePct, 0, 0));
-    setStressMode(found.settings.stressMode ?? 'spot_iv');
-    setStressSpotSteps(Math.min(5, Math.max(1, found.settings.stressSpotSteps ?? 3)));
-    setIvShockRangePct(Math.min(40, Math.max(1, found.settings.ivShockRangePct ?? 10)));
-    setIvShockSteps(Math.min(5, Math.max(1, found.settings.ivShockSteps ?? 2)));
-    setTimeShockMaxDays(Math.min(365, Math.max(1, found.settings.timeShockMaxDays ?? 30)));
-    setTimeShockSteps(Math.min(5, Math.max(1, found.settings.timeShockSteps ?? 3)));
-    setIncludePremiumCreditInCashNeeded(found.settings.includePremiumCreditInCashNeeded ?? true);
-  };
-
-  const deleteSavedStrategy = (): void => {
-    if (!selectedSavedStrategy) return;
-    const toDelete = selectedSavedStrategy;
-    setSavedStrategies((prev) => prev.filter((entry) => entry.id !== selectedSavedId));
-    setSelectedSavedId('');
-    setDeleteDialogOpen(false);
-    if (toDelete) {
-      toast({
-        title: `Deleted • ${toDelete.name}`,
-        duration: 1800,
-      });
-    }
-  };
-
-  const exportJson = (): void => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      settings: {
-        spot,
-        expiryPrice,
-        scenarioRangePct,
-        displayMode,
-        valuationView,
-        valuationHorizonDays,
-        expiryDate,
-        asOfDateTime,
-        volatilityPct,
-        riskFreeRatePct,
-        dividendYieldPct,
-        feePerContract,
-        feePerShare,
-        slippagePct,
-        stressMode,
-        stressSpotSteps,
-        ivShockRangePct,
-        ivShockSteps,
-        timeShockMaxDays,
-        timeShockSteps,
-        includePremiumCreditInCashNeeded,
-      },
-      metrics: {
-        breakEvens: expiryBreakEvens,
-        maxProfit: payoffEnvelope.maxProfit,
-        maxLoss: payoffEnvelope.maxLoss,
-        expiryPnL,
-        todayPnL,
-        totalTradingCosts,
-        notional,
-        rrEstimate,
-        dte,
-      },
-      legs: normalizedLegs,
-      scenarioMatrix: scenarioRows,
-    };
-
-    downloadFile('options-payoff-lab-export.json', JSON.stringify(payload, null, 2), 'application/json');
-  };
-
-  const exportCsv = (): void => {
-    const metricLines = [
-      ['Metric', 'Value'],
-      ['Valuation View', valuationView],
-      ['Display Mode', displayLabel],
-      ['Display Divisor Detail', displayDivisorText],
-      ['DTE', dte !== null ? dte.toFixed(2) : 'n/a'],
-      ['Expiry B/E(s)', expiryBreakEvens.length > 0 ? expiryBreakEvens.join(' | ') : 'n/a'],
-      ['Mark-to-model B/E(s)', todayBreakEvens.length > 0 ? todayBreakEvens.join(' | ') : 'n/a'],
-      [
-        'Max Profit (Total)',
-        Number.isFinite(payoffEnvelope.maxProfit)
-          ? currencyFormatter.format(payoffEnvelope.maxProfit)
-          : 'Unlimited',
-      ],
-      [
-        'Max Loss (Total)',
-        Number.isFinite(payoffEnvelope.maxLoss)
-          ? currencyFormatter.format(payoffEnvelope.maxLoss)
-          : 'Unlimited',
-      ],
-      ['Expiry P/L @ Test Expiry Price (Total)', currencyFormatter.format(expiryPnL)],
-      ['Today P/L (mark-to-model @ spot, Total)', currencyFormatter.format(todayPnL)],
-      ['Paid vs Model @ Spot (pre-costs, Total)', currencyFormatter.format(paidVsModelAtSpot)],
-      ['Expiry P/L @ Test Expiry Price (Scaled)', currencyFormatter.format(scaledExpiryPnL)],
-      ['Today P/L (mark-to-model @ spot, Scaled)', currencyFormatter.format(scaledTodayPnL)],
-      ['Paid vs Model @ Spot (pre-costs, Scaled)', currencyFormatter.format(scaledPaidVsModelAtSpot)],
-      ['Total Trading Costs', currencyFormatter.format(totalTradingCosts)],
-      ['Position Notional', currencyFormatter.format(notional)],
-    ];
-
-    const scenarioLines = [
-      [],
-      ['Move %', 'Underlying Price', `P/L (${displayLabel})`, 'P/L (Total)'],
-      ...scenarioRows.map((row) => [
-        row.movePct.toFixed(2),
-        row.price.toFixed(4),
-        row.pnlDisplay.toFixed(2),
-        row.pnl.toFixed(2),
-      ]),
-    ];
-
-    const csv = [...metricLines, ...scenarioLines]
-      .map((columns) => columns.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
-      .join('\n');
-
-    downloadFile('options-payoff-lab-export.csv', csv, 'text/csv;charset=utf-8;');
-  };
-
   const maxProfitLabel = Number.isFinite(payoffEnvelope.maxProfit)
     ? currencyFormatter.format(payoffEnvelope.maxProfit)
     : 'Unlimited';
@@ -1299,7 +1042,73 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
       </div>
 
       <div className="space-y-4 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
-        <div className="rounded-xl border border-border/70 bg-muted/20 p-3 sm:p-4">
+        <div className="md:hidden">
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setMobilePanel('inputs');
+                setShowMobileAdvancedResults(false);
+              }}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                mobilePanel === 'inputs'
+                  ? 'bg-card text-foreground'
+                  : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+              }`}
+              aria-pressed={mobilePanel === 'inputs'}
+            >
+              Inputs
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobilePanel('results')}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                mobilePanel === 'results'
+                  ? 'bg-card text-foreground'
+                  : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+              }`}
+              aria-pressed={mobilePanel === 'results'}
+            >
+              Results
+            </button>
+          </div>
+        </div>
+
+        <div className="hidden md:block">
+          <div className="grid w-full max-w-xs grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1">
+            <button
+              type="button"
+              onClick={() => setDesktopPanel('inputs')}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                desktopPanel === 'inputs'
+                  ? 'bg-card text-foreground'
+                  : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+              }`}
+              aria-pressed={desktopPanel === 'inputs'}
+            >
+              Inputs
+            </button>
+            <button
+              type="button"
+              onClick={() => setDesktopPanel('results')}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                desktopPanel === 'results'
+                  ? 'bg-card text-foreground'
+                  : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+              }`}
+              aria-pressed={desktopPanel === 'results'}
+            >
+              Results
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={`${mobilePanel === 'inputs' ? 'space-y-4' : 'hidden'} ${
+            desktopPanel === 'inputs' ? 'md:block md:space-y-4' : 'md:hidden'
+          }`}
+        >
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-3 sm:p-4">
           <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(14rem,1fr)_auto] sm:items-end">
               <label className="flex flex-col gap-1">
@@ -1314,7 +1123,7 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                     }
                     applyPreset(nextPreset);
                   }}
-                  className="et-tool-select h-9 min-w-[15rem] text-sm"
+                  className="et-tool-select h-9 w-full min-w-0 sm:min-w-[15rem] text-sm"
                 >
                   {presetOptions.map((option) => (
                     <option key={option.key} value={option.key}>
@@ -1328,18 +1137,18 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 <button
                   type="button"
                   onClick={() => applyPreset(presetKey as Exclude<StrategyPresetKey, 'custom'>)}
-                  className="h-9 rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/40 sm:w-auto"
                 >
                   Re-apply Preset
                 </button>
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
               <button
                 type="button"
                 onClick={addLeg}
-                className="inline-flex h-9 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
+                className="inline-flex h-9 w-full items-center justify-center gap-1 rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/40 sm:w-auto"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Leg
@@ -1348,7 +1157,7 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 type="button"
                 disabled
                 title="Chain import integration stub for future API wiring"
-                className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-md border border-dashed border-border px-3 text-xs text-muted-foreground"
+                className="inline-flex h-9 w-full cursor-not-allowed items-center justify-center gap-1 rounded-md border border-dashed border-border px-3 text-xs text-muted-foreground sm:w-auto"
               >
                 <FileUp className="h-3.5 w-3.5" />
                 Import Chain (Soon)
@@ -1356,7 +1165,168 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-border/80">
+          <div className="space-y-2 md:hidden">
+            {normalizedLegs.map((leg, index) => (
+              <div key={`mobile-leg-${leg.id}`} className="rounded-lg border border-border/80 bg-background/70 p-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.11em] text-muted-foreground">Leg {index + 1}</p>
+                    <p className="truncate text-xs font-medium text-foreground">{legLabel(leg)}</p>
+                  </div>
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveLeg(index, -1)}
+                      disabled={index === 0}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label="Move leg up"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveLeg(index, 1)}
+                      disabled={index === normalizedLegs.length - 1}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label="Move leg down"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => duplicateLeg(index)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted/30"
+                      aria-label="Duplicate leg"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeLeg(index)}
+                      disabled={normalizedLegs.length <= 1}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label="Remove leg"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Type</span>
+                    <select
+                      value={leg.type}
+                      onChange={(event) => {
+                        const nextType = event.target.value as OptionLeg['type'];
+                        const nextMultiplier = nextType === 'stock' ? 100 : leg.multiplier;
+                        setLegPatch(
+                          index,
+                          {
+                            type: nextType,
+                            strike: nextType === 'stock' ? undefined : leg.strike ?? Math.round(spot),
+                            multiplier: nextMultiplier,
+                          },
+                          true,
+                        );
+                      }}
+                      className="et-tool-select h-8"
+                    >
+                      <option value="stock">Stock</option>
+                      <option value="call">Call</option>
+                      <option value="put">Put</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Side</span>
+                    <select
+                      value={leg.side}
+                      onChange={(event) => setLegPatch(index, { side: event.target.value as OptionLeg['side'] })}
+                      className="et-tool-select h-8"
+                    >
+                      <option value="long">Long</option>
+                      <option value="short">Short</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Strike</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0.01}
+                      disabled={leg.type === 'stock'}
+                      value={leg.type === 'stock' ? '' : leg.strike ?? ''}
+                      onChange={(event) =>
+                        setLegPatch(index, {
+                          strike: clampNumber(Number(event.target.value), leg.strike ?? spot, 0.01),
+                        })
+                      }
+                      className="h-8 w-full rounded-md border border-border bg-background px-2 text-right text-xs disabled:opacity-50"
+                      placeholder="n/a"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Paid Price/Basis</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={leg.type === 'stock' ? leg.entryPrice ?? leg.premium : leg.premium}
+                      onChange={(event) => {
+                        const nextValue = clampNumber(Number(event.target.value), 0, 0);
+                        if (leg.type === 'stock') {
+                          setLegPatch(index, { premium: nextValue, entryPrice: nextValue });
+                        } else {
+                          setLegPatch(index, { premium: nextValue });
+                        }
+                      }}
+                      className="h-8 w-full rounded-md border border-border bg-background px-2 text-right text-xs"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Model Px (As-of)</span>
+                    <input
+                      type="text"
+                      readOnly
+                      value={(legModelPriceById.get(leg.id) ?? 0).toFixed(4)}
+                      title={`Model Px (European Black-Scholes approx)\nSpot=${spot.toFixed(2)}, IV=${volatilityPct.toFixed(2)}%, r=${riskFreeRatePct.toFixed(2)}%, q=${dividendYieldPct.toFixed(2)}%, DTE=${dte !== null ? dte.toFixed(2) : 'n/a'}\nFull precision: ${(legModelPriceById.get(leg.id) ?? 0).toFixed(8)}`}
+                      className="h-8 w-full rounded-md border border-border bg-muted/30 px-2 text-right font-mono text-xs text-foreground"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Qty</span>
+                    <input
+                      type="number"
+                      step={1}
+                      min={1}
+                      value={leg.qty}
+                      onChange={(event) =>
+                        setLegPatch(index, { qty: clampInt(Number(event.target.value), leg.qty, 1) })
+                      }
+                      className="h-8 w-full rounded-md border border-border bg-background px-2 text-right text-xs"
+                    />
+                  </label>
+                  <label className="col-span-2 flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Multiplier</span>
+                    <input
+                      type="number"
+                      step={1}
+                      min={1}
+                      value={leg.multiplier}
+                      onChange={(event) =>
+                        setLegPatch(index, {
+                          multiplier: clampInt(Number(event.target.value), leg.multiplier ?? 100, 1),
+                        })
+                      }
+                      className="h-8 w-full rounded-md border border-border bg-background px-2 text-right text-xs"
+                    />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-lg border border-border/80 md:block">
             <table className="min-w-full text-xs">
               <thead className="bg-background/90 text-muted-foreground">
                 <tr className="border-b border-border/80">
@@ -1698,22 +1668,91 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
               {totalOptionContractsAbs === 0 ? ' (fallback divisor = 1 because no option legs).' : '.'}
             </p>
           )}
+          </div>
         </div>
 
-        <Tabs
-          value={valuationView}
-          onValueChange={(value) => setValuationView(value as ValuationView)}
-          className="w-full"
+        <div
+          className={`${mobilePanel === 'results' ? 'space-y-4' : 'hidden'} ${
+            desktopPanel === 'results' ? 'md:block md:space-y-4' : 'md:hidden'
+          }`}
         >
-          <TabsList className="grid w-full grid-cols-2 bg-muted/60">
-            <TabsTrigger value="expiry">Expiry Payoff</TabsTrigger>
-            <TabsTrigger value="today">Today (T+0 / T+X)</TabsTrigger>
-          </TabsList>
-          <TabsContent value="expiry" className="mt-0" />
-          <TabsContent value="today" className="mt-0" />
-        </Tabs>
+          <Tabs
+            value={valuationView}
+            onValueChange={(value) => setValuationView(value as ValuationView)}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2 bg-muted/60">
+              <TabsTrigger value="expiry">Expiry Payoff</TabsTrigger>
+              <TabsTrigger value="today">Today (T+0 / T+X)</TabsTrigger>
+            </TabsList>
+            <TabsContent value="expiry" className="mt-0" />
+            <TabsContent value="today" className="mt-0" />
+          </Tabs>
 
-        <div className="rounded-lg border border-border/70 bg-muted/20 p-2.5">
+          <div className="rounded-lg border border-border/70 bg-muted/20 p-2.5 md:hidden">
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Quick Snapshot</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {valuationView === 'expiry' ? 'Expiry view' : `Today view (T+${valuationHorizonDays})`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMobileAdvancedResults((prev) => !prev)}
+                aria-expanded={showMobileAdvancedResults}
+                className="rounded-md border border-border bg-background px-2 py-1 text-[11px] font-semibold text-foreground hover:bg-muted/40"
+              >
+                {showMobileAdvancedResults ? 'Hide Details' : 'Show Details'}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md border border-border bg-background/70 p-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Expiry P/L</p>
+                <p
+                  className={`text-xs font-semibold ${
+                    expiryPnL >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
+                  }`}
+                >
+                  {currencyFormatter.format(expiryPnL)}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background/70 p-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Today P/L</p>
+                <p
+                  className={`text-xs font-semibold ${
+                    todayPnL >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
+                  }`}
+                >
+                  {currencyFormatter.format(todayPnL)}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background/70 p-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Max Loss</p>
+                <p className="text-xs font-semibold text-foreground">{maxLossLabel}</p>
+              </div>
+              <div className="rounded-md border border-border bg-background/70 p-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">PoP (Expiry)</p>
+                <p className="text-xs font-semibold text-foreground">
+                  {expiryPoP !== null ? `${(expiryPoP * 100).toFixed(1)}%` : 'n/a'}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background/70 p-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">R:R</p>
+                <p className="text-xs font-semibold text-foreground">{rrEstimate !== null ? `${rrEstimate.toFixed(2)}R` : '-'}</p>
+              </div>
+              <div className="rounded-md border border-border bg-background/70 p-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Notional</p>
+                <p className="text-xs font-semibold text-foreground">{currencyFormatter.format(notional)}</p>
+              </div>
+            </div>
+          </div>
+
+        <div
+          className={`rounded-lg border border-border/70 bg-muted/20 p-2.5 ${
+            showMobileAdvancedResults ? 'block' : 'hidden'
+          } md:block`}
+        >
           <p className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">Headline Metrics (Total)</p>
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
             <div className="rounded-md border border-border bg-background/70 p-2.5">
@@ -1793,7 +1832,11 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
           </div>
         </div>
 
-        <div className="rounded-lg border border-border/70 bg-muted/20 p-2.5">
+        <div
+          className={`rounded-lg border border-border/70 bg-muted/20 p-2.5 ${
+            showMobileAdvancedResults ? 'block' : 'hidden'
+          } md:block`}
+        >
           <p className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
             Scaled Metrics ({displayLabel})
           </p>
@@ -1944,7 +1987,11 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
           </div>
         </div>
 
-        <div className="rounded-xl border border-border/80 bg-gradient-to-b from-background/80 to-muted/20 p-3 sm:p-4">
+        <div
+          className={`rounded-xl border border-border/80 bg-gradient-to-b from-background/80 to-muted/20 p-3 sm:p-4 ${
+            showMobileAdvancedResults ? 'block' : 'hidden'
+          } md:block`}
+        >
           <div className="w-full">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -2122,7 +2169,11 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
           </div>
         </div>
 
-        <div className="rounded-xl border border-border/80 bg-gradient-to-b from-background/90 to-muted/20 p-3 sm:p-4">
+        <div
+          className={`rounded-xl border border-border/80 bg-gradient-to-b from-background/90 to-muted/20 p-3 sm:p-4 ${
+            showMobileAdvancedResults ? 'block' : 'hidden'
+          } md:block`}
+        >
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-semibold text-foreground">2D Stress Matrix (Today / Mark-to-model)</h3>
@@ -2282,7 +2333,11 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div
+            className={`grid grid-cols-1 gap-4 xl:grid-cols-2 ${
+              showMobileAdvancedResults ? 'grid' : 'hidden'
+            } md:grid`}
+          >
           <div className="rounded-xl border border-border/70 bg-muted/20 p-3 sm:p-4">
             <h3 className="mb-2 text-sm font-semibold text-foreground">Greeks (Aggregated & Per Leg)</h3>
             {!greeksReady ? (
@@ -2427,108 +2482,8 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
           </div>
         </div>
 
-        <div className="rounded-xl border border-border/70 bg-background/60 p-3 sm:p-4">
-          <h3 className="mb-2 text-sm font-semibold text-foreground">Save / Load / Export</h3>
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_auto]">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
-              <input
-                type="text"
-                placeholder="Strategy name"
-                value={saveName}
-                onChange={(event) => setSaveName(event.target.value)}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
-              />
-              <button
-                type="button"
-                onClick={saveCurrentStrategy}
-                className="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
-              >
-                <Save className="h-3.5 w-3.5" />
-                Save Strategy
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={exportJson}
-                className="inline-flex h-9 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Export JSON
-              </button>
-              <button
-                type="button"
-                onClick={exportCsv}
-                className="inline-flex h-9 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Export CSV
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto]">
-            <select
-              value={selectedSavedId}
-              onChange={(event) => setSelectedSavedId(event.target.value)}
-              className="et-tool-select h-9"
-            >
-              <option value="">Select saved strategy</option>
-              {savedStrategies.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.name} · {new Date(entry.timestamp).toLocaleString()}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={loadSavedStrategy}
-              disabled={!selectedSavedId}
-              className="h-9 rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Load
-            </button>
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <button
-                  type="button"
-                  disabled={!selectedSavedId}
-                  className="h-9 rounded-md border border-rose-500/40 bg-rose-500/10 px-3 text-xs font-semibold text-rose-200 hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Delete
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete saved strategy?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This removes the saved strategy from local storage and cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={deleteSavedStrategy}
-                    className="bg-rose-600 text-white hover:bg-rose-500"
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-
-          {selectedSavedStrategy && (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Last saved: {new Date(selectedSavedStrategy.timestamp).toLocaleString()}
-            </p>
-          )}
-
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Contracts are enforced as integer quantities; fees/slippage are applied to all P/L metrics and break-evens.
-          </p>
         </div>
+
       </div>
     </div>
   );

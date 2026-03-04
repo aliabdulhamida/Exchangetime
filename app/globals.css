@@ -301,10 +301,44 @@ select {
   background: #27272a;
 }
 
+.dark .react-calendar__tile:enabled:hover,
+.dark .react-calendar__tile:enabled:focus {
+  background: #27272a;
+  color: #f4f4f5;
+}
+
+.dark .react-calendar__tile--now:enabled:hover,
+.dark .react-calendar__tile--active:enabled:hover {
+  background: #3f3f46;
+  color: #f4f4f5;
+}
+
 .dark .react-calendar__month-view__days__day--weekend {
+  color: #fca5a5;
+}
+
+.dark .react-calendar__tile.et-holiday-tile {
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.dark .react-calendar__tile.et-holiday-tile:enabled:hover,
+.dark .react-calendar__tile.et-holiday-tile:enabled:focus {
+  background: #27272a;
   color: #fca5a5;
 }
 
 .dark .react-calendar__navigation button {
   color: #f4f4f5;
+}
+
+.dark .react-calendar__navigation button:enabled:hover,
+.dark .react-calendar__navigation button:enabled:focus {
+  background: #27272a !important;
+  color: #f4f4f5 !important;
+}
+
+.dark .react-calendar__navigation button:enabled:active {
+  background: #3f3f46 !important;
+  color: #f4f4f5 !important;
 }

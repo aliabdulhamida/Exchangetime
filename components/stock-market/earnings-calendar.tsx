@@ -207,7 +207,7 @@ export default function EarningsCalendar() {
   }
 
   return (
-    <div className="px-1 pb-1 sm:px-2 sm:pb-2">
+    <div className="flex h-full min-h-0 flex-col px-1 pb-1 sm:px-2 sm:pb-2">
       <div className="mb-3 flex items-center justify-between pr-16 sm:mb-4 sm:pr-20">
         <h2 className="text-base font-semibold text-foreground sm:text-lg">Earnings Calendar</h2>
       </div>
@@ -239,7 +239,7 @@ export default function EarningsCalendar() {
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="flex min-h-0 flex-1 flex-col space-y-3">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="relative flex items-center gap-2">
             <button
@@ -374,7 +374,7 @@ export default function EarningsCalendar() {
             <span className="block text-center">No earnings scheduled.</span>
           </div>
         ) : (
-          <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1 sm:pr-2">
+          <div className="et-scrollbar min-h-[260px] flex-1 space-y-3 overflow-y-auto pr-1 sm:min-h-[360px] sm:pr-2 lg:min-h-0">
             {filteredItems.map((item: any, idx: number) => (
               <div
                 key={idx}

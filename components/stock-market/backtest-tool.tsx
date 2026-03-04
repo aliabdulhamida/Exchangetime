@@ -382,7 +382,7 @@ export default function BacktestTool() {
       ) : (
         <div className="flex flex-col justify-center h-full flex-1">
           <div className="space-y-3 flex-1 flex flex-col justify-center h-full">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-border bg-card p-3">
                 <p className="text-xs text-muted-foreground">Total Investment</p>
                 <p className="font-semibold text-foreground">

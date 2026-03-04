@@ -56,6 +56,7 @@ function numberArraysEqual(a: number[], b: number[], epsilon = 1e-9) {
 }
 
 export default function DcfCalculator() {
+  const [mobilePanel, setMobilePanel] = useState<'inputs' | 'results'>('inputs');
   const [discountRate, setDiscountRate] = useState(10);
   const [simpleMode, setSimpleMode] = useState(true);
   // WACC inputs
@@ -1041,10 +1042,42 @@ export default function DcfCalculator() {
       </CardHeader>
       <CardContent className="p-0">
         <TooltipProvider delayDuration={100}>
+          <div className="mb-3 md:hidden">
+            <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1">
+              <button
+                type="button"
+                onClick={() => setMobilePanel('inputs')}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                  mobilePanel === 'inputs'
+                    ? 'bg-card text-foreground'
+                    : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                }`}
+                aria-pressed={mobilePanel === 'inputs'}
+              >
+                Inputs
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobilePanel('results')}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                  mobilePanel === 'results'
+                    ? 'bg-card text-foreground'
+                    : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                }`}
+                aria-pressed={mobilePanel === 'results'}
+              >
+                Results
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
             {/* Left: Inputs & Forecasts */}
             <div className="md:col-span-2 space-y-4">
-              <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+              <div
+                className={`rounded-lg border border-border bg-card p-4 sm:p-5 ${
+                  mobilePanel === 'results' ? 'hidden md:block' : ''
+                }`}
+              >
                 <div className="space-y-4">
                   <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                     <div className="space-y-1">
@@ -1173,7 +1206,11 @@ export default function DcfCalculator() {
                   </div>
                 )}
               </div>
-              <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+              <div
+                className={`rounded-lg border border-border bg-card p-4 sm:p-5 ${
+                  mobilePanel === 'results' ? 'hidden md:block' : ''
+                }`}
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h4 className="text-base font-semibold">Projected Free Cash Flows</h4>
@@ -1316,7 +1353,11 @@ export default function DcfCalculator() {
                   </>
                 )}
               </div>
-              <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+              <div
+                className={`rounded-lg border border-border bg-card p-4 sm:p-5 ${
+                  mobilePanel === 'results' ? 'block' : 'hidden md:block'
+                }`}
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <h4 className="text-base font-semibold">Forecast View</h4>
                   <div className="inline-flex rounded-md border border-border p-0.5">
@@ -1527,7 +1568,11 @@ export default function DcfCalculator() {
               </div>
             </div>
             {/* Right: Summary, Cases, Sensitivity, Scenarios */}
-            <div className="md:col-span-1 space-y-4">
+            <div
+              className={`md:col-span-1 space-y-4 ${
+                mobilePanel === 'results' ? 'block' : 'hidden md:block'
+              }`}
+            >
               <div className="rounded-lg border border-border bg-card p-4 text-center">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-xs text-muted-foreground flex items-center gap-2">Enterprise Value <TooltipProvider><Tooltip><TooltipTrigger><Info className="w-4 h-4 text-muted-foreground" /></TooltipTrigger><TooltipContent>Enterprise value = present value of projected FCFs + terminal value</TooltipContent></Tooltip></TooltipProvider></div>
