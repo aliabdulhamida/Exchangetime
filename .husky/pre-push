@@ -1,5 +1,7 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
 
-pnpm run lint:strict || exit 1
-pnpm run typecheck || exit 1
+export NPM_CONFIG_ENGINE_STRICT=false
+
 pnpm run lint:strict || exit 1
 pnpm run typecheck || exit 1

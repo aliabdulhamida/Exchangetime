@@ -369,8 +369,8 @@ export default function Content(props: ContentProps) {
             <div
               className={
                 modules.length === 1
-                  ? 'h-[78vh] min-h-[560px] max-h-[980px] w-full max-w-xl mx-auto md:h-[860px] lg:h-[980px]'
-                  : 'h-[78vh] min-h-[560px] max-h-[980px] md:h-[860px] lg:h-[980px]'
+                  ? 'h-[64vh] min-h-[460px] max-h-[760px] w-full max-w-xl mx-auto md:h-[680px] lg:h-[760px]'
+                  : 'h-[64vh] min-h-[460px] max-h-[760px] md:h-[680px] lg:h-[760px]'
               }
             >
               <ModuleWrapper
@@ -392,8 +392,8 @@ export default function Content(props: ContentProps) {
             <div
               className={
                 modules.length === 1
-                  ? 'h-[78vh] min-h-[560px] max-h-[980px] w-full max-w-xl mx-auto md:h-[860px] lg:h-[980px]'
-                  : 'h-[78vh] min-h-[560px] max-h-[980px] md:h-[860px] lg:h-[980px]'
+                  ? 'h-[64vh] min-h-[460px] max-h-[760px] w-full max-w-xl mx-auto md:h-[680px] lg:h-[760px]'
+                  : 'h-[64vh] min-h-[460px] max-h-[760px] md:h-[680px] lg:h-[760px]'
               }
             >
               <ModuleWrapper
@@ -410,8 +410,8 @@ export default function Content(props: ContentProps) {
             <div
               className={
                 modules.length === 1
-                  ? 'h-[78vh] min-h-[560px] max-h-[980px] w-full max-w-xl mx-auto md:h-[860px] lg:h-[980px]'
-                  : 'h-[78vh] min-h-[560px] max-h-[980px] md:h-[860px] lg:h-[980px]'
+                  ? 'h-[64vh] min-h-[460px] max-h-[760px] w-full max-w-xl mx-auto md:h-[680px] lg:h-[760px]'
+                  : 'h-[64vh] min-h-[460px] max-h-[760px] md:h-[680px] lg:h-[760px]'
               }
             >
               <ModuleWrapper
