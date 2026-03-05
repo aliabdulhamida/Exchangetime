@@ -1043,17 +1043,17 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
 
       <div className="space-y-4 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
         <div className="md:hidden">
-          <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1">
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
             <button
               type="button"
               onClick={() => {
                 setMobilePanel('inputs');
                 setShowMobileAdvancedResults(false);
               }}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+              className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                 mobilePanel === 'inputs'
-                  ? 'bg-card text-foreground'
-                  : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               aria-pressed={mobilePanel === 'inputs'}
             >
@@ -1062,10 +1062,10 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
             <button
               type="button"
               onClick={() => setMobilePanel('results')}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+              className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                 mobilePanel === 'results'
-                  ? 'bg-card text-foreground'
-                  : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               aria-pressed={mobilePanel === 'results'}
             >
@@ -1075,14 +1075,14 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
         </div>
 
         <div className="hidden md:block">
-          <div className="grid w-full max-w-xs grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1">
+          <div className="grid w-full max-w-xs grid-cols-2 gap-2 rounded-lg border border-border p-1">
             <button
               type="button"
               onClick={() => setDesktopPanel('inputs')}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+              className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                 desktopPanel === 'inputs'
-                  ? 'bg-card text-foreground'
-                  : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               aria-pressed={desktopPanel === 'inputs'}
             >
@@ -1091,10 +1091,10 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
             <button
               type="button"
               onClick={() => setDesktopPanel('results')}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+              className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                 desktopPanel === 'results'
-                  ? 'bg-card text-foreground'
-                  : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               aria-pressed={desktopPanel === 'results'}
             >

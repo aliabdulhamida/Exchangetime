@@ -934,14 +934,14 @@ export default function TaxCalculator() {
         </CardHeader>
         <CardContent className="grid gap-3 p-0">
           <div className="lg:hidden">
-            <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
               <button
                 type="button"
                 onClick={() => setMobilePanel('inputs')}
-                className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                   mobilePanel === 'inputs'
-                    ? 'bg-card text-foreground'
-                    : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 aria-pressed={mobilePanel === 'inputs'}
               >
@@ -950,10 +950,10 @@ export default function TaxCalculator() {
               <button
                 type="button"
                 onClick={() => setMobilePanel('results')}
-                className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                   mobilePanel === 'results'
-                    ? 'bg-card text-foreground'
-                    : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 aria-pressed={mobilePanel === 'results'}
               >

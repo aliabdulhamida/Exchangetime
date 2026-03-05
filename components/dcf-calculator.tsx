@@ -55,8 +55,15 @@ function numberArraysEqual(a: number[], b: number[], epsilon = 1e-9) {
   return true;
 }
 
+function decisionToneClasses(tone: 'positive' | 'neutral' | 'negative') {
+  if (tone === 'positive') return 'bg-green-500/10 text-green-400';
+  if (tone === 'negative') return 'bg-red-500/10 text-red-400';
+  return 'bg-zinc-500/10 text-zinc-300';
+}
+
 export default function DcfCalculator() {
   const [mobilePanel, setMobilePanel] = useState<'inputs' | 'results'>('inputs');
+  const [desktopPanel, setDesktopPanel] = useState<'inputs' | 'results'>('inputs');
   const [discountRate, setDiscountRate] = useState(10);
   const [simpleMode, setSimpleMode] = useState(true);
   // WACC inputs
@@ -865,6 +872,101 @@ export default function DcfCalculator() {
     calculatePerShare,
   ]);
 
+  const currentPriceValue = useMemo(() => {
+    const cp = numeric(currentPrice, currency);
+    return Number.isFinite(cp) && cp > 0 ? cp : null;
+  }, [currentPrice, currency]);
+
+  const mosStatus = useMemo(() => {
+    if (currentPriceValue === null) {
+      return { label: 'No market price', tone: 'neutral' as const, deltaPct: null as number | null };
+    }
+    const deltaPct = ((buyBelowPrice - currentPriceValue) / currentPriceValue) * 100;
+    if (currentPriceValue <= buyBelowPrice) {
+      return { label: 'Inside MoS', tone: 'positive' as const, deltaPct };
+    }
+    return { label: 'Above MoS', tone: 'negative' as const, deltaPct };
+  }, [buyBelowPrice, currentPriceValue]);
+
+  const terminalDependence = useMemo(() => {
+    if (terminalWeightPct >= 80) {
+      return { label: 'Very high', tone: 'negative' as const };
+    }
+    if (terminalWeightPct >= 70) {
+      return { label: 'Elevated', tone: 'neutral' as const };
+    }
+    return { label: 'Balanced', tone: 'positive' as const };
+  }, [terminalWeightPct]);
+
+  const rateGrowthCheck = useMemo(() => {
+    if (useMultiple) {
+      return {
+        label: 'Multiple model',
+        tone: 'neutral' as const,
+        detail: 'Gordon spread not required',
+      };
+    }
+    const spread = effectiveRatePct - numeric(terminalGrowth, currency);
+    if (spread > 1.5) {
+      return {
+        label: 'Healthy spread',
+        tone: 'positive' as const,
+        detail: `${spread.toFixed(2)}%`,
+      };
+    }
+    if (spread > 0) {
+      return {
+        label: 'Thin spread',
+        tone: 'neutral' as const,
+        detail: `${spread.toFixed(2)}%`,
+      };
+    }
+    return {
+      label: 'Invalid spread',
+      tone: 'negative' as const,
+      detail: `${spread.toFixed(2)}%`,
+    };
+  }, [currency, effectiveRatePct, terminalGrowth, useMultiple]);
+
+  const decisionScore = useMemo(() => {
+    let score = 100;
+    if (mosStatus.tone === 'negative') score -= 20;
+    if (mosStatus.tone === 'neutral') score -= 8;
+
+    if (terminalWeightPct >= 80) score -= 25;
+    else if (terminalWeightPct >= 70) score -= 15;
+    else if (terminalWeightPct >= 60) score -= 8;
+
+    if (!useMultiple && effectiveRatePct <= numeric(terminalGrowth, currency)) score -= 25;
+
+    const riskPenalty = riskFlags.reduce((sum, flag) => {
+      if (flag.level === 'high') return sum + 12;
+      if (flag.level === 'medium') return sum + 6;
+      return sum + 3;
+    }, 0);
+    score -= Math.min(40, riskPenalty);
+
+    return clamp(Math.round(score), 0, 100);
+  }, [
+    mosStatus.tone,
+    terminalWeightPct,
+    useMultiple,
+    effectiveRatePct,
+    terminalGrowth,
+    currency,
+    riskFlags,
+  ]);
+
+  const decisionBand = useMemo(() => {
+    if (decisionScore >= 80) {
+      return { label: 'Robust setup', tone: 'positive' as const };
+    }
+    if (decisionScore >= 60) {
+      return { label: 'Watch assumptions', tone: 'neutral' as const };
+    }
+    return { label: 'High model risk', tone: 'negative' as const };
+  }, [decisionScore]);
+
   const errors: string[] = [];
   if (numeric(sharesOutstanding, currency) <= 0) errors.push('Shares outstanding must be greater than 0.');
   const effectiveRate = effectiveRatePct / 100;
@@ -1043,14 +1145,14 @@ export default function DcfCalculator() {
       <CardContent className="p-0">
         <TooltipProvider delayDuration={100}>
           <div className="mb-3 md:hidden">
-            <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
               <button
                 type="button"
                 onClick={() => setMobilePanel('inputs')}
-                className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                   mobilePanel === 'inputs'
-                    ? 'bg-card text-foreground'
-                    : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 aria-pressed={mobilePanel === 'inputs'}
               >
@@ -1059,10 +1161,10 @@ export default function DcfCalculator() {
               <button
                 type="button"
                 onClick={() => setMobilePanel('results')}
-                className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                   mobilePanel === 'results'
-                    ? 'bg-card text-foreground'
-                    : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 aria-pressed={mobilePanel === 'results'}
               >
@@ -1070,12 +1172,46 @@ export default function DcfCalculator() {
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+          <div className="mb-3 hidden md:block">
+            <div className="grid w-full max-w-xs grid-cols-2 gap-2 rounded-lg border border-border p-1">
+              <button
+                type="button"
+                onClick={() => setDesktopPanel('inputs')}
+                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                  desktopPanel === 'inputs'
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                aria-pressed={desktopPanel === 'inputs'}
+              >
+                Inputs
+              </button>
+              <button
+                type="button"
+                onClick={() => setDesktopPanel('results')}
+                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                  desktopPanel === 'results'
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                aria-pressed={desktopPanel === 'results'}
+              >
+                Results
+              </button>
+            </div>
+          </div>
+          <div
+            className={`grid grid-cols-1 gap-4 md:gap-6 ${
+              desktopPanel === 'results' ? 'md:grid-cols-12 md:items-start' : 'md:grid-cols-3'
+            }`}
+          >
             {/* Left: Inputs & Forecasts */}
-            <div className="md:col-span-2 space-y-4">
+            <div className={`flex flex-col gap-4 ${desktopPanel === 'results' ? 'md:col-span-8' : 'md:col-span-3'}`}>
               <div
                 className={`rounded-lg border border-border bg-card p-4 sm:p-5 ${
-                  mobilePanel === 'results' ? 'hidden md:block' : ''
+                  mobilePanel === 'results' ? 'hidden' : 'block'
+                } ${
+                  desktopPanel === 'results' ? 'md:hidden' : 'md:block'
                 }`}
               >
                 <div className="space-y-4">
@@ -1208,7 +1344,9 @@ export default function DcfCalculator() {
               </div>
               <div
                 className={`rounded-lg border border-border bg-card p-4 sm:p-5 ${
-                  mobilePanel === 'results' ? 'hidden md:block' : ''
+                  mobilePanel === 'results' ? 'hidden' : 'block'
+                } ${
+                  desktopPanel === 'results' ? 'md:hidden' : 'md:block'
                 }`}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1355,7 +1493,9 @@ export default function DcfCalculator() {
               </div>
               <div
                 className={`rounded-lg border border-border bg-card p-4 sm:p-5 ${
-                  mobilePanel === 'results' ? 'block' : 'hidden md:block'
+                  mobilePanel === 'results' ? 'block' : 'hidden'
+                } ${
+                  desktopPanel === 'results' ? 'md:block' : 'md:hidden'
                 }`}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1566,14 +1706,116 @@ export default function DcfCalculator() {
                   </div>
                 )}
               </div>
+              <div
+                className={`rounded-lg border border-border bg-card p-4 sm:p-5 ${
+                  mobilePanel === 'results' ? 'block' : 'hidden'
+                } ${
+                  desktopPanel === 'results' ? 'md:block' : 'md:hidden'
+                }`}
+              >
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <h4 className="text-base font-semibold">Forecast Breakdown</h4>
+                  <div className="text-[11px] text-muted-foreground">Projected vs discounted cash flow</div>
+                </div>
+                <div className="mt-3 overflow-auto rounded border border-border/60">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-background/50">
+                      <tr className="border-b border-border/60">
+                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Year</th>
+                        <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Projected FCF</th>
+                        <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Discount</th>
+                        <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Present Value</th>
+                        <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">EV Share</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calculationRows.map((row) => (
+                        <tr key={`forecast-breakdown-${row.year}`} className="border-b border-border/40 last:border-b-0">
+                          <td className="px-2 py-1.5">Y{row.year}</td>
+                          <td className="px-2 py-1.5 text-right">{formatLarge(row.fcf).short}</td>
+                          <td className="px-2 py-1.5 text-right">{row.discountFactor.toFixed(4)}</td>
+                          <td className="px-2 py-1.5 text-right">{formatLarge(row.pv).short}</td>
+                          <td className="px-2 py-1.5 text-right">
+                            {enterpriseValue > 0 ? `${((row.pv / enterpriseValue) * 100).toFixed(1)}%` : '0.0%'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  <div className="rounded border border-border/60 bg-background/40 p-2">
+                    <div className="text-[10px] text-muted-foreground">Explicit PV</div>
+                    <div className="mt-0.5 text-xs font-semibold">{formatLarge(npv).short}</div>
+                  </div>
+                  <div className="rounded border border-border/60 bg-background/40 p-2">
+                    <div className="text-[10px] text-muted-foreground">Terminal PV</div>
+                    <div className="mt-0.5 text-xs font-semibold">{formatLarge(pvTerminal).short}</div>
+                  </div>
+                  <div className="rounded border border-border/60 bg-background/40 p-2">
+                    <div className="text-[10px] text-muted-foreground">Discount Drag</div>
+                    <div className="mt-0.5 text-xs font-semibold">{chartTotals.discountDragPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="rounded border border-border/60 bg-background/40 p-2">
+                    <div className="text-[10px] text-muted-foreground">Explicit EV Share</div>
+                    <div className="mt-0.5 text-xs font-semibold">{chartTotals.explicitSharePct.toFixed(1)}%</div>
+                  </div>
+                </div>
+              </div>
+              <div
+                className={`rounded-lg border border-border bg-card p-4 sm:p-5 ${
+                  mobilePanel === 'results' ? 'block' : 'hidden'
+                } ${
+                  desktopPanel === 'results' ? 'md:block' : 'md:hidden'
+                }`}
+              >
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <h4 className="text-base font-semibold">Value Bridge</h4>
+                  <div className="text-[11px] text-muted-foreground">From discounted cash flow to per-share value</div>
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between rounded border border-border/60 bg-background/40 px-2.5 py-2 text-xs">
+                    <span className="text-muted-foreground">Explicit PV</span>
+                    <span className="font-semibold">{formatLarge(npv).short}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-border/60 bg-background/40 px-2.5 py-2 text-xs">
+                    <span className="text-muted-foreground">+ Terminal PV</span>
+                    <span className="font-semibold">{formatLarge(pvTerminal).short}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-border/60 bg-background/60 px-2.5 py-2 text-xs">
+                    <span className="font-medium">= Enterprise Value</span>
+                    <span className="font-semibold">{formatLarge(enterpriseValue).short}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-border/60 bg-background/40 px-2.5 py-2 text-xs">
+                    <span className="text-muted-foreground">{netDebt >= 0 ? '- Net Debt' : '+ Net Cash'}</span>
+                    <span className="font-semibold">
+                      {netDebt >= 0 ? `-${formatLarge(netDebt).short}` : `+${formatLarge(Math.abs(netDebt)).short}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-border/60 bg-background/60 px-2.5 py-2 text-xs">
+                    <span className="font-medium">= Equity Value</span>
+                    <span className="font-semibold">{formatLarge(equityValue).short}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-border/60 bg-background/40 px-2.5 py-2 text-xs">
+                    <span className="text-muted-foreground">÷ Shares Outstanding</span>
+                    <span className="font-semibold">{formatLarge(numeric(sharesOutstanding, currency)).short}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-border/60 bg-background/70 px-2.5 py-2 text-xs">
+                    <span className="font-medium">= Intrinsic / Share</span>
+                    <span className="font-semibold">{formatCurrencyWithSymbol(perShare)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
             {/* Right: Summary, Cases, Sensitivity, Scenarios */}
             <div
-              className={`md:col-span-1 space-y-4 ${
-                mobilePanel === 'results' ? 'block' : 'hidden md:block'
+              className={`md:col-span-1 flex flex-col gap-4 ${
+                mobilePanel === 'results' ? 'flex' : 'hidden'
+              } ${
+                desktopPanel === 'results' ? 'md:col-span-4 md:flex md:self-start' : 'md:hidden'
               }`}
             >
-              <div className="rounded-lg border border-border bg-card p-4 text-center">
+              <div className="rounded-lg border border-border bg-card p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-xs text-muted-foreground flex items-center gap-2">Enterprise Value <TooltipProvider><Tooltip><TooltipTrigger><Info className="w-4 h-4 text-muted-foreground" /></TooltipTrigger><TooltipContent>Enterprise value = present value of projected FCFs + terminal value</TooltipContent></Tooltip></TooltipProvider></div>
                   <div className="flex items-center gap-2">
@@ -1590,37 +1832,46 @@ export default function DcfCalculator() {
                   </div>
                 </div>
                 <>
-                    <div className="text-2xl font-bold mt-2">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <span>{formatLarge(enterpriseValue).short}</span>
-                          </TooltipTrigger>
-                          <TooltipContent>{formatCurrency(enterpriseValue)}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-2">Equity Value</div>
-                    <div className="text-lg font-semibold">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <span>{formatLarge(equityValue).short}</span>
-                          </TooltipTrigger>
-                          <TooltipContent>{formatCurrency(equityValue)}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-2">Intrinsic / Share</div>
-                    <div className="text-xl font-bold">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <span>{formatCurrencyWithSymbol(perShare)}</span>
-                          </TooltipTrigger>
-                          <TooltipContent>Intrinsic value per share — {formatCurrency(perShare)}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                    <div className="mt-3 space-y-2.5">
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="text-xs text-muted-foreground">Enterprise Value</div>
+                        <div className="text-xl font-bold">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <span>{formatLarge(enterpriseValue).short}</span>
+                              </TooltipTrigger>
+                              <TooltipContent>{formatCurrency(enterpriseValue)}</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </div>
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="text-xs text-muted-foreground">Equity Value</div>
+                        <div className="text-lg font-semibold">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <span>{formatLarge(equityValue).short}</span>
+                              </TooltipTrigger>
+                              <TooltipContent>{formatCurrency(equityValue)}</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </div>
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="text-xs text-muted-foreground">Intrinsic / Share</div>
+                        <div className="text-xl font-bold">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <span>{formatCurrencyWithSymbol(perShare)}</span>
+                              </TooltipTrigger>
+                              <TooltipContent>Intrinsic value per share — {formatCurrency(perShare)}</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2.5 text-left">
                       <div className="rounded border border-border/60 bg-background/40 p-2">
@@ -1779,6 +2030,95 @@ export default function DcfCalculator() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">Decision Checklist</div>
+                  <div className="text-[10px] text-muted-foreground">Quick quality gate</div>
+                </div>
+                <div className="mt-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between rounded border border-border/60 px-2.5 py-2">
+                    <div className="text-xs text-muted-foreground">MoS vs market</div>
+                    <div className="flex items-center gap-2">
+                      {mosStatus.deltaPct !== null && (
+                        <span
+                          className={`text-[10px] font-medium ${mosStatus.deltaPct >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                        >
+                          {`${mosStatus.deltaPct >= 0 ? '+' : ''}${mosStatus.deltaPct.toFixed(1)}%`}
+                        </span>
+                      )}
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${decisionToneClasses(mosStatus.tone)}`}
+                      >
+                        {mosStatus.label}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-border/60 px-2.5 py-2">
+                    <div className="text-xs text-muted-foreground">Terminal dependence</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground">{terminalWeightPct.toFixed(1)}%</span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${decisionToneClasses(terminalDependence.tone)}`}
+                      >
+                        {terminalDependence.label}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-border/60 px-2.5 py-2">
+                    <div className="text-xs text-muted-foreground">Rate vs growth</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground">{rateGrowthCheck.detail}</span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${decisionToneClasses(rateGrowthCheck.tone)}`}
+                      >
+                        {rateGrowthCheck.label}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-border/60 px-2.5 py-2">
+                    <div className="text-xs text-muted-foreground">Risk flags</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground">
+                        H:{riskFlags.filter((flag) => flag.level === 'high').length} M:
+                        {riskFlags.filter((flag) => flag.level === 'medium').length} L:
+                        {riskFlags.filter((flag) => flag.level === 'low').length}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${decisionToneClasses(
+                          riskFlags.some((flag) => flag.level === 'high')
+                            ? 'negative'
+                            : riskFlags.some((flag) => flag.level === 'medium')
+                              ? 'neutral'
+                              : 'positive',
+                        )}`}
+                      >
+                        {riskFlags.length === 0 ? 'Clean' : `${riskFlags.length} active`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 rounded border border-border/60 bg-background/40 px-2.5 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-muted-foreground">Decision Score</span>
+                    <span
+                      className={`text-xs font-semibold ${
+                        decisionScore >= 80 ? 'text-green-400' : decisionScore >= 60 ? 'text-zinc-200' : 'text-red-400'
+                      }`}
+                    >
+                      {decisionScore}/100
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 rounded bg-border/50">
+                    <div
+                      className={`h-1.5 rounded ${
+                        decisionScore >= 80 ? 'bg-green-500' : decisionScore >= 60 ? 'bg-zinc-300' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${Math.max(6, decisionScore)}%` }}
+                    />
+                  </div>
+                  <div className="mt-1 text-[10px] text-muted-foreground">{decisionBand.label}</div>
                 </div>
               </div>
               {!simpleMode && (
