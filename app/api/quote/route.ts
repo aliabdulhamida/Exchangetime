@@ -53,6 +53,47 @@ function normalizeBooleanParam(raw: string): string {
   return '';
 }
 
+function parseJsonSafely(text: string): any | null {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function toFiniteNumber(value: any): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value && typeof value === 'object' && typeof value.raw === 'number' && Number.isFinite(value.raw)) {
+    return value.raw;
+  }
+  return null;
+}
+
+function toNullableString(value: any): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+  if (!value || typeof value !== 'object') return null;
+
+  const longFmt = typeof value.longFmt === 'string' ? value.longFmt.trim() : '';
+  if (longFmt) return longFmt;
+
+  const fmt = typeof value.fmt === 'string' ? value.fmt.trim() : '';
+  if (fmt) return fmt;
+
+  const raw = typeof value.raw === 'string' ? value.raw.trim() : '';
+  if (raw) return raw;
+
+  return null;
+}
+
+function normalizeYieldToPercent(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return Math.abs(value) < 1 ? value * 100 : value;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -95,10 +136,7 @@ export async function GET(req: NextRequest) {
       const cUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${chartParams.toString()}`;
       const cres = await fetchWithHeaders(cUrl);
       const text = await cres.text();
-      let j: any = null;
-      try {
-        j = JSON.parse(text);
-      } catch {}
+      const j = parseJsonSafely(text);
 
       if (!cres.ok) {
         return NextResponse.json(
@@ -129,10 +167,7 @@ export async function GET(req: NextRequest) {
     const cUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
     const res = await fetchWithHeaders(cUrl);
     const text = await res.text();
-    let j: any = null;
-    try {
-      j = JSON.parse(text);
-    } catch {}
+    const j = parseJsonSafely(text);
 
     if (!res.ok) {
       return NextResponse.json(
@@ -151,9 +186,45 @@ export async function GET(req: NextRequest) {
       (v: any) => typeof v === 'number' && Number.isFinite(v),
     );
     const latestClose = closes.length ? closes[closes.length - 1] : null;
-    const price = meta?.regularMarketPrice ?? latestClose ?? null;
-    const previousClose = meta?.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : null);
-    const currency = meta?.currency ?? null;
+    let quoteResult: any = null;
+    let summaryResult: any = null;
+
+    try {
+      const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+      const quoteRes = await fetchWithHeaders(quoteUrl);
+      const quoteText = await quoteRes.text();
+      const quoteJson = parseJsonSafely(quoteText);
+      if (quoteRes.ok) {
+        quoteResult = quoteJson?.quoteResponse?.result?.[0] || null;
+      }
+    } catch {}
+
+    try {
+      const summaryUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=summaryProfile,assetProfile,summaryDetail,defaultKeyStatistics,financialData`;
+      const summaryRes = await fetchWithHeaders(summaryUrl);
+      const summaryText = await summaryRes.text();
+      const summaryJson = parseJsonSafely(summaryText);
+      if (summaryRes.ok) {
+        summaryResult = summaryJson?.quoteSummary?.result?.[0] || null;
+      }
+    } catch {}
+
+    const summaryProfile = summaryResult?.summaryProfile || summaryResult?.assetProfile || {};
+    const summaryDetail = summaryResult?.summaryDetail || {};
+    const defaultKeyStats = summaryResult?.defaultKeyStatistics || {};
+    const financialData = summaryResult?.financialData || {};
+
+    const price =
+      toFiniteNumber(meta?.regularMarketPrice) ??
+      toFiniteNumber(quoteResult?.regularMarketPrice) ??
+      latestClose ??
+      null;
+    const previousClose =
+      toFiniteNumber(meta?.previousClose) ??
+      toFiniteNumber(quoteResult?.regularMarketPreviousClose) ??
+      (closes.length > 1 ? closes[closes.length - 2] : null);
+    const currency =
+      toNullableString(meta?.currency) || toNullableString(quoteResult?.currency) || null;
 
     if (typeof price === 'number' && Number.isFinite(price)) {
       return NextResponse.json({
@@ -163,6 +234,66 @@ export async function GET(req: NextRequest) {
         symbol,
         source: 'chart',
         meta,
+        company: {
+          shortName: toNullableString(quoteResult?.shortName),
+          longName: toNullableString(quoteResult?.longName),
+          quoteType: toNullableString(quoteResult?.quoteType) || toNullableString(meta?.instrumentType),
+          exchange:
+            toNullableString(quoteResult?.fullExchangeName) ||
+            toNullableString(quoteResult?.exchange) ||
+            toNullableString(meta?.exchangeName),
+          sector: toNullableString(summaryProfile?.sector),
+          industry: toNullableString(summaryProfile?.industry),
+          country: toNullableString(summaryProfile?.country),
+          website: toNullableString(summaryProfile?.website),
+          businessSummary: toNullableString(summaryProfile?.longBusinessSummary),
+        },
+        metrics: {
+          marketCap:
+            toFiniteNumber(quoteResult?.marketCap) ??
+            toFiniteNumber(summaryDetail?.marketCap) ??
+            toFiniteNumber(defaultKeyStats?.marketCap),
+          dayHigh:
+            toFiniteNumber(quoteResult?.regularMarketDayHigh) ??
+            toFiniteNumber(summaryDetail?.dayHigh),
+          dayLow:
+            toFiniteNumber(quoteResult?.regularMarketDayLow) ??
+            toFiniteNumber(summaryDetail?.dayLow),
+          fiftyTwoWeekHigh:
+            toFiniteNumber(quoteResult?.fiftyTwoWeekHigh) ??
+            toFiniteNumber(summaryDetail?.fiftyTwoWeekHigh),
+          fiftyTwoWeekLow:
+            toFiniteNumber(quoteResult?.fiftyTwoWeekLow) ??
+            toFiniteNumber(summaryDetail?.fiftyTwoWeekLow),
+          trailingPE:
+            toFiniteNumber(quoteResult?.trailingPE) ??
+            toFiniteNumber(summaryDetail?.trailingPE) ??
+            toFiniteNumber(defaultKeyStats?.trailingPE),
+          forwardPE:
+            toFiniteNumber(quoteResult?.forwardPE) ??
+            toFiniteNumber(summaryDetail?.forwardPE) ??
+            toFiniteNumber(defaultKeyStats?.forwardPE),
+          epsTrailingTwelveMonths:
+            toFiniteNumber(quoteResult?.epsTrailingTwelveMonths) ??
+            toFiniteNumber(defaultKeyStats?.trailingEps),
+          beta:
+            toFiniteNumber(quoteResult?.beta) ??
+            toFiniteNumber(defaultKeyStats?.beta) ??
+            toFiniteNumber(financialData?.beta),
+          volume:
+            toFiniteNumber(quoteResult?.regularMarketVolume) ??
+            toFiniteNumber(summaryDetail?.volume),
+          averageVolume:
+            toFiniteNumber(quoteResult?.averageDailyVolume3Month) ??
+            toFiniteNumber(summaryDetail?.averageVolume),
+          dividendRate:
+            toFiniteNumber(quoteResult?.dividendRate) ??
+            toFiniteNumber(summaryDetail?.dividendRate),
+          dividendYieldPct: normalizeYieldToPercent(
+            toFiniteNumber(quoteResult?.dividendYield) ??
+              toFiniteNumber(summaryDetail?.dividendYield),
+          ),
+        },
       });
     }
     return NextResponse.json({ error: 'Price not available from Yahoo chart endpoint' }, { status: 502 });
