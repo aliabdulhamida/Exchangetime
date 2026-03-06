@@ -1,5 +1,5 @@
-import React, { memo, useEffect, useMemo, useState } from 'react';
 import { Filter, X } from 'lucide-react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 
 const REGION_PRESETS = {
   global: { label: 'Global', countries: '' },
