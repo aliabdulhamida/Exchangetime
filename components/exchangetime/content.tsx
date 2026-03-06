@@ -230,52 +230,40 @@ export default function Content(props: ContentProps) {
           </div>
         )}
 
-        {/* Full-width Portfolio Tracker Row (same sizing as Technical Analysis) */}
+        {/* Full-width Portfolio Tracker Row (same sizing as Exchange Times) */}
         {modules.includes('PortfolioTracker') && (
           <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            <div
-              className={
-                `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto mt-0 md:mt-2 flex flex-col h-full ` +
-                (modules.length === 1 ? '' : '')
-              }
+            <ModuleWrapper
+              moduleKey="PortfolioTracker"
+              onClose={() => hideModule('PortfolioTracker')}
+              onSolo={() => showOnlyModule('PortfolioTracker')}
+              className="h-full"
             >
-              <ModuleWrapper
-                moduleKey="PortfolioTracker"
-                onClose={() => hideModule('PortfolioTracker')}
-                onSolo={() => showOnlyModule('PortfolioTracker')}
-              >
-                <div className="p-3 sm:p-4 flex flex-col h-full">
-                  <PortfolioTracker />
-                </div>
-              </ModuleWrapper>
-            </div>
+              <div className="flex h-full flex-col">
+                <PortfolioTracker />
+              </div>
+            </ModuleWrapper>
           </div>
         )}
 
         {/* Neue Zeile: Technical Analysis */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {modules.includes('TechnicalAnalysis') && (
-            <div
-              className={
-                `flex-1 min-w-0 w-full max-w-full 2xl:max-w-screen-2xl mx-auto mt-0 md:mt-2 flex flex-col h-full ` +
-                (modules.length === 1 ? '' : '')
-              }
+            <ModuleWrapper
+              moduleKey="TechnicalAnalysis"
+              onClose={() => hideModule('TechnicalAnalysis')}
+              onSolo={() => showOnlyModule('TechnicalAnalysis')}
+              className="h-full"
             >
-              <ModuleWrapper
-                moduleKey="TechnicalAnalysis"
-                onClose={() => hideModule('TechnicalAnalysis')}
-                onSolo={() => showOnlyModule('TechnicalAnalysis')}
-              >
-                <div className="p-3 sm:p-4 flex flex-col h-full">
-                  <h2 className="mb-4 text-lg font-semibold text-foreground">
-                    Technical Analysis
-                  </h2>
-                  <div className="flex-1 min-h-[420px] sm:min-h-[560px] lg:min-h-[700px]">
-                    <TradingViewWidget />
-                  </div>
+              <div className="flex h-full flex-col">
+                <h2 className="mb-4 text-lg font-semibold text-foreground">
+                  Technical Analysis
+                </h2>
+                <div className="flex-1 min-h-[420px] sm:min-h-[560px] lg:min-h-[700px]">
+                  <TradingViewWidget />
                 </div>
-              </ModuleWrapper>
-            </div>
+              </div>
+            </ModuleWrapper>
           )}
         </div>
 
@@ -427,61 +415,54 @@ export default function Content(props: ContentProps) {
         </div>
 
         {/* Sixth Row - Options Payoff Lab */}
-        <div
-          className={`flex flex-col items-stretch gap-4 md:flex-row sm:gap-6${modules.length === 1 ? ' justify-center' : ''}`}
-        >
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {/* Options Payoff Lab */}
           {modules.includes('PersonalBudget') && (
-            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-0 flex flex-col h-full">
-              <ModuleWrapper
-                moduleKey="PersonalBudget"
-                onClose={() => hideModule('PersonalBudget')}
-                onSolo={() => showOnlyModule('PersonalBudget')}
-              >
-                <div className="flex-1 flex flex-col h-full">
-                  <OptionsPayoffLab />
-                </div>
-              </ModuleWrapper>
-            </div>
+            <ModuleWrapper
+              moduleKey="PersonalBudget"
+              onClose={() => hideModule('PersonalBudget')}
+              onSolo={() => showOnlyModule('PersonalBudget')}
+              className="h-full"
+            >
+              <div className="flex h-full flex-col">
+                <OptionsPayoffLab />
+              </div>
+            </ModuleWrapper>
           )}
         </div>
 
         {/* Real Estate vs. Stocks Calculator removed */}
 
         {/* Eighth Row - Tax Calculator */}
-        <div
-          className={`flex flex-col items-stretch gap-4 md:flex-row sm:gap-6${modules.length === 1 ? ' justify-center' : ''}`}
-        >
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {modules.includes('TaxCalculator') && (
-            <div className="flex-1 min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 mt-0 flex flex-col h-full rounded-xl">
-              <ModuleWrapper
-                moduleKey="TaxCalculator"
-                onClose={() => hideModule('TaxCalculator')}
-                onSolo={() => showOnlyModule('TaxCalculator')}
-              >
-                <div className="flex-1 flex flex-col h-full">
-                  <TaxCalculator />
-                </div>
-              </ModuleWrapper>
-            </div>
+            <ModuleWrapper
+              moduleKey="TaxCalculator"
+              onClose={() => hideModule('TaxCalculator')}
+              onSolo={() => showOnlyModule('TaxCalculator')}
+              className="h-full"
+            >
+              <div className="flex h-full flex-col">
+                <TaxCalculator />
+              </div>
+            </ModuleWrapper>
           )}
 
           {/* DCF removed from this row to render below the Tax Calculator */}
         </div>
         {/* Render DCF below Tax Calculator as a new full-width row */}
         {modules.includes('DCFCalculator') && (
-          <div className="w-full mt-4 sm:mt-6">
-            <div className="min-w-0 w-full max-w-full sm:max-w-screen-2xl mx-auto md:mx-0 flex flex-col h-full">
-              <ModuleWrapper
-                moduleKey="DCFCalculator"
-                onClose={() => hideModule('DCFCalculator')}
-                onSolo={() => showOnlyModule('DCFCalculator')}
-              >
-                <div className="flex-1 flex flex-col h-full">
-                  <DcfCalculator />
-                </div>
-              </ModuleWrapper>
-            </div>
+          <div className="grid grid-cols-1 gap-4 sm:gap-6">
+            <ModuleWrapper
+              moduleKey="DCFCalculator"
+              onClose={() => hideModule('DCFCalculator')}
+              onSolo={() => showOnlyModule('DCFCalculator')}
+              className="h-full"
+            >
+              <div className="flex h-full flex-col">
+                <DcfCalculator />
+              </div>
+            </ModuleWrapper>
           </div>
         )}
       </>
@@ -520,6 +501,8 @@ function CompoundInterestCalculator() {
   const [initialCapital, setInitialCapital] = useState(1000);
   const [contributionAmount, setContributionAmount] = useState(250);
   const [annualRatePct, setAnnualRatePct] = useState(5);
+  const [inflationRatePct, setInflationRatePct] = useState(2);
+  const [adjustForInflation, setAdjustForInflation] = useState(false);
   const [years, setYears] = useState(10);
   const [compoundingPerYear, setCompoundingPerYear] = useState(12);
   const [contributionPerYear, setContributionPerYear] = useState(12);
@@ -548,6 +531,11 @@ function CompoundInterestCalculator() {
   );
 
   const calculation = useMemo(() => calculateCompoundInterest(normalizedInput), [normalizedInput]);
+  const normalizedInflationRatePct = useMemo(() => {
+    const sanitized = Number.isFinite(inflationRatePct) ? inflationRatePct : 0;
+    return Math.min(100, Math.max(-99, sanitized));
+  }, [inflationRatePct]);
+  const inflationRate = normalizedInflationRatePct / 100;
 
   const inputWasAdjusted =
     normalizedInput.initialCapital !== initialCapital ||
@@ -555,7 +543,8 @@ function CompoundInterestCalculator() {
     normalizedInput.annualRatePct !== annualRatePct ||
     normalizedInput.years !== years ||
     normalizedInput.compoundingPerYear !== compoundingPerYear ||
-    normalizedInput.contributionPerYear !== contributionPerYear;
+    normalizedInput.contributionPerYear !== contributionPerYear ||
+    normalizedInflationRatePct !== inflationRatePct;
 
   const currencyFormatter = useMemo(
     () =>
@@ -577,10 +566,43 @@ function CompoundInterestCalculator() {
 
   const formatCurrency = (value: number): string => `${currencyFormatter.format(value)} €`;
   const formatPercent = (value: number): string => `${percentFormatter.format(value)}%`;
+  const inflationLabel = `${percentFormatter.format(normalizedInflationRatePct)}%`;
+
+  const displayChartData = useMemo(() => {
+    if (!adjustForInflation) return calculation.chartData;
+
+    return calculation.chartData.map((point) => {
+      const factor = Math.pow(1 + inflationRate, point.year);
+      return {
+        ...point,
+        capital: point.capital / factor,
+        invested: point.invested / factor,
+        gain: point.gain / factor,
+      };
+    });
+  }, [adjustForInflation, calculation.chartData, inflationRate]);
+
+  const horizonFactor = Math.pow(1 + inflationRate, normalizedInput.years);
+  const displayFinalCapital = adjustForInflation
+    ? calculation.finalCapital / horizonFactor
+    : calculation.finalCapital;
+  const displayTotalInvested = adjustForInflation
+    ? calculation.totalInvested / horizonFactor
+    : calculation.totalInvested;
+  const displayTotalContributions = adjustForInflation
+    ? calculation.totalContributions / horizonFactor
+    : calculation.totalContributions;
+  const displayTotalGain = displayFinalCapital - displayTotalInvested;
+  const nominalIrr = calculation.effectiveAnnualReturnPct / 100;
+  const realIrrPct = ((1 + nominalIrr) / (1 + inflationRate) - 1) * 100;
+  const displayAnnualizedReturnPct = adjustForInflation
+    ? realIrrPct
+    : calculation.effectiveAnnualReturnPct;
 
   const inputClassName =
     'mt-1 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring';
-  const gainColorClass = calculation.totalGain >= 0 ? 'text-emerald-300' : 'text-rose-300';
+  const gainColorClass = displayTotalGain >= 0 ? 'text-emerald-300' : 'text-rose-300';
+  const inflationPresets = [0, 2, 3, 5, 7] as const;
 
   return (
     <div className="flex w-full flex-col gap-4 xl:flex-row xl:items-start">
@@ -683,7 +705,7 @@ function CompoundInterestCalculator() {
                 htmlFor="compounding-select"
                 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
               >
-                Compounding Frequency
+                Frequency
               </label>
               <div className="relative">
                 <select
@@ -707,7 +729,7 @@ function CompoundInterestCalculator() {
                 htmlFor="contribution-frequency-select"
                 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
               >
-                Contribution Frequency
+                Frequency
               </label>
               <div className="relative">
                 <select
@@ -731,7 +753,7 @@ function CompoundInterestCalculator() {
                 htmlFor="contribution-timing-select"
                 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
               >
-                Contribution Timing
+                Timing
               </label>
               <div className="relative">
                 <select
@@ -750,6 +772,65 @@ function CompoundInterestCalculator() {
               </div>
             </div>
           </div>
+
+          <div className="rounded-xl border border-border/70 bg-gradient-to-b from-background/80 via-background/45 to-background/20 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                  Inflation Adjustment
+                </p>
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={adjustForInflation}
+                  onChange={(e) => setAdjustForInflation(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <span className="relative h-6 w-11 rounded-full border border-border bg-muted/45 transition-colors after:absolute after:left-[3px] after:top-[3px] after:h-4 after:w-4 after:rounded-full after:bg-foreground after:transition-transform after:content-[''] peer-checked:border-emerald-400/60 peer-checked:bg-emerald-500/25 peer-checked:after:translate-x-5" />
+              </label>
+            </div>
+
+            <div className="mt-3 grid gap-3">
+              <label className="flex flex-col text-sm font-medium text-muted-foreground">
+                Inflation Rate (% p.a.)
+                <div className="relative mt-1">
+                  <input
+                    type="number"
+                    className="h-10 w-full rounded-md border border-border bg-card px-3 pr-8 text-sm text-foreground transition focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={Number.isFinite(inflationRatePct) ? inflationRatePct : ''}
+                    min={-99}
+                    max={100}
+                    step={0.01}
+                    onChange={(e) =>
+                      setInflationRatePct(e.target.value === '' ? 0 : Number(e.target.value))
+                    }
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    %
+                  </span>
+                </div>
+              </label>
+
+              <div className="flex flex-wrap gap-1.5">
+                {inflationPresets.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setInflationRatePct(preset)}
+                    className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                      Math.abs(normalizedInflationRatePct - preset) < 0.005
+                        ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200'
+                        : 'border-border/70 bg-background/40 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {preset}%
+                  </button>
+                ))}
+              </div>
+
+            </div>
+          </div>
         </div>
 
         {inputWasAdjusted && (
@@ -765,29 +846,37 @@ function CompoundInterestCalculator() {
         }`}
       >
         <div className="rounded-xl border border-border bg-gradient-to-r from-card via-card to-background px-4 py-4 sm:px-5">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Final Capital</p>
+          <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+            Final Capital
+          </p>
           <p className="mt-1 break-words text-xl font-semibold leading-tight text-foreground sm:text-3xl">
-            {formatCurrency(calculation.finalCapital)}
+            {formatCurrency(displayFinalCapital)}
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-border bg-card px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Total Invested</p>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+              Total Invested
+            </p>
             <p className="mt-1 break-words text-base font-semibold leading-tight text-foreground sm:text-lg">
-              {formatCurrency(calculation.totalInvested)}
+              {formatCurrency(displayTotalInvested)}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Contributions</p>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+              Contributions
+            </p>
             <p className="mt-1 break-words text-base font-semibold leading-tight text-foreground sm:text-lg">
-              {formatCurrency(calculation.totalContributions)}
+              {formatCurrency(displayTotalContributions)}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Interest Earned</p>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+              Interest Earned
+            </p>
             <p className={`mt-1 break-words text-base font-semibold leading-tight sm:text-lg ${gainColorClass}`}>
-              {formatCurrency(calculation.totalGain)}
+              {formatCurrency(displayTotalGain)}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card px-4 py-3">
@@ -795,7 +884,7 @@ function CompoundInterestCalculator() {
               Annualized Return (IRR)
             </p>
             <p className="mt-1 text-base font-semibold text-foreground sm:text-lg">
-              {formatPercent(calculation.effectiveAnnualReturnPct)}
+              {formatPercent(displayAnnualizedReturnPct)}
             </p>
           </div>
         </div>
@@ -803,11 +892,15 @@ function CompoundInterestCalculator() {
         <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Capital Growth</h3>
-            <p className="text-xs text-muted-foreground">Invested vs. portfolio value</p>
+            <p className="text-xs text-muted-foreground">
+              {adjustForInflation
+                ? `Inflation-adjusted (${inflationLabel} p.a.)`
+                : 'Invested vs. portfolio value'}
+            </p>
           </div>
           <div className="h-64 w-full sm:h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={calculation.chartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={displayChartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="compoundInvestedFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#71717a" stopOpacity={0.22} />

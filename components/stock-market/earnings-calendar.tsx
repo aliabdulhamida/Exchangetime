@@ -68,16 +68,21 @@ export default function EarningsCalendar() {
   const [selectedDayIdx, setSelectedDayIdx] = useState((today.getDay() + 6) % 7);
   const selectedDate = weekDates[selectedDayIdx];
   const [earningsData, setEarningsData] = useState<Record<string, any[]>>({});
+  const [loadingEarnings, setLoadingEarnings] = useState(false);
 
   // Fetch earnings data from API and store in localStorage
-  const fetchEarnings = () => {
-    fetch('/api/earnings-calendar')
-      .then((res) => res.json())
-      .then((data) => {
-        setEarningsData(data);
-        localStorage.setItem('earningsData', JSON.stringify(data));
-      })
-      .catch(() => setEarningsData({}));
+  const fetchEarnings = async () => {
+    setLoadingEarnings(true);
+    try {
+      const res = await fetch('/api/earnings-calendar');
+      const data = await res.json();
+      setEarningsData(data);
+      localStorage.setItem('earningsData', JSON.stringify(data));
+    } catch {
+      setEarningsData({});
+    } finally {
+      setLoadingEarnings(false);
+    }
   };
 
   // Load from localStorage on mount
@@ -251,11 +256,12 @@ export default function EarningsCalendar() {
             </button>
             <button
               onClick={fetchEarnings}
-              className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-              title="Reload earnings data"
+              className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-70"
+              title={loadingEarnings ? 'Loading earnings data...' : 'Reload earnings data'}
               aria-label="Reload earnings data"
+              disabled={loadingEarnings}
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className={`h-4 w-4 ${loadingEarnings ? 'animate-spin' : ''}`} />
             </button>
             {filterOpen && (
               <div className="animate-fade-in absolute left-0 top-full z-20 mt-2 w-[min(92vw,260px)] rounded-lg border border-border bg-card p-4 shadow-lg">

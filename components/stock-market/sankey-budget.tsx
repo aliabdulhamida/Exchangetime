@@ -1500,8 +1500,8 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
 
         <div className="rounded-xl border border-border/70 bg-background/70 p-3 sm:p-4">
           <h3 className="mb-3 text-sm font-semibold text-foreground">Valuation Settings</h3>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
-            <label className="flex flex-col gap-1">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 xl:grid-cols-6">
+            <label className="col-span-1 flex flex-col gap-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Spot</span>
               <input
                 type="number"
@@ -1509,10 +1509,10 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 min={0.01}
                 value={spot}
                 onChange={(event) => setSpot(clampNumber(Number(event.target.value), spot, 0.01))}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="col-span-1 flex flex-col gap-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Test Expiry Price</span>
               <input
                 type="number"
@@ -1520,28 +1520,28 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 min={0.01}
                 value={expiryPrice}
                 onChange={(event) => setExpiryPrice(clampNumber(Number(event.target.value), expiryPrice, 0.01))}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="col-span-2 flex flex-col gap-1 sm:col-span-1 xl:col-span-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Expiry Date</span>
               <input
                 type="date"
                 value={expiryDate}
                 onChange={(event) => setExpiryDate(event.target.value)}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="col-span-2 flex flex-col gap-1 sm:col-span-1 xl:col-span-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">As-of Time</span>
               <input
                 type="datetime-local"
                 value={asOfDateTime}
                 onChange={(event) => setAsOfDateTime(event.target.value)}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="col-span-1 flex flex-col gap-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">IV (%)</span>
               <input
                 type="number"
@@ -1551,10 +1551,10 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 onChange={(event) =>
                   setVolatilityPct(clampNumber(Number(event.target.value), volatilityPct, 0))
                 }
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="col-span-1 flex flex-col gap-1 xl:col-span-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">r / q (%)</span>
               <div className="grid grid-cols-2 gap-1">
                 <input
@@ -1562,7 +1562,7 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                   step="0.1"
                   value={riskFreeRatePct}
                   onChange={(event) => setRiskFreeRatePct(Number(event.target.value))}
-                  className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                  className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
                   title="Risk-free rate"
                 />
                 <input
@@ -1570,15 +1570,15 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                   step="0.1"
                   value={dividendYieldPct}
                   onChange={(event) => setDividendYieldPct(Number(event.target.value))}
-                  className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                  className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
                   title="Dividend yield"
                 />
               </div>
             </label>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            <label className="flex flex-col gap-1">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            <label className="col-span-1 flex flex-col gap-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Scenario Range (%)</span>
               <input
                 type="number"
@@ -1589,10 +1589,10 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 onChange={(event) =>
                   setScenarioRangePct(Math.min(50, Math.max(5, clampInt(Number(event.target.value), 20, 5))))
                 }
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="col-span-1 flex flex-col gap-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">T+X (days)</span>
               <input
                 type="number"
@@ -1602,10 +1602,10 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 onChange={(event) =>
                   setValuationHorizonDays(clampInt(Number(event.target.value), valuationHorizonDays, 0))
                 }
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="col-span-1 flex flex-col gap-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Fee / Contract</span>
               <input
                 type="number"
@@ -1615,10 +1615,10 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 onChange={(event) =>
                   setFeePerContract(clampNumber(Number(event.target.value), feePerContract, 0))
                 }
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="col-span-1 flex flex-col gap-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Fee / Share</span>
               <input
                 type="number"
@@ -1626,10 +1626,10 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 step="0.001"
                 value={feePerShare}
                 onChange={(event) => setFeePerShare(clampNumber(Number(event.target.value), feePerShare, 0))}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="col-span-2 flex flex-col gap-1 sm:col-span-2 xl:col-span-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Slippage (%)</span>
               <input
                 type="number"
@@ -1637,27 +1637,29 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
                 step="0.01"
                 value={slippagePct}
                 onChange={(event) => setSlippagePct(clampNumber(Number(event.target.value), slippagePct, 0))}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-2.5 text-base sm:h-9 sm:px-2 sm:text-sm"
               />
             </label>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {(['total', 'per_share', 'per_contract'] as PnlDisplayMode[]).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setDisplayMode(mode)}
-                className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                  displayMode === mode
-                    ? 'border-foreground/40 bg-foreground text-background'
-                    : 'border-border bg-background text-foreground hover:bg-muted/40'
-                }`}
-              >
-                {pnlDisplayLabel(mode)}
-              </button>
-            ))}
-            <span className="ml-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="mt-3">
+            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {(['total', 'per_share', 'per_contract'] as PnlDisplayMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setDisplayMode(mode)}
+                  className={`whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    displayMode === mode
+                      ? 'border-foreground/40 bg-foreground text-background'
+                      : 'border-border bg-background text-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  {pnlDisplayLabel(mode)}
+                </button>
+              ))}
+            </div>
+            <span className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
               <CalendarClock className="h-3.5 w-3.5" />
               DTE: {dte !== null ? dte.toFixed(2) : 'n/a'} days
             </span>

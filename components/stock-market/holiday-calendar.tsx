@@ -128,14 +128,14 @@ export default function HolidayCalendar() {
   }, [filteredByMarketAndQuery]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col px-1 pb-1 sm:px-2 sm:pb-2">
+    <div className="et-scrollbar flex h-full min-h-0 flex-col overflow-y-auto px-1 pb-1 sm:px-2 sm:pb-2">
       <h2 className="mb-3 pr-16 text-base font-semibold text-foreground sm:mb-4 sm:pr-20">
         Holiday Calendar
       </h2>
 
       <div className="mb-3 grid grid-cols-3 gap-2 sm:gap-3">
         <div className="rounded-md border border-border/70 bg-card/50 px-3 py-2">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Visible Holidays</div>
+          <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Holidays</div>
           <div className="mt-1 text-lg font-semibold text-foreground">{filteredByMarketAndQuery.length}</div>
         </div>
         <div className="rounded-md border border-border/70 bg-card/50 px-3 py-2">
@@ -172,7 +172,7 @@ export default function HolidayCalendar() {
         </select>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:min-h-0 sm:flex-1 sm:grid-rows-[auto_minmax(0,1fr)]">
         <div className="rounded-lg border border-border/70 bg-background/50 p-2 sm:p-3">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Calendar</span>
@@ -209,7 +209,7 @@ export default function HolidayCalendar() {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-border/70 bg-background/50 p-3">
+        <div className="flex min-h-[180px] flex-1 flex-col rounded-lg border border-border/70 bg-background/50 p-3 sm:min-h-0">
           <div className="mb-2">
             <div className="text-xs text-muted-foreground">Selected date</div>
             <div className="text-sm font-semibold text-foreground">

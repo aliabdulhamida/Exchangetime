@@ -16,6 +16,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import HoldingDetailsModal from '@/components/stock-market/holding-details-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer } from '@/components/ui/chart';
@@ -30,6 +31,7 @@ type SupportedCurrency = 'USD' | 'EUR' | 'GBP' | 'CHF';
 type Timeframe = '1M' | '3M' | '6M' | '1Y' | 'ALL';
 type AddInputMode = 'manual' | 'automatic';
 type MobileTab = 'overview' | 'holdings';
+type HoldingsPanelTab = 'holdings' | 'transactions';
 type DateRange = { start: string; end: string };
 
 interface PortfolioTransaction {
@@ -66,6 +68,38 @@ interface StockMeta {
 interface StockSnapshot {
   points: StockDataPoint[];
   meta: StockMeta;
+}
+
+interface HoldingQuoteDetails {
+  price: number | null;
+  previousClose: number | null;
+  currency: string | null;
+  dayChange: number | null;
+  dayChangePct: number | null;
+  source: string | null;
+  asOfUtc: string | null;
+  shortName: string | null;
+  longName: string | null;
+  quoteType: string | null;
+  exchange: string | null;
+  sector: string | null;
+  industry: string | null;
+  country: string | null;
+  website: string | null;
+  businessSummary: string | null;
+  marketCap: number | null;
+  dayHigh: number | null;
+  dayLow: number | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  trailingPE: number | null;
+  forwardPE: number | null;
+  epsTrailingTwelveMonths: number | null;
+  beta: number | null;
+  volume: number | null;
+  averageVolume: number | null;
+  dividendRate: number | null;
+  dividendYieldPct: number | null;
 }
 
 interface HoldingSnapshot {
@@ -152,6 +186,24 @@ function formatShortDate(date: string): string {
   });
 }
 
+function toNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function toNullableString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
 function parseChartPoints(result: any): StockDataPoint[] {
   const timestamps = result?.timestamp || [];
   const closePrices = result?.indicators?.quote?.[0]?.close || [];
@@ -161,6 +213,63 @@ function parseChartPoints(result: any): StockDataPoint[] {
       close: closePrices[index],
     }))
     .filter((item: StockDataPoint) => Number.isFinite(item.close));
+}
+
+const MARKET_DATA_ENDPOINTS = ['/api/portfolio-market', '/api/quote'] as const;
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  return 'Unknown error';
+}
+
+function parseApiErrorMessage(payload: any, fallbackText: string): string {
+  const fromJson =
+    payload?.error ||
+    payload?.details ||
+    payload?.message ||
+    payload?.finance?.error?.description ||
+    payload?.chart?.error?.description;
+  if (typeof fromJson === 'string' && fromJson.trim()) return fromJson.trim();
+  const trimmedText = fallbackText.trim();
+  if (!trimmedText) return 'Unknown API error';
+  return trimmedText.slice(0, 200);
+}
+
+function resolveMarketSourceLabel(source: unknown): string {
+  if (source === 'fmp') return 'Financial Modeling Prep (via /api/portfolio-market)';
+  if (source === 'chart') return 'Yahoo Finance (via /api/quote)';
+  return 'Market data proxy';
+}
+
+async function fetchJsonWithApiError(url: string): Promise<any> {
+  const response = await fetch(url, { cache: 'no-store' });
+  const rawText = await response.text();
+  let data: any = null;
+  try {
+    data = JSON.parse(rawText);
+  } catch {}
+
+  if (!response.ok) {
+    const errorText = parseApiErrorMessage(data, rawText);
+    throw new Error(`HTTP ${response.status}: ${errorText}`);
+  }
+  return data;
+}
+
+async function fetchChartDataWithFallback(params: URLSearchParams): Promise<any> {
+  const errors: string[] = [];
+  const query = params.toString();
+
+  for (const endpoint of MARKET_DATA_ENDPOINTS) {
+    try {
+      return await fetchJsonWithApiError(`${endpoint}?${query}`);
+    } catch (error) {
+      errors.push(`${endpoint}: ${toErrorMessage(error)}`);
+    }
+  }
+
+  throw new Error(errors.join(' | '));
 }
 
 function getPriceOnOrBefore(series: StockDataPoint[], date: string): number | null {
@@ -263,10 +372,15 @@ async function fetchDividendData(
     start.setDate(start.getDate() - 30);
     const startUnix = Math.floor(start.getTime() / 1000);
     const endUnix = Math.floor(Date.now() / 1000);
-    const url = `/api/portfolio-market?symbol=${encodeURIComponent(symbol)}&chart=1&period1=${startUnix}&period2=${endUnix}&interval=1d&events=div`;
-    const response = await fetch(url, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Network response was not ok');
-    const data = await response.json();
+    const params = new URLSearchParams({
+      symbol,
+      chart: '1',
+      period1: String(startUnix),
+      period2: String(endUnix),
+      interval: '1d',
+      events: 'div',
+    });
+    const data = await fetchChartDataWithFallback(params);
     if (!data.chart || !data.chart.result || !data.chart.result[0]) return [];
     const result = data.chart.result[0];
     const dividends = result.events?.dividends
@@ -284,11 +398,14 @@ async function fetchDividendData(
 async function fetchStockSnapshot(symbol: string): Promise<StockSnapshot | { error: string }> {
   try {
     const end = Math.floor(Date.now() / 1000);
-    const start = 0;
-    const url = `/api/portfolio-market?symbol=${encodeURIComponent(symbol)}&chart=1&period1=${start}&period2=${end}&interval=1d`;
-    const response = await fetch(url, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Network response was not ok');
-    const data = await response.json();
+    const params = new URLSearchParams({
+      symbol,
+      chart: '1',
+      period1: '0',
+      period2: String(end),
+      interval: '1d',
+    });
+    const data = await fetchChartDataWithFallback(params);
     if (!data.chart || !data.chart.result || !data.chart.result[0]) {
       throw new Error('Invalid data format received');
     }
@@ -301,7 +418,7 @@ async function fetchStockSnapshot(symbol: string): Promise<StockSnapshot | { err
         : new Date().toISOString();
     const meta: StockMeta = {
       asOfUtc,
-      source: 'Financial Modeling Prep (via /api/portfolio-market)',
+      source: resolveMarketSourceLabel(data.source),
       exchangeTimezone: result.meta?.exchangeTimezoneName ?? null,
       currency: result.meta?.currency ?? data.currency ?? null,
     };
@@ -319,14 +436,22 @@ async function fetchFxSeries(
 
   const fetchPair = async (pair: string): Promise<StockDataPoint[] | null> => {
     const end = Math.floor(Date.now() / 1000);
-    const url = `/api/portfolio-market?symbol=${encodeURIComponent(pair)}&chart=1&period1=0&period2=${end}&interval=1d`;
-    const response = await fetch(url, { cache: 'no-store' });
-    if (!response.ok) return null;
-    const data = await response.json();
-    const result = data?.chart?.result?.[0];
-    if (!result) return null;
-    const points = parseChartPoints(result);
-    return points.length ? points : null;
+    const params = new URLSearchParams({
+      symbol: pair,
+      chart: '1',
+      period1: '0',
+      period2: String(end),
+      interval: '1d',
+    });
+    try {
+      const data = await fetchChartDataWithFallback(params);
+      const result = data?.chart?.result?.[0];
+      if (!result) return null;
+      const points = parseChartPoints(result);
+      return points.length ? points : null;
+    } catch {
+      return null;
+    }
   };
 
   try {
@@ -459,6 +584,7 @@ export default function PortfolioTracker() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addInputMode, setAddInputMode] = useState<AddInputMode>('manual');
   const [mobileTab, setMobileTab] = useState<MobileTab>('overview');
+  const [holdingsPanelTab, setHoldingsPanelTab] = useState<HoldingsPanelTab>('holdings');
   const [mobileAnalyticsOpen, setMobileAnalyticsOpen] = useState({
     returns: false,
     risk: false,
@@ -491,6 +617,15 @@ export default function PortfolioTracker() {
     if (typeof window === 'undefined') return '';
     return localStorage.getItem('portfolioSelectedSymbol') || '';
   });
+  const [holdingModalSymbol, setHoldingModalSymbol] = useState<string | null>(null);
+  const [holdingModalOpen, setHoldingModalOpen] = useState(false);
+  const [holdingQuoteCache, setHoldingQuoteCache] = useState<Record<string, HoldingQuoteDetails>>({});
+  const [holdingQuoteLoadingBySymbol, setHoldingQuoteLoadingBySymbol] = useState<
+    Record<string, boolean>
+  >({});
+  const [holdingQuoteErrorBySymbol, setHoldingQuoteErrorBySymbol] = useState<
+    Record<string, string | null>
+  >({});
 
   const [loading, setLoading] = useState(false);
   const [reloading, setReloading] = useState(false);
@@ -725,6 +860,133 @@ export default function PortfolioTracker() {
       window.dispatchEvent(new CustomEvent('portfolio-symbol-selected', { detail: { symbol } }));
     }
   }, []);
+
+  const fetchHoldingQuoteDetails = useCallback(
+    async (symbol: string) => {
+      if (!symbol) return;
+
+      setHoldingQuoteLoadingBySymbol((prev) => ({ ...prev, [symbol]: true }));
+      setHoldingQuoteErrorBySymbol((prev) => ({ ...prev, [symbol]: null }));
+      try {
+        const period2 = Math.floor(Date.now() / 1000);
+        const period1 = Math.max(0, period2 - 90 * 24 * 60 * 60);
+        const params = new URLSearchParams({
+          symbol,
+          chart: '1',
+          period1: String(period1),
+          period2: String(period2),
+          interval: '1d',
+        });
+        const payload = await fetchJsonWithApiError(`/api/quote?${params.toString()}`);
+        const result = payload?.chart?.result?.[0] || null;
+        const meta = result?.meta || {};
+        const closesRaw: unknown[] = Array.isArray(result?.indicators?.quote?.[0]?.close)
+          ? result.indicators.quote[0].close
+          : [];
+        const closes = closesRaw
+          .map((value) => toNullableNumber(value))
+          .filter((value): value is number => value !== null);
+        const volumesRaw: unknown[] = Array.isArray(result?.indicators?.quote?.[0]?.volume)
+          ? result.indicators.quote[0].volume
+          : [];
+        const volumes = volumesRaw
+          .map((value) => toNullableNumber(value))
+          .filter((value): value is number => value !== null && value >= 0);
+
+        const latestClose = closes.length ? closes[closes.length - 1] : null;
+        const previousCloseFromSeries = closes.length > 1 ? closes[closes.length - 2] : null;
+        const price =
+          toNullableNumber(meta?.regularMarketPrice) ??
+          toNullableNumber(meta?.currentTradingPeriod?.post?.close) ??
+          latestClose;
+        const previousClose =
+          toNullableNumber(meta?.previousClose) ??
+          toNullableNumber(meta?.chartPreviousClose) ??
+          previousCloseFromSeries;
+        const dayChange = price !== null && previousClose !== null ? price - previousClose : null;
+        const dayChangePct =
+          dayChange !== null && previousClose !== null && previousClose !== 0
+            ? (dayChange / previousClose) * 100
+            : null;
+        const regularMarketTime = Number(meta?.regularMarketTime);
+        const asOfUtc = Number.isFinite(regularMarketTime)
+          ? new Date(regularMarketTime * 1000).toISOString()
+          : null;
+        const averageVolumeFromSeries = volumes.length
+          ? volumes.slice(-20).reduce((acc, current) => acc + current, 0) /
+            Math.min(20, volumes.length)
+          : null;
+        const dividendYieldRaw = toNullableNumber(meta?.dividendYield);
+        const dividendYieldPct =
+          dividendYieldRaw !== null
+            ? Math.abs(dividendYieldRaw) <= 1
+              ? dividendYieldRaw * 100
+              : dividendYieldRaw
+            : null;
+
+        setHoldingQuoteCache((prev) => ({
+          ...prev,
+          [symbol]: {
+            price,
+            previousClose,
+            currency:
+              toNullableString(meta?.currency) ||
+              toNullableString(payload?.currency),
+            dayChange,
+            dayChangePct,
+            source: toNullableString(payload?.source) || 'chart',
+            asOfUtc,
+            shortName: toNullableString(meta?.shortName),
+            longName: toNullableString(meta?.longName),
+            quoteType: toNullableString(meta?.instrumentType),
+            exchange:
+              toNullableString(meta?.fullExchangeName) ||
+              toNullableString(meta?.exchangeName),
+            sector: null,
+            industry: null,
+            country: null,
+            website: null,
+            businessSummary: null,
+            marketCap: toNullableNumber(meta?.marketCap),
+            dayHigh:
+              toNullableNumber(meta?.regularMarketDayHigh),
+            dayLow:
+              toNullableNumber(meta?.regularMarketDayLow),
+            fiftyTwoWeekHigh:
+              toNullableNumber(meta?.fiftyTwoWeekHigh),
+            fiftyTwoWeekLow:
+              toNullableNumber(meta?.fiftyTwoWeekLow),
+            trailingPE: toNullableNumber(meta?.trailingPE),
+            forwardPE: toNullableNumber(meta?.forwardPE),
+            epsTrailingTwelveMonths: toNullableNumber(meta?.epsTrailingTwelveMonths),
+            beta: toNullableNumber(meta?.beta),
+            volume:
+              toNullableNumber(meta?.regularMarketVolume),
+            averageVolume:
+              toNullableNumber(meta?.averageDailyVolume3Month) ??
+              toNullableNumber(meta?.averageDailyVolume10Day) ??
+              averageVolumeFromSeries,
+            dividendRate: toNullableNumber(meta?.dividendRate),
+            dividendYieldPct,
+          },
+        }));
+      } catch (error) {
+        setHoldingQuoteErrorBySymbol((prev) => ({ ...prev, [symbol]: toErrorMessage(error) }));
+      } finally {
+        setHoldingQuoteLoadingBySymbol((prev) => ({ ...prev, [symbol]: false }));
+      }
+    },
+    [],
+  );
+
+  const openHoldingDetails = useCallback(
+    (symbol: string) => {
+      selectHoldingSymbol(symbol);
+      setHoldingModalSymbol(symbol);
+      setHoldingModalOpen(true);
+    },
+    [selectHoldingSymbol],
+  );
 
   const handleAddTransaction = async () => {
     const symbol = search.trim().toUpperCase();
@@ -1245,6 +1507,48 @@ export default function PortfolioTracker() {
     [sortedTransactions],
   );
 
+  const activeHoldingModalSnapshot = useMemo(
+    () =>
+      holdingModalSymbol ? holdingSnapshots.find((row) => row.symbol === holdingModalSymbol) || null : null,
+    [holdingModalSymbol, holdingSnapshots],
+  );
+
+  const activeHoldingModalTransactions = useMemo(
+    () =>
+      holdingModalSymbol
+        ? sortedTransactions
+            .filter((tx) => tx.symbol === holdingModalSymbol)
+            .slice()
+            .reverse()
+        : [],
+    [holdingModalSymbol, sortedTransactions],
+  );
+
+  const activeHoldingModalSeries = useMemo(
+    () => (holdingModalSymbol ? stockData[holdingModalSymbol] || [] : []),
+    [holdingModalSymbol, stockData],
+  );
+
+  const activeHoldingModalMeta = useMemo(
+    () => (holdingModalSymbol ? stockMeta[holdingModalSymbol] || null : null),
+    [holdingModalSymbol, stockMeta],
+  );
+
+  const activeHoldingModalQuote = useMemo(
+    () => (holdingModalSymbol ? holdingQuoteCache[holdingModalSymbol] || null : null),
+    [holdingModalSymbol, holdingQuoteCache],
+  );
+
+  const activeHoldingModalLoading = useMemo(
+    () => (holdingModalSymbol ? Boolean(holdingQuoteLoadingBySymbol[holdingModalSymbol]) : false),
+    [holdingModalSymbol, holdingQuoteLoadingBySymbol],
+  );
+
+  const activeHoldingModalError = useMemo(
+    () => (holdingModalSymbol ? holdingQuoteErrorBySymbol[holdingModalSymbol] || null : null),
+    [holdingModalSymbol, holdingQuoteErrorBySymbol],
+  );
+
   const autoModePreview = useMemo(() => {
     if (addInputMode !== 'automatic') return null;
     const symbol = search.trim().toUpperCase();
@@ -1330,13 +1634,27 @@ export default function PortfolioTracker() {
     setPerformanceDragRange(null);
   }, []);
 
+  useEffect(() => {
+    if (!holdingModalOpen || !holdingModalSymbol) return;
+    fetchHoldingQuoteDetails(holdingModalSymbol);
+  }, [holdingModalOpen, holdingModalSymbol, fetchHoldingQuoteDetails]);
+
+  useEffect(() => {
+    if (!holdingModalSymbol) return;
+    const stillExists = holdingSnapshots.some((row) => row.symbol === holdingModalSymbol);
+    if (!stillExists) {
+      setHoldingModalOpen(false);
+      setHoldingModalSymbol(null);
+    }
+  }, [holdingModalSymbol, holdingSnapshots]);
+
   return (
-    <div className="min-h-[50vh] pt-0 text-xs sm:text-sm md:text-base">
+    <div className="min-h-[50vh] w-full pt-0 text-xs sm:text-sm md:text-base">
       <div className="mb-5 flex items-center justify-start">
         <h2 className="text-lg font-bold text-foreground">Portfolio Tracker</h2>
       </div>
 
-      <main className="container mx-auto py-1 sm:py-6">
+      <main className="w-full py-1 sm:py-6">
         <div className="mb-4 lg:hidden">
           <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
             <button
@@ -1367,48 +1685,68 @@ export default function PortfolioTracker() {
             mobileTab === 'holdings' ? 'hidden lg:grid' : ''
           }`}
         >
-          <Card className="border border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">Portfolio Value</CardTitle>
+          <Card className="relative overflow-hidden border border-border/80 bg-gradient-to-br from-card via-card to-sky-950/15 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
+            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-sky-500/10 blur-2xl" />
+            <CardHeader className="px-4 pb-1 pt-4">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-300/80">
+                Portfolio Value
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-lg font-semibold text-foreground sm:text-xl md:text-2xl">
+            <CardContent className="space-y-1.5 px-4 pb-4 pt-0">
+              <div className="text-2xl font-semibold tracking-tight text-foreground">
                 {formatMoney(currentPortfolioValue, baseCurrency, 0, 0)}
               </div>
-              <div className="text-xs text-muted-foreground">Net invested: {formatMoney(investedCapital - withdrawnCapital, baseCurrency, 0, 0)}</div>
+              <div className="inline-flex w-fit items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-0.5 text-[11px] text-muted-foreground">
+                Net invested: {formatMoney(investedCapital - withdrawnCapital, baseCurrency, 0, 0)}
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">Total Return</CardTitle>
+          <Card className="relative overflow-hidden border border-border/80 bg-gradient-to-br from-card via-card to-emerald-950/15 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
+            <div
+              className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl ${
+                totalReturn >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10'
+              }`}
+            />
+            <CardHeader className="px-4 pb-1 pt-4">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300/80">
+                Total Return
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-1.5 px-4 pb-4 pt-0">
               <div
-                className={`text-lg font-semibold sm:text-xl md:text-2xl ${
+                className={`text-2xl font-semibold tracking-tight ${
                   totalReturn >= 0 ? 'text-green-500' : 'text-red-500'
                 }`}
               >
                 {formatMoney(totalReturn, baseCurrency, 0, 0)}
               </div>
-              <div className={totalReturnPct !== null && totalReturnPct >= 0 ? 'text-green-500 text-xs' : 'text-red-500 text-xs'}>
+              <div
+                className={`inline-flex w-fit items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-0.5 text-[11px] font-medium ${
+                  totalReturnPct !== null && totalReturnPct >= 0 ? 'text-green-500' : 'text-red-500'
+                }`}
+              >
                 {formatPercent(totalReturnPct)}
               </div>
               <div className="text-[11px] text-muted-foreground">
-                Price: {formatMoney(priceReturn, baseCurrency, 0, 0)} | Dividends: {formatMoney(totalDividendIncomeNet, baseCurrency, 0, 0)}
+                Price {formatMoney(priceReturn, baseCurrency, 0, 0)} • Dividends{' '}
+                {formatMoney(totalDividendIncomeNet, baseCurrency, 0, 0)}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">Dividend Income</CardTitle>
+          <Card className="relative overflow-hidden border border-border/80 bg-gradient-to-br from-card via-card to-amber-950/15 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
+            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-amber-500/10 blur-2xl" />
+            <CardHeader className="px-4 pb-1 pt-4">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-300/80">
+                Dividend Income
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-lg font-semibold text-foreground sm:text-xl md:text-2xl">
+            <CardContent className="space-y-1.5 px-4 pb-4 pt-0">
+              <div className="text-2xl font-semibold tracking-tight text-foreground">
                 {dividendLoading ? '...' : formatMoney(totalDividendIncomeNet, baseCurrency, 2, 2)}
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="inline-flex w-fit items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-0.5 text-[11px] text-muted-foreground">
                 {formatMoney(dividendIncomePerMonth, baseCurrency, 2, 2)} / month
               </div>
               <div className="text-[11px] text-muted-foreground">
@@ -1417,15 +1755,20 @@ export default function PortfolioTracker() {
             </CardContent>
           </Card>
 
-          <Card className="border border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">Yield</CardTitle>
+          <Card className="relative overflow-hidden border border-border/80 bg-gradient-to-br from-card via-card to-teal-950/15 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
+            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-teal-500/10 blur-2xl" />
+            <CardHeader className="px-4 pb-1 pt-4">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-300/80">
+                Yield
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-lg font-semibold text-foreground sm:text-xl md:text-2xl">
+            <CardContent className="space-y-1.5 px-4 pb-4 pt-0">
+              <div className={`text-2xl font-semibold tracking-tight ${metricTone(annualYield)}`}>
                 {formatPercent(annualYield)}
               </div>
-              <div className="text-xs text-muted-foreground">TTM net dividends / current value</div>
+              <div className="inline-flex w-fit items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-0.5 text-[11px] text-muted-foreground">
+                TTM net dividends / current value
+              </div>
               <div className="text-[11px] text-muted-foreground">
                 Yield on cost: {formatPercent(yieldOnCost)}
               </div>
@@ -1669,92 +2012,157 @@ export default function PortfolioTracker() {
           </Card>
 
           <Card
-            className={`border border-border lg:col-span-2 ${
+            className={`overflow-hidden border border-border/70 bg-card/90 shadow-[0_12px_30px_rgba(0,0,0,0.18)] backdrop-blur-sm lg:col-span-2 ${
               mobileTab === 'overview' ? 'hidden lg:block' : ''
             }`}
           >
-            <CardHeader className="pb-4">
+            <CardHeader className="border-b border-border/60 bg-gradient-to-b from-white/[0.03] to-transparent pb-4 pt-5">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold">Holdings</CardTitle>
-                <div className="flex items-center gap-2">
+                <CardTitle className="text-xl font-semibold tracking-tight text-foreground">Holdings</CardTitle>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background/45 p-1">
                   <Button
                     onClick={() => setShowAddForm(true)}
                     size="sm"
                     variant="outline"
-                    className="h-8 w-8 p-0"
+                    className="h-8 w-8 rounded-full border-border/65 bg-background/70 p-0 text-foreground shadow-none transition-colors hover:bg-muted/60"
                     aria-label="Add transaction"
+                    title="Add transaction"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     onClick={handleReload}
                     disabled={loading || trackedSymbols.length === 0}
                     variant="outline"
                     size="sm"
-                    className="h-8 px-2 text-xs"
+                    className="h-8 w-8 rounded-full border-border/65 bg-background/70 p-0 text-foreground shadow-none transition-colors hover:bg-muted/60 disabled:opacity-40"
+                    aria-label="Reload holdings"
+                    title="Reload holdings"
                   >
-                    <RefreshCw className={`mr-1 h-4 w-4 ${reloading ? 'animate-spin' : ''}`} />
-                    Reload
+                    <RefreshCw className={`h-3.5 w-3.5 ${reloading ? 'animate-spin' : ''}`} />
+                    <span className="sr-only">Reload</span>
                   </Button>
                 </div>
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-4 text-xs sm:text-sm">
+            <CardContent className="flex min-h-0 flex-col gap-4 px-4 pb-4 pt-4 text-xs sm:text-sm">
               {error && (
-                <div className="rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                <div className="rounded-xl border border-rose-300/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
                   {error}
                 </div>
               )}
 
-              {holdingSnapshots.length > 0 ? (
-                <div className="max-h-72 space-y-2 overflow-y-auto pr-1 sm:max-h-80 md:max-h-96">
-                  {holdingSnapshots.map((holding) => (
-                    <div
-                      key={holding.symbol}
-                      onClick={() => selectHoldingSymbol(holding.symbol)}
-                      className={`cursor-pointer rounded-lg border p-3 transition-colors ${
-                        selectedSymbol === holding.symbol
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:bg-muted/40'
-                      }`}
-                    >
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <div className="font-medium">{holding.symbol}</div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-muted-foreground">
-                            {holding.quantity.toFixed(4)} sh • {formatPercent(holding.weightPct, 1)}
-                          </span>
-                          <button
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleDeleteHolding(holding.symbol);
-                            }}
-                            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
-                            aria-label={`Delete ${holding.symbol}`}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+              <div className="inline-flex w-full items-center gap-1 rounded-full border border-border/65 bg-background/45 p-1 sm:w-fit">
+                <button
+                  type="button"
+                  onClick={() => setHoldingsPanelTab('holdings')}
+                  className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                    holdingsPanelTab === 'holdings'
+                      ? 'bg-foreground text-background'
+                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                  }`}
+                >
+                  Holdings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHoldingsPanelTab('transactions')}
+                  className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                    holdingsPanelTab === 'transactions'
+                      ? 'bg-foreground text-background'
+                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                  }`}
+                >
+                  Recent Transactions
+                </button>
+              </div>
+
+              {holdingsPanelTab === 'holdings' ? (
+                holdingSnapshots.length > 0 ? (
+                  <div className="max-h-[min(58vh,32rem)] overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      {holdingSnapshots.map((holding) => (
+                        <div
+                          key={holding.symbol}
+                          onClick={() => openHoldingDetails(holding.symbol)}
+                          className={`h-full cursor-pointer rounded-xl border px-3 py-2.5 transition-all ${
+                            selectedSymbol === holding.symbol
+                              ? 'border-white/40 bg-white/[0.06] shadow-[0_8px_20px_rgba(0,0,0,0.18)]'
+                              : 'border-border/60 bg-background/35 hover:border-border/80 hover:bg-background/55'
+                          }`}
+                        >
+                          <div className="mb-1.5 flex items-center justify-between gap-2">
+                            <div className="text-base font-medium tracking-tight text-foreground">{holding.symbol}</div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleDeleteHolding(holding.symbol);
+                                }}
+                                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/70 hover:text-rose-300"
+                                aria-label={`Delete ${holding.symbol}`}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl font-semibold tracking-tight text-foreground">
+                              {formatMoney(holding.currentValue, baseCurrency, 0, 0)}
+                            </span>
+                            <span
+                              className={`rounded-full border border-border/60 bg-background/55 px-2.5 py-0.5 text-base font-medium ${
+                                holding.unrealizedPnl >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                              }`}
+                            >
+                              {formatPercent(holding.unrealizedPct, 1)}
+                            </span>
+                          </div>
                         </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-28 items-center justify-center sm:h-40">
+                    <div className="text-center text-muted-foreground">
+                      <div className="mb-1">No holdings</div>
+                      <div className="text-xs">Add your first transaction</div>
+                    </div>
+                  </div>
+                )
+              ) : recentTransactions.length > 0 ? (
+                <div className="max-h-[min(58vh,32rem)] space-y-2.5 overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
+                  {recentTransactions.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="rounded-xl border border-border/60 bg-background/35 px-3 py-2.5 text-[11px]"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <span
+                            className={`mr-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                              tx.side === 'BUY'
+                                ? 'bg-emerald-500/15 text-emerald-300'
+                                : 'bg-rose-500/15 text-rose-300'
+                            }`}
+                          >
+                            {tx.side}
+                          </span>
+                          {tx.symbol} • {tx.shares} @ {formatMoney(tx.price, tx.currency, 2, 2)}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteTransaction(tx.id)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/70 hover:text-rose-300"
+                          aria-label="Delete transaction"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">{formatMoney(holding.currentValue, baseCurrency, 0, 0)}</span>
-                        <span className={holding.unrealizedPnl >= 0 ? 'text-green-500' : 'text-red-500'}>
-                          {formatPercent(holding.unrealizedPct, 1)}
-                        </span>
-                      </div>
-                      <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                        <span>Avg cost: {formatMoney(holding.avgOpenCost, baseCurrency, 2, 2)}</span>
-                        <span>Price: {holding.currentPrice ? formatMoney(holding.currentPrice, baseCurrency, 2, 2) : '-'}</span>
-                        <span className={holding.realizedPnl >= 0 ? 'text-green-500' : 'text-red-500'}>
-                          Realized: {formatMoney(holding.realizedPnl, baseCurrency, 0, 0)}
-                        </span>
-                        <span className={holding.dividendReturn >= 0 ? 'text-green-500' : 'text-red-500'}>
-                          Div: {formatMoney(holding.dividendReturn, baseCurrency, 0, 0)}
-                        </span>
-                        <span className={holding.totalContribution >= 0 ? 'text-green-500' : 'text-red-500'}>
-                          Contribution: {formatMoney(holding.totalContribution, baseCurrency, 0, 0)}
-                        </span>
+                      <div className="mt-0.5 text-muted-foreground">
+                        {new Date(`${tx.date}T00:00:00`).toLocaleDateString()} • fees{' '}
+                        {formatMoney(tx.fees, tx.currency, 2, 2)} • taxes{' '}
+                        {formatMoney(tx.taxes, tx.currency, 2, 2)}
                       </div>
                     </div>
                   ))}
@@ -1762,38 +2170,8 @@ export default function PortfolioTracker() {
               ) : (
                 <div className="flex h-28 items-center justify-center sm:h-40">
                   <div className="text-center text-muted-foreground">
-                    <div className="mb-1">No holdings</div>
-                    <div className="text-xs">Add your first transaction</div>
-                  </div>
-                </div>
-              )}
-
-              {recentTransactions.length > 0 && (
-                <div>
-                  <div className="mb-2 text-xs font-medium text-muted-foreground">Recent Transactions</div>
-                  <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
-                    {recentTransactions.map((tx) => (
-                      <div key={tx.id} className="rounded-md border border-border p-2 text-[11px]">
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
-                            <span className={tx.side === 'BUY' ? 'text-green-500' : 'text-red-500'}>
-                              {tx.side}
-                            </span>{' '}
-                            {tx.symbol} • {tx.shares} @ {formatMoney(tx.price, tx.currency, 2, 2)}
-                          </div>
-                          <button
-                            onClick={() => handleDeleteTransaction(tx.id)}
-                            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
-                            aria-label="Delete transaction"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                        <div className="text-muted-foreground">
-                          {new Date(`${tx.date}T00:00:00`).toLocaleDateString()} • fees {formatMoney(tx.fees, tx.currency, 2, 2)} • taxes {formatMoney(tx.taxes, tx.currency, 2, 2)}
-                        </div>
-                      </div>
-                    ))}
+                    <div className="mb-1">No recent transactions</div>
+                    <div className="text-xs">Add transactions to see activity here</div>
                   </div>
                 </div>
               )}
@@ -1806,24 +2184,25 @@ export default function PortfolioTracker() {
             mobileTab === 'holdings' ? 'hidden lg:grid' : ''
           }`}
         >
-          <Card className="overflow-hidden border border-border">
-            <CardHeader className="pb-2">
+          <Card className="overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card to-card/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <CardHeader className="px-3 pb-2 pt-3">
               <button
                 type="button"
                 onClick={() =>
                   setMobileAnalyticsOpen((prev) => ({ ...prev, returns: !prev.returns }))
                 }
-                className="flex w-full items-center justify-between rounded-lg border border-border/70 bg-muted/30 px-3 py-2"
+                className="flex w-full items-center justify-between rounded-xl border border-border/70 bg-gradient-to-r from-muted/45 via-muted/25 to-transparent px-3.5 py-2.5 transition-colors hover:border-border hover:from-muted/65 hover:via-muted/35 hover:to-muted/10"
                 aria-label="Toggle Return Analytics"
               >
                 <div className="text-left">
-                  <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                    Analytics
+                  <div className="text-[15px] font-semibold tracking-tight text-foreground">
+                    Return Analytics
                   </div>
-                  <div className="text-sm font-semibold text-foreground">Return Analytics</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-semibold ${metricTone(timeWeightedReturnPct)}`}>
+                  <span
+                    className={`rounded-full border border-border/70 bg-background/60 px-2.5 py-0.5 text-xs font-semibold ${metricTone(timeWeightedReturnPct)}`}
+                  >
                     {returnsSummaryLabel}
                   </span>
                   <ChevronDown
@@ -1835,51 +2214,52 @@ export default function PortfolioTracker() {
               </button>
             </CardHeader>
             <CardContent
-              className={`space-y-2 pt-1 text-xs ${mobileAnalyticsOpen.returns ? 'block' : 'hidden'}`}
+              className={`space-y-1.5 px-3 pb-3 pt-1 text-xs ${mobileAnalyticsOpen.returns ? 'block' : 'hidden'}`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">TWR</span>
-                <span className={metricTone(timeWeightedReturnPct)}>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">TWR</span>
+                <span className={`text-sm font-semibold ${metricTone(timeWeightedReturnPct)}`}>
                   {formatPercent(timeWeightedReturnPct)}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">XIRR</span>
-                <span className={metricTone(moneyWeightedReturnPct)}>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">XIRR</span>
+                <span className={`text-sm font-semibold ${metricTone(moneyWeightedReturnPct)}`}>
                   {formatPercent(moneyWeightedReturnPct)}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Realized P/L</span>
-                <span className={metricTone(totalRealizedPnl)}>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">Realized P/L</span>
+                <span className={`text-sm font-semibold ${metricTone(totalRealizedPnl)}`}>
                   {formatMoney(totalRealizedPnl, baseCurrency, 0, 0)}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Unrealized P/L</span>
-                <span className={metricTone(totalUnrealizedPnl)}>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">Unrealized P/L</span>
+                <span className={`text-sm font-semibold ${metricTone(totalUnrealizedPnl)}`}>
                   {formatMoney(totalUnrealizedPnl, baseCurrency, 0, 0)}
                 </span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="overflow-hidden border border-border">
-            <CardHeader className="pb-2">
+          <Card className="overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card to-card/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <CardHeader className="px-3 pb-2 pt-3">
               <button
                 type="button"
                 onClick={() => setMobileAnalyticsOpen((prev) => ({ ...prev, risk: !prev.risk }))}
-                className="flex w-full items-center justify-between rounded-lg border border-border/70 bg-muted/30 px-3 py-2"
+                className="flex w-full items-center justify-between rounded-xl border border-border/70 bg-gradient-to-r from-muted/45 via-muted/25 to-transparent px-3.5 py-2.5 transition-colors hover:border-border hover:from-muted/65 hover:via-muted/35 hover:to-muted/10"
                 aria-label="Toggle Risk and Concentration"
               >
                 <div className="text-left">
-                  <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                    Risk
+                  <div className="text-[15px] font-semibold tracking-tight text-foreground">
+                    Risk & Concentration
                   </div>
-                  <div className="text-sm font-semibold text-foreground">Risk & Concentration</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-rose-400">{riskSummaryLabel}</span>
+                  <span className="rounded-full border border-border/70 bg-background/60 px-2.5 py-0.5 text-xs font-semibold text-rose-400">
+                    {riskSummaryLabel}
+                  </span>
                   <ChevronDown
                     className={`h-4 w-4 text-muted-foreground transition-transform ${
                       mobileAnalyticsOpen.risk ? 'rotate-180' : ''
@@ -1889,29 +2269,33 @@ export default function PortfolioTracker() {
               </button>
             </CardHeader>
             <CardContent
-              className={`space-y-2 pt-1 text-xs ${mobileAnalyticsOpen.risk ? 'block' : 'hidden'}`}
+              className={`space-y-1.5 px-3 pb-3 pt-1 text-xs ${mobileAnalyticsOpen.risk ? 'block' : 'hidden'}`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Max Drawdown</span>
-                <span className="text-rose-400">{formatPercent(maxDrawdownPct)}</span>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">Max Drawdown</span>
+                <span className="text-sm font-semibold text-rose-400">{formatPercent(maxDrawdownPct)}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Largest Holding</span>
-                <span>{formatPercent(largestHoldingWeight)}</span>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">Largest Holding</span>
+                <span className="text-sm font-semibold">{formatPercent(largestHoldingWeight)}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Open Cost Basis</span>
-                <span>{formatMoney(totalOpenCostBasis, baseCurrency, 0, 0)}</span>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">Open Cost Basis</span>
+                <span className="text-sm font-semibold">
+                  {formatMoney(totalOpenCostBasis, baseCurrency, 0, 0)}
+                </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Holdings</span>
-                <span>{holdingSnapshots.filter((h) => h.quantity > 0).length}</span>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">Holdings</span>
+                <span className="text-sm font-semibold">
+                  {holdingSnapshots.filter((h) => h.quantity > 0).length}
+                </span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="overflow-hidden border border-border">
-            <CardHeader className="pb-2">
+          <Card className="overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card to-card/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <CardHeader className="px-3 pb-2 pt-3">
               <button
                 type="button"
                 onClick={() =>
@@ -1920,17 +2304,18 @@ export default function PortfolioTracker() {
                     benchmark: !prev.benchmark,
                   }))
                 }
-                className="flex w-full items-center justify-between rounded-lg border border-border/70 bg-muted/30 px-3 py-2"
+                className="flex w-full items-center justify-between rounded-xl border border-border/70 bg-gradient-to-r from-muted/45 via-muted/25 to-transparent px-3.5 py-2.5 transition-colors hover:border-border hover:from-muted/65 hover:via-muted/35 hover:to-muted/10"
                 aria-label="Toggle Benchmark"
               >
                 <div className="text-left">
-                  <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                    Benchmark
+                  <div className="text-[15px] font-semibold tracking-tight text-foreground">
+                    Benchmark (SPY)
                   </div>
-                  <div className="text-sm font-semibold text-foreground">Benchmark (SPY)</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-semibold ${metricTone(excessVsBenchmark)}`}>
+                  <span
+                    className={`rounded-full border border-border/70 bg-background/60 px-2.5 py-0.5 text-xs font-semibold ${metricTone(excessVsBenchmark)}`}
+                  >
                     {benchmarkSummaryLabel}
                   </span>
                   <ChevronDown
@@ -1942,33 +2327,39 @@ export default function PortfolioTracker() {
               </button>
             </CardHeader>
             <CardContent
-              className={`space-y-2 pt-1 text-xs ${
+              className={`space-y-1.5 px-3 pb-3 pt-1 text-xs ${
                 mobileAnalyticsOpen.benchmark ? 'block' : 'hidden'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Portfolio ({activeTimeframe})</span>
-                <span className={metricTone(totalReturnPctForRange)}>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Portfolio ({activeTimeframe})
+                </span>
+                <span className={`text-sm font-semibold ${metricTone(totalReturnPctForRange)}`}>
                   {formatPercent(totalReturnPctForRange)}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">P/L ({activeTimeframe})</span>
-                <span className={metricTone(totalReturnValueForRange)}>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  P/L ({activeTimeframe})
+                </span>
+                <span className={`text-sm font-semibold ${metricTone(totalReturnValueForRange)}`}>
                   {totalReturnValueForRange === null
                     ? '-'
                     : formatMoney(totalReturnValueForRange, baseCurrency, 0, 0)}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">SPY ({activeTimeframe})</span>
-                <span className={metricTone(benchmarkReturnPctForRange)}>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  SPY ({activeTimeframe})
+                </span>
+                <span className={`text-sm font-semibold ${metricTone(benchmarkReturnPctForRange)}`}>
                   {formatPercent(benchmarkReturnPctForRange)}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Excess</span>
-                <span className={metricTone(excessVsBenchmark)}>
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">Excess</span>
+                <span className={`text-sm font-semibold ${metricTone(excessVsBenchmark)}`}>
                   {formatPercent(excessVsBenchmark)}
                 </span>
               </div>
@@ -1977,30 +2368,47 @@ export default function PortfolioTracker() {
         </section>
       </main>
 
+      <HoldingDetailsModal
+        open={holdingModalOpen}
+        onOpenChange={(open) => {
+          setHoldingModalOpen(open);
+          if (!open) setHoldingModalSymbol(null);
+        }}
+        symbol={holdingModalSymbol}
+        baseCurrency={baseCurrency}
+        holding={activeHoldingModalSnapshot}
+        transactions={activeHoldingModalTransactions}
+        stockSeries={activeHoldingModalSeries}
+        stockMeta={activeHoldingModalMeta}
+        marketQuote={activeHoldingModalQuote}
+        loading={activeHoldingModalLoading}
+        error={activeHoldingModalError}
+      />
+
       {showAddForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-2 sm:p-4 dark:bg-black/50">
-          <Card className="mx-2 w-full max-w-md border border-border shadow-lg sm:mx-0">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Add Transaction</CardTitle>
+        <div className="fixed inset-0 z-50 flex items-end bg-black/45 p-2 sm:items-center sm:justify-center sm:p-4 dark:bg-black/60">
+          <Card className="w-full max-w-md overflow-hidden rounded-2xl border border-border/80 shadow-2xl sm:rounded-2xl">
+            <CardHeader className="border-b border-border/70 bg-card/80 px-4 py-3 sm:px-6 sm:py-4">
+              <CardTitle className="text-base font-semibold sm:text-lg">Add Transaction</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-xs sm:text-sm">
+            <CardContent className="max-h-[calc(100dvh-6.5rem)] space-y-3 overflow-y-auto px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-xs sm:max-h-[72vh] sm:space-y-4 sm:px-6 sm:py-4 sm:text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setTransactionSide('BUY')}
-                  className={`rounded-md border px-3 py-2 text-sm ${
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     transactionSide === 'BUY'
                       ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border text-muted-foreground'
+                      : 'border-border bg-background/50 text-muted-foreground'
                   }`}
                 >
                   Buy
                 </button>
                 <button
                   onClick={() => setTransactionSide('SELL')}
-                  className={`rounded-md border px-3 py-2 text-sm ${
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     transactionSide === 'SELL'
                       ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border text-muted-foreground'
+                      : 'border-border bg-background/50 text-muted-foreground'
                   }`}
                 >
                   Sell
@@ -2010,20 +2418,20 @@ export default function PortfolioTracker() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setAddInputMode('manual')}
-                  className={`rounded-md border px-3 py-2 text-sm ${
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     addInputMode === 'manual'
                       ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border text-muted-foreground'
+                      : 'border-border bg-background/50 text-muted-foreground'
                   }`}
                 >
                   Manual Input
                 </button>
                 <button
                   onClick={() => setAddInputMode('automatic')}
-                  className={`rounded-md border px-3 py-2 text-sm ${
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     addInputMode === 'automatic'
                       ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border text-muted-foreground'
+                      : 'border-border bg-background/50 text-muted-foreground'
                   }`}
                 >
                   Automatic Input
@@ -2032,80 +2440,80 @@ export default function PortfolioTracker() {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Symbol</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Symbol</label>
                   <input
                     type="text"
                     placeholder="AAPL"
                     value={search}
                     onChange={(event) => setSearch(event.target.value.toUpperCase())}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base uppercase focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                     style={{ textTransform: 'uppercase' }}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Date</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Date</label>
                   <input
                     type="date"
                     value={buyDate}
                     onChange={(event) => setBuyDate(event.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-[15px] leading-tight focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm [&::-webkit-date-and-time-value]:leading-tight [&::-webkit-date-and-time-value]:text-left [&::-webkit-datetime-edit]:leading-tight"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Shares</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Shares</label>
                   <input
                     type="number"
                     step="any"
                     placeholder="10"
                     value={shares}
                     onChange={(event) => setShares(event.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                   />
                 </div>
                 {addInputMode === 'manual' && (
                   <div>
-                    <label className="mb-1 block text-sm font-medium">Execution Price</label>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Execution Price</label>
                     <input
                       type="number"
                       step="any"
                       placeholder="251.04"
                       value={fillPrice}
                       onChange={(event) => setFillPrice(event.target.value)}
-                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                     />
                   </div>
                 )}
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Fees</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Fees</label>
                   <input
                     type="number"
                     step="any"
                     placeholder="0"
                     value={fees}
                     onChange={(event) => setFees(event.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Taxes</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Taxes</label>
                   <input
                     type="number"
                     step="any"
                     placeholder="0"
                     value={taxes}
                     onChange={(event) => setTaxes(event.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                   />
                 </div>
               </div>
 
               {addInputMode === 'manual' ? (
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Transaction Currency</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Transaction Currency</label>
                   <select
                     value={tradeCurrency}
                     onChange={(event) => setTradeCurrency(normalizeCurrency(event.target.value))}
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                   >
                     {SUPPORTED_CURRENCIES.map((currency) => (
                       <option key={currency} value={currency}>
@@ -2115,7 +2523,7 @@ export default function PortfolioTracker() {
                   </select>
                 </div>
               ) : (
-                <div className="rounded-md border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+                <div className="rounded-lg border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
                   {autoModePreview ? (
                     <div className="mt-1 text-foreground">
                       Preview: {formatMoney(autoModePreview.price, autoModePreview.currency, 2, 2)}
@@ -2125,18 +2533,20 @@ export default function PortfolioTracker() {
               )}
 
               {error && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
                   {error}
                 </div>
               )}
 
-              <div className="flex flex-col gap-2 pt-2 text-xs sm:flex-row sm:gap-3 sm:text-sm">
-                <Button onClick={() => setShowAddForm(false)} variant="outline" className="flex-1">
-                  Cancel
-                </Button>
-                <Button onClick={handleAddTransaction} disabled={loading} className="flex-1">
-                  {loading ? 'Saving...' : transactionSide === 'BUY' ? 'Add Buy' : 'Add Sell'}
-                </Button>
+              <div className="-mx-4 sticky bottom-0 mt-2 border-t border-border/70 bg-background/95 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] backdrop-blur sm:static sm:mx-0 sm:mt-3 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0">
+                <div className="flex flex-col gap-2 text-xs sm:flex-row sm:gap-3 sm:text-sm">
+                  <Button onClick={() => setShowAddForm(false)} variant="outline" className="h-11 flex-1 sm:h-10">
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddTransaction} disabled={loading} className="h-11 flex-1 sm:h-10">
+                    {loading ? 'Saving...' : transactionSide === 'BUY' ? 'Add Buy' : 'Add Sell'}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
