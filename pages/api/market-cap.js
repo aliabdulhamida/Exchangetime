@@ -1,8 +1,8 @@
 const FMP_BASE_URL = 'https://financialmodelingprep.com/stable';
 const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
 const DEFAULT_TIMEOUT_MS = 12000;
-const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY || '1e197034762a4ee0814aae5260b2d800';
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || 'O1l93TNLLysETJkr1NwyMuPZS5ZpoX6p';
+const TWELVE_DATA_API_KEY = String(process.env.TWELVE_DATA_API_KEY || '').trim();
+const MASSIVE_API_KEY = String(process.env.MASSIVE_API_KEY || '').trim();
 
 function parseSymbol(raw) {
   if (typeof raw !== 'string') return null;
@@ -81,7 +81,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing or invalid symbol' });
   }
 
-  const apiKey = process.env.FMP_API_KEY;
+  const apiKey = String(process.env.FMP_API_KEY || '').trim();
+  if (!apiKey) {
+    console.warn('[api/market-cap] FMP_API_KEY missing; skipping FMP provider.');
+  }
+  if (!TWELVE_DATA_API_KEY) {
+    console.warn('[api/market-cap] TWELVE_DATA_API_KEY missing; Twelve Data fallback unavailable.');
+  }
+  if (!MASSIVE_API_KEY) {
+    console.warn('[api/market-cap] MASSIVE_API_KEY missing; Massive fallback unavailable.');
+  }
 
   try {
     if (apiKey) {

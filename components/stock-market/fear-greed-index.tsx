@@ -17,15 +17,7 @@ export default function FearGreedIndex() {
       setLoading(true);
       setError(null);
       try {
-        const url = 'https://fear-and-greed-index.p.rapidapi.com/v1/fgi';
-        const options = {
-          method: 'GET',
-          headers: {
-            'x-rapidapi-key': '[REDACTED]',
-            'x-rapidapi-host': 'fear-and-greed-index.p.rapidapi.com',
-          },
-        } as RequestInit;
-        const response = await fetch(url, options);
+        const response = await fetch('/api/fear-greed', { method: 'GET' });
         if (!response.ok) {
           if (response.status === 429) setError('Too many requests. Please try again later.');
           else setError(`API error: ${response.status}`);

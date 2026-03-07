@@ -20,6 +20,21 @@ pnpm dev
 
 Lokal: http://localhost:3000
 
+## Environment Variables
+
+Kopiere `.env.example` nach `.env.local` und setze mindestens:
+
+- `FMP_API_KEY` (required, primärer Provider)
+- `TWELVE_DATA_API_KEY` (optional, Fallback)
+- `MASSIVE_API_KEY` (optional, zweiter Fallback)
+- `RAPIDAPI_KEY` (optional, für `/api/fear-greed`)
+
+Fallback-Reihenfolge in betroffenen Endpunkten:
+
+- `dcf`: FMP -> Twelve Data -> Massive
+- `metrics`: FMP -> Twelve Data -> Massive
+- `market-cap`: FMP -> Twelve Data -> Massive
+
 ## Produktionsbuild
 
 ```zsh
