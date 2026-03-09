@@ -31,6 +31,7 @@ Zusätzliche Keys sind nur für Fallbacks bzw. Spezial-Feeds nötig:
 - `TWELVE_DATA_API_KEY` (optional, weiterer Fallback)
 - `MASSIVE_API_KEY` (optional, dritter Fallback)
 - `RAPIDAPI_KEY` (optional, für `/api/fear-greed`)
+- `NEXT_PUBLIC_RAPIDAPI_KEY` (optional, nur für statische Hosts ohne `/api`-Runtime; wird im Browser sichtbar)
 
 Fallback-Reihenfolge in betroffenen Endpunkten:
 

@@ -301,7 +301,6 @@ export default function TuneInRadioButton({
         </button>
 
         {isMounted &&
-          open &&
           createPortal(
             <>
               <motion.button
@@ -309,20 +308,27 @@ export default function TuneInRadioButton({
                 className="fixed inset-0 z-[62] bg-slate-950/40 lg:hidden"
                 onClick={() => setOpenState(false)}
                 aria-label="Close radio player"
+                aria-hidden={!open}
+                tabIndex={open ? 0 : -1}
+                style={{ pointerEvents: open ? 'auto' : 'none' }}
                 initial={false}
-                animate={{ opacity: 1 }}
+                animate={{ opacity: open ? 1 : 0 }}
                 transition={mobileBackdropTransition}
               />
               <motion.section
                 id={modalId}
                 className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-md lg:hidden"
-                aria-hidden={false}
+                aria-hidden={!open}
                 aria-label="Radio player"
+                style={{
+                  pointerEvents: open ? 'auto' : 'none',
+                  visibility: open ? 'visible' : 'hidden',
+                }}
                 initial={false}
                 animate={{
-                  opacity: 1,
-                  y: 0,
-                  scale: 1,
+                  opacity: open ? 1 : 0,
+                  y: open ? 0 : 14,
+                  scale: open ? 1 : 0.98,
                 }}
                 transition={mobileSheetTransition}
               >
@@ -365,7 +371,7 @@ export default function TuneInRadioButton({
         onTouchStart={handleTouchStart}
       >
         <button
-          className="rounded-full border-2 border-gray-300 bg-white shadow-xl transition-all duration-200 hover:scale-105 focus:outline-none active:scale-95 dark:border-[#23232a] dark:bg-[#18181b]"
+          className={`et-floating-radio-button ${open ? 'et-floating-radio-button-open' : ''}`}
           style={{ position: 'relative', zIndex: 2, width: buttonSize, height: buttonSize }}
           tabIndex={0}
           aria-label="Open radio player"
@@ -377,7 +383,7 @@ export default function TuneInRadioButton({
             setOpenState((prev) => !prev);
           }}
         >
-          <RadioIcon size={iconSize} className="text-black dark:text-white" />
+          <RadioIcon size={iconSize} className="et-floating-radio-button-icon" />
         </button>
       </div>
 

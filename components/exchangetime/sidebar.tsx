@@ -125,6 +125,7 @@ const mobileModuleGroups: MobileModuleGroup[] = [
       { module: 'CurrencyConverter', icon: ArrowLeftRight, label: 'Currency Converter' },
       { module: 'TaxCalculator', icon: Calculator, label: 'Tax Calculator' },
       { module: 'DCFCalculator', icon: Calculator, label: 'DCF Calculator' },
+      { module: 'EconomicIndicators', icon: LineChart, label: 'Economic Indicators' },
       { module: 'CompoundInterest', icon: PiggyBank, label: 'Compound Interest' },
       { module: 'PersonalBudget', icon: Folder, label: 'Options Payoff Lab' },
       { module: 'TechnicalAnalysis', icon: BarChart2, label: 'Technical Analysis' },
@@ -1467,6 +1468,11 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   />
                   <ModuleButton module="TaxCalculator" icon={Calculator} label="Tax Calculator" />
                   <ModuleButton module="DCFCalculator" icon={Calculator} label="DCF Calculator" />
+                  <ModuleButton
+                    module="EconomicIndicators"
+                    icon={LineChart}
+                    label="Economic Indicators"
+                  />
                   <ModuleButton
                     module="CompoundInterest"
                     icon={PiggyBank}

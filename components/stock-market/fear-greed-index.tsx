@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader } from '@/components/ui/dialog';
 
 const INTERNAL_API_URL = '/api/fear-greed';
-const PUBLIC_FALLBACK_API_URL = 'https://api.alternative.me/fng/?limit=1&format=json';
+const RAPIDAPI_FGI_URL = 'https://fear-and-greed-index.p.rapidapi.com/v1/fgi';
+const RAPIDAPI_FGI_HOST = 'fear-and-greed-index.p.rapidapi.com';
+const RAPIDAPI_PUBLIC_KEY = (process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '').trim();
 const REQUEST_TIMEOUT_MS = 12000;
 
 type FetchError = Error & { status?: number };
@@ -57,13 +59,8 @@ export default function FearGreedIndex() {
   const [error, setError] = useState<string | null>(null);
   const prevIndexRef = useRef<number | null>(null);
   const skipInternalApiRef = useRef(false);
-  const SKIP_INTERNAL_API_SESSION_KEY = 'fear_greed_skip_internal_api';
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && sessionStorage.getItem(SKIP_INTERNAL_API_SESSION_KEY) === '1') {
-      skipInternalApiRef.current = true;
-    }
-
     const fetchFearGreedIndex = async () => {
       setLoading(true);
       setError(null);
@@ -78,22 +75,25 @@ export default function FearGreedIndex() {
             const fetchError = err as FetchError;
             if (fetchError.status === 404 || fetchError.status === 405 || fetchError.status === 503) {
               skipInternalApiRef.current = true;
-              if (typeof window !== 'undefined') {
-                sessionStorage.setItem(SKIP_INTERNAL_API_SESSION_KEY, '1');
-              }
             }
           }
         }
 
         if (score === null) {
-          const fallbackData = await fetchJsonWithTimeout(PUBLIC_FALLBACK_API_URL, {
-            method: 'GET',
-          });
-          score = parseFearGreedScore(fallbackData);
+          if (RAPIDAPI_PUBLIC_KEY) {
+            const directData = await fetchJsonWithTimeout(RAPIDAPI_FGI_URL, {
+              method: 'GET',
+              headers: {
+                'x-rapidapi-key': RAPIDAPI_PUBLIC_KEY,
+                'x-rapidapi-host': RAPIDAPI_FGI_HOST,
+              },
+            });
+            score = parseFearGreedScore(directData);
+          }
         }
 
         if (score === null) {
-          throw new Error('Fear & Greed value missing in API response');
+          throw new Error('Fear & Greed data unavailable');
         }
 
         // Compute trend based on previous value kept in a ref

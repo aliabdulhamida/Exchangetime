@@ -21,6 +21,7 @@ import HolidayCalendar from '../stock-market/holiday-calendar';
 import PortfolioTracker from '../stock-market/portfolio-tracker';
 import OptionsPayoffLab from '../stock-market/sankey-budget';
 import StockAnalysis from '../stock-market/stock-analysis';
+import EconomicIndicators from '../stock-market/economic-indicators';
 import TradingviewEcCalendar from '../stock-market/TradingviewEc-Calendar.jsx';
 import TradingViewWidget from '../stock-market/TradingViewWidget';
 
@@ -111,6 +112,7 @@ const DEFAULT_VISIBLE_MODULES = [
   'CompoundInterest',
   'PersonalBudget',
   'TaxCalculator',
+  'EconomicIndicators',
   'EarningsCalendar',
   'DividendCalendar',
   'HolidayCalendar',
@@ -431,6 +433,21 @@ export default function Content(props: ContentProps) {
           )}
         </div>
 
+        {modules.includes('EconomicIndicators') && (
+          <div className="grid grid-cols-1 gap-4 sm:gap-6">
+            <ModuleWrapper
+              moduleKey="EconomicIndicators"
+              onClose={() => hideModule('EconomicIndicators')}
+              onSolo={() => showOnlyModule('EconomicIndicators')}
+              className="h-full"
+            >
+              <div className="flex h-full flex-col">
+                <EconomicIndicators />
+              </div>
+            </ModuleWrapper>
+          </div>
+        )}
+
         {/* Sixth Row - Options Payoff Lab */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {/* Options Payoff Lab */}
@@ -482,6 +499,7 @@ export default function Content(props: ContentProps) {
             </ModuleWrapper>
           </div>
         )}
+
       </>
     </div>
   );

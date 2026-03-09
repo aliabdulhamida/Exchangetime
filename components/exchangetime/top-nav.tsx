@@ -15,6 +15,9 @@ import TradingViewNews from '../stock-market/TradingViewNews';
 const FearGreedIndex = dynamic(() => import('@/components/stock-market/fear-greed-index'), {
   ssr: false,
 });
+const VixIndex = dynamic(() => import('@/components/stock-market/vix-index'), {
+  ssr: false,
+});
 
 const triggerClass =
   'et-nav-pill inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold sm:px-3';
@@ -46,9 +49,6 @@ export default function TopNav() {
   return (
     <>
       <nav className="relative flex h-full items-center justify-between gap-3 px-3 sm:px-5 lg:pl-[17rem]">
-        <span className="pointer-events-none absolute left-1/2 max-w-[9.5rem] -translate-x-1/2 truncate text-center text-sm font-semibold tracking-tight text-foreground lg:hidden">
-          Exchange Time
-        </span>
         <div className="et-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -87,6 +87,9 @@ export default function TopNav() {
         </div>
 
         <div className="ml-2 flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="flex items-center rounded-full border border-border bg-card px-2 py-0.5">
+            <VixIndex />
+          </div>
           <div className="flex items-center rounded-full border border-border bg-card px-2 py-0.5">
             <FearGreedIndex />
           </div>
