@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, LineChart } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 import TuneInRadioButton from './tunein-radio-button';
+import WatchlistMenu from './watchlist-menu';
 import TradingViewNews from '../stock-market/TradingViewNews';
 
 const FearGreedIndex = dynamic(() => import('@/components/stock-market/fear-greed-index'), {
@@ -62,6 +63,24 @@ export default function TopNav() {
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <WatchlistMenu
+            align="start"
+            side="bottom"
+            sideOffset={8}
+            contentClassName="et-dropdown-panel min-w-[250px] max-w-[95vw] p-0"
+            trigger={({ open }) => (
+              <button
+                type="button"
+                className={`${triggerClass} hidden lg:inline-flex ${open ? 'text-foreground' : ''}`}
+                aria-expanded={open}
+                aria-label="Open watchlist"
+              >
+                <LineChart size={14} />
+                <span>Watchlist</span>
+              </button>
+            )}
+          />
         </div>
 
         <div className="ml-2 flex shrink-0 items-center gap-2 sm:gap-3">

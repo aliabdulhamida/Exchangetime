@@ -1262,7 +1262,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   return (
     <>
       <nav
-        className={`et-sidebar-shell relative hidden border-r lg:flex lg:h-screen lg:shrink-0 ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
+        className={`et-sidebar-shell relative hidden border-r lg:z-[60] lg:flex lg:flex-col lg:h-screen lg:shrink-0 ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
         data-collapsed={isCollapsed}
         aria-label="Sidebar navigation"
       >
@@ -1286,7 +1286,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <div className="h-full flex flex-col bg-transparent">
+        <div className="h-full w-full min-w-0 flex flex-col bg-transparent">
           <button
             type="button"
             className="h-16 w-full border-b border-border/80 bg-transparent"
