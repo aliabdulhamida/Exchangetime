@@ -7,6 +7,8 @@ interface TuneInRadioButtonProps {
   open?: boolean;
   className?: string;
   contentClassName?: string;
+  indicatorLayoutId?: string;
+  indicatorTransition?: Transition;
   onBeforeOpen?: () => void;
   onOpenChange?: (open: boolean) => void;
 }
@@ -68,6 +70,8 @@ export default function TuneInRadioButton({
   open: controlledOpen,
   className,
   contentClassName,
+  indicatorLayoutId = 'et-mobile-nav-indicator',
+  indicatorTransition,
   onBeforeOpen,
   onOpenChange,
 }: TuneInRadioButtonProps) {
@@ -282,7 +286,14 @@ export default function TuneInRadioButton({
             setOpenState((prev) => !prev);
           }}
         >
-          {open && <span className="et-mobile-nav-indicator" aria-hidden="true" />}
+          {open && (
+            <motion.span
+              layoutId={indicatorLayoutId}
+              className="et-mobile-nav-indicator"
+              transition={indicatorTransition}
+              aria-hidden="true"
+            />
+          )}
           <span className={contentClassName ?? ''}>
             <RadioIcon size={18} />
             <span>Radio</span>

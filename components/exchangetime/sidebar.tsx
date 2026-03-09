@@ -51,6 +51,8 @@ import {
   Calculator,
   Folder,
   HelpCircle,
+  ChevronsUpDown,
+  LineChart,
   Globe,
   X,
   CupSoda,
@@ -70,10 +72,11 @@ import {
   Clock,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
 import TuneInRadioButton from './tunein-radio-button';
+import WatchlistMenu from './watchlist-menu';
 import {
   Dialog,
   DialogTrigger,
@@ -81,6 +84,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 
 interface SidebarProps {
   visibleModules: string[];
@@ -97,7 +106,7 @@ type MobileModuleGroup = {
   }>;
 };
 
-type MobileTab = 'home' | 'modules' | 'help' | 'radio' | 'blog';
+type MobileTab = 'view' | 'watchlist' | 'modules' | 'help' | 'radio';
 
 const mobileModuleGroups: MobileModuleGroup[] = [
   {
@@ -134,10 +143,12 @@ const mobileModuleGroups: MobileModuleGroup[] = [
 export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   const [mobilePanel, setMobilePanel] = useState<'modules' | 'help' | null>(null);
   const [isRadioOpen, setIsRadioOpen] = useState(false);
+  const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
   const [helpLegalOpen, setHelpLegalOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const pathname = usePathname();
+  const router = useRouter();
   const [activeView, setActiveView] = useState<'dashboard' | 'blog'>(
     pathname?.startsWith('/blog') ? 'blog' : 'dashboard',
   );
@@ -148,18 +159,18 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         ? 'help'
         : isRadioOpen
           ? 'radio'
-        : activeView === 'blog'
-          ? 'blog'
-          : 'home';
-  const mobileNavSpring: Transition = prefersReducedMotion
-    ? { duration: 0 }
-    : { type: 'spring', stiffness: 420, damping: 34, mass: 0.62 };
+          : isWatchlistOpen
+            ? 'watchlist'
+            : 'view';
   const mobilePanelTransition: Transition = prefersReducedMotion
     ? { duration: 0 }
     : { type: 'spring', stiffness: 360, damping: 32, mass: 0.82 };
   const mobileBackdropTransition: Transition = prefersReducedMotion
     ? { duration: 0 }
     : { duration: 0.2, ease: [0.32, 0.72, 0, 1] };
+  const navPillTransition: Transition = prefersReducedMotion
+    ? { duration: 0 }
+    : { type: 'spring', stiffness: 520, damping: 40, mass: 0.58 };
 
   // Sicheres Abrufen des gespeicherten Zustands aus dem localStorage beim Mounten der Komponente
   useEffect(() => {
@@ -202,6 +213,13 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   function handleNavigation() {
     setMobilePanel(null);
     setIsRadioOpen(false);
+    setIsWatchlistOpen(false);
+  }
+
+  function switchMobileView(view: 'dashboard' | 'blog') {
+    handleNavigation();
+    setActiveView(view);
+    router.push(view === 'blog' ? '/blog' : '/');
   }
 
   function focusModule(module: string, isVisible: boolean) {
@@ -1340,13 +1358,14 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                       />
                     </Link>
 
-                    <div
-                      className="absolute inset-0 z-0 h-1/2 w-full bg-foreground transition-all duration-300 ease-in-out"
-                      style={{
-                        transform:
-                          activeView === 'dashboard' ? 'translateY(0)' : 'translateY(100%)',
+                    <motion.div
+                      className="absolute inset-0 z-0 h-1/2 w-full bg-foreground"
+                      initial={false}
+                      animate={{
+                        y: activeView === 'dashboard' ? '0%' : '100%',
                       }}
-                    ></div>
+                      transition={navPillTransition}
+                    />
                   </div>
                 ) : (
                   // Horizontaler Toggle für ausgeklappte Sidebar
@@ -1393,13 +1412,14 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                       <span className="transition-all duration-300 font-medium">Blog</span>
                     </Link>
 
-                    <div
-                      className="absolute inset-0 z-0 w-1/2 bg-foreground transition-all duration-300 ease-in-out"
-                      style={{
-                        transform:
-                          activeView === 'dashboard' ? 'translateX(0)' : 'translateX(100%)',
+                    <motion.div
+                      className="absolute inset-0 z-0 w-1/2 bg-foreground"
+                      initial={false}
+                      animate={{
+                        x: activeView === 'dashboard' ? '0%' : '100%',
                       }}
-                    ></div>
+                      transition={navPillTransition}
+                    />
                   </div>
                 )}
               </div>
@@ -1672,37 +1692,116 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
       </AnimatePresence>
 
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.7rem)] z-[64] flex justify-center px-3 lg:hidden">
-        <nav
+        <motion.nav
           className="et-mobile-nav-pill pointer-events-auto grid w-full max-w-[32rem] grid-cols-5 items-center gap-1 rounded-full px-2 py-1.5"
           aria-label="Mobile floating navigation"
         >
-          <Link
-            href="/"
-            onClick={() => {
-              handleNavigation();
-              setActiveView('dashboard');
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={`et-mobile-nav-item ${activeMobileTab === 'view' ? 'et-mobile-nav-item-active' : ''}`}
+                aria-pressed={activeMobileTab === 'view'}
+                onClick={() => {
+                  setIsRadioOpen(false);
+                  setMobilePanel(null);
+                  setIsWatchlistOpen(false);
+                }}
+              >
+                {activeMobileTab === 'view' && (
+                  <motion.span
+                    layoutId="et-mobile-nav-indicator"
+                    className="et-mobile-nav-indicator"
+                    transition={navPillTransition}
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="et-mobile-nav-item-content">
+                  {activeView === 'blog' ? <BookOpen className="h-4 w-4" /> : <Home className="h-4 w-4" />}
+                  <span>{activeView === 'blog' ? 'Blog' : 'Home'}</span>
+                </span>
+                <span className="sr-only">Choose Home or Blog</span>
+                <ChevronsUpDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/70" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              side="top"
+              sideOffset={10}
+              className="et-dropdown-panel z-[75] min-w-[10rem] p-1"
+            >
+              <DropdownMenuItem
+                className="rounded-md px-2.5 py-2"
+                onSelect={() => switchMobileView('dashboard')}
+              >
+                <Home className="h-4 w-4" />
+                <span className="font-medium">Home</span>
+                {activeView === 'dashboard' && (
+                  <span className="ml-auto text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Current
+                  </span>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="rounded-md px-2.5 py-2"
+                onSelect={() => switchMobileView('blog')}
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="font-medium">Blog</span>
+                {activeView === 'blog' && (
+                  <span className="ml-auto text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Current
+                  </span>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <WatchlistMenu
+            open={isWatchlistOpen}
+            onOpenChange={(open) => {
+              setIsWatchlistOpen(open);
+              if (open) {
+                setIsRadioOpen(false);
+                setMobilePanel(null);
+              }
             }}
-            className={`et-mobile-nav-item ${activeMobileTab === 'home' ? 'et-mobile-nav-item-active' : ''}`}
-            aria-current={activeMobileTab === 'home' ? 'page' : undefined}
-          >
-            {activeMobileTab === 'home' && (
-              <motion.span
-                layoutId="et-mobile-nav-active-bubble"
-                transition={mobileNavSpring}
-                className="et-mobile-nav-indicator"
-                aria-hidden="true"
-              />
+            align="center"
+            side="top"
+            sideOffset={10}
+            contentClassName="et-dropdown-panel z-[75] min-w-[250px] max-w-[92vw] p-0"
+            trigger={({ open }) => (
+              <button
+                type="button"
+                className={`et-mobile-nav-item ${activeMobileTab === 'watchlist' ? 'et-mobile-nav-item-active' : ''}`}
+                aria-expanded={open}
+                aria-label="Open watchlist"
+                onClick={() => {
+                  setIsRadioOpen(false);
+                  setMobilePanel(null);
+                }}
+              >
+                {activeMobileTab === 'watchlist' && (
+                  <motion.span
+                    layoutId="et-mobile-nav-indicator"
+                    className="et-mobile-nav-indicator"
+                    transition={navPillTransition}
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="et-mobile-nav-item-content">
+                  <LineChart className="h-4 w-4" />
+                  <span>Watchlist</span>
+                </span>
+              </button>
             )}
-            <span className="et-mobile-nav-item-content">
-              <Home className="h-4 w-4" />
-              <span>Home</span>
-            </span>
-          </Link>
+          />
 
           <button
             type="button"
             onClick={() => {
               setIsRadioOpen(false);
+              setIsWatchlistOpen(false);
               setMobilePanel((prev) => (prev === 'modules' ? null : 'modules'));
             }}
             className={`et-mobile-nav-item ${activeMobileTab === 'modules' ? 'et-mobile-nav-item-active' : ''}`}
@@ -1711,9 +1810,9 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
           >
             {activeMobileTab === 'modules' && (
               <motion.span
-                layoutId="et-mobile-nav-active-bubble"
-                transition={mobileNavSpring}
+                layoutId="et-mobile-nav-indicator"
                 className="et-mobile-nav-indicator"
+                transition={navPillTransition}
                 aria-hidden="true"
               />
             )}
@@ -1728,37 +1827,20 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             open={isRadioOpen}
             className={`et-mobile-nav-item ${activeMobileTab === 'radio' ? 'et-mobile-nav-item-active' : ''}`}
             contentClassName="et-mobile-nav-item-content"
-            onBeforeOpen={() => setMobilePanel(null)}
+            indicatorLayoutId="et-mobile-nav-indicator"
+            indicatorTransition={navPillTransition}
+            onBeforeOpen={() => {
+              setMobilePanel(null);
+              setIsWatchlistOpen(false);
+            }}
             onOpenChange={setIsRadioOpen}
           />
-
-          <Link
-            href="/blog"
-            onClick={() => {
-              handleNavigation();
-              setActiveView('blog');
-            }}
-            className={`et-mobile-nav-item ${activeMobileTab === 'blog' ? 'et-mobile-nav-item-active' : ''}`}
-            aria-current={activeMobileTab === 'blog' ? 'page' : undefined}
-          >
-            {activeMobileTab === 'blog' && (
-              <motion.span
-                layoutId="et-mobile-nav-active-bubble"
-                transition={mobileNavSpring}
-                className="et-mobile-nav-indicator"
-                aria-hidden="true"
-              />
-            )}
-            <span className="et-mobile-nav-item-content">
-              <BookOpen className="h-4 w-4" />
-              <span>Blog</span>
-            </span>
-          </Link>
 
           <button
             type="button"
             onClick={() => {
               setIsRadioOpen(false);
+              setIsWatchlistOpen(false);
               setMobilePanel((prev) => (prev === 'help' ? null : 'help'));
             }}
             className={`et-mobile-nav-item ${activeMobileTab === 'help' ? 'et-mobile-nav-item-active' : ''}`}
@@ -1767,9 +1849,9 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
           >
             {activeMobileTab === 'help' && (
               <motion.span
-                layoutId="et-mobile-nav-active-bubble"
-                transition={mobileNavSpring}
+                layoutId="et-mobile-nav-indicator"
                 className="et-mobile-nav-indicator"
+                transition={navPillTransition}
                 aria-hidden="true"
               />
             )}
@@ -1778,7 +1860,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
               <span>Help</span>
             </span>
           </button>
-        </nav>
+        </motion.nav>
       </div>
     </>
   );
