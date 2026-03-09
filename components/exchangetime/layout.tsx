@@ -104,7 +104,7 @@ export default function Layout({ children, sidebar }: LayoutProps) {
           </header>
           <main
             ref={mainRef}
-            className={`et-scrollbar relative flex-1 overflow-auto px-2 pb-5 pt-3 transition-[margin-top] duration-300 ease-out sm:px-4 sm:pt-4 lg:px-6 lg:pb-8 ${
+            className={`et-scrollbar relative flex-1 overflow-auto px-2 pb-[calc(env(safe-area-inset-bottom)+5.7rem)] pt-3 transition-[margin-top] duration-300 ease-out sm:px-4 sm:pb-[calc(env(safe-area-inset-bottom)+6.1rem)] sm:pt-4 lg:px-6 lg:pb-8 ${
               isTopbarHiddenMobile ? 'mt-0 lg:mt-16' : 'mt-16'
             }`}
           >

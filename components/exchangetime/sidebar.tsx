@@ -50,7 +50,6 @@ import {
   Calculator,
   Folder,
   HelpCircle,
-  Menu,
   Globe,
   X,
   CupSoda,
@@ -87,8 +86,49 @@ interface SidebarProps {
   hideModule: (module: string) => void;
 }
 
+type MobileModuleGroup = {
+  title: string;
+  items: Array<{
+    module: string;
+    icon: any;
+    label: string;
+  }>;
+};
+
+const mobileModuleGroups: MobileModuleGroup[] = [
+  {
+    title: 'Market Overview',
+    items: [
+      { module: 'StockAnalysis', icon: PieChart, label: 'Stock Analysis' },
+      { module: 'ExchangeTimes', icon: Clock, label: 'Exchange Times' },
+    ],
+  },
+  {
+    title: 'Trading Tools',
+    items: [
+      { module: 'BacktestTool', icon: TrendingUp, label: 'Backtest Tool' },
+      { module: 'PortfolioTracker', icon: Briefcase, label: 'Portfolio Tracker' },
+      { module: 'CurrencyConverter', icon: ArrowLeftRight, label: 'Currency Converter' },
+      { module: 'TaxCalculator', icon: Calculator, label: 'Tax Calculator' },
+      { module: 'DCFCalculator', icon: Calculator, label: 'DCF Calculator' },
+      { module: 'CompoundInterest', icon: PiggyBank, label: 'Compound Interest' },
+      { module: 'PersonalBudget', icon: Folder, label: 'Options Payoff Lab' },
+      { module: 'TechnicalAnalysis', icon: BarChart2, label: 'Technical Analysis' },
+    ],
+  },
+  {
+    title: 'Market Data',
+    items: [
+      { module: 'EconomicCalendar', icon: CalendarCheck2, label: 'Economic Calendar' },
+      { module: 'EarningsCalendar', icon: CalendarClock, label: 'Earnings Calendar' },
+      { module: 'DividendCalendar', icon: PiggyBank, label: 'Dividend Calendar' },
+      { module: 'HolidayCalendar', icon: CupSoda, label: 'Holiday Calendar' },
+    ],
+  },
+];
+
 export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<'modules' | 'help' | null>(null);
   const [helpLegalOpen, setHelpLegalOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
@@ -135,7 +175,18 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   };
 
   function handleNavigation() {
-    setIsMobileMenuOpen(false);
+    setMobilePanel(null);
+  }
+
+  function focusModule(module: string, isVisible: boolean) {
+    if (typeof window === 'undefined') return;
+    const emitFocusEvent = () => {
+      window.dispatchEvent(new CustomEvent('focusModule', { detail: module }));
+    };
+
+    emitFocusEvent();
+    window.setTimeout(emitFocusEvent, isVisible ? 120 : 260);
+    window.setTimeout(emitFocusEvent, 520);
   }
 
   function ModuleButton({
@@ -148,16 +199,6 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
     label: string;
   }) {
     const isVisible = visibleModules.includes(module);
-    const scrollToModule = () => {
-      if (typeof window === 'undefined') return;
-      const emitFocusEvent = () => {
-        window.dispatchEvent(new CustomEvent('focusModule', { detail: module }));
-      };
-
-      emitFocusEvent();
-      window.setTimeout(emitFocusEvent, isVisible ? 120 : 260);
-      window.setTimeout(emitFocusEvent, 520);
-    };
 
     return (
       <button
@@ -166,7 +207,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             showModule(module);
           }
           handleNavigation();
-          scrollToModule();
+          focusModule(module, isVisible);
         }}
         className={`et-sidebar-link flex w-full items-center py-2 text-sm text-left ${
           isCollapsed ? 'mb-3 justify-center px-1' : 'px-3'
@@ -1159,6 +1200,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
     return (
       <a
         href={href}
+        onClick={handleNavigation}
         className={`et-sidebar-link et-sidebar-link-inactive flex w-full items-center py-2 text-sm text-left ${
           isCollapsed ? 'mb-3 justify-center px-1' : 'px-3'
         }`}
@@ -1172,32 +1214,11 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
 
   return (
     <>
-      <button
-        type="button"
-        className="et-topbar fixed left-4 top-4 z-[70] rounded-lg p-2 lg:hidden"
-        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        aria-label="Open sidebar"
-      >
-        <Menu className="h-5 w-5 text-foreground" />
-      </button>
       <nav
-        className={`et-sidebar-shell fixed inset-y-0 left-0 z-[70] transform border-r transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} ${isCollapsed ? 'w-20 lg:w-20' : 'w-64 lg:w-64'}`}
+        className={`et-sidebar-shell relative hidden border-r lg:flex lg:h-screen lg:shrink-0 ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
         data-collapsed={isCollapsed}
         aria-label="Sidebar navigation"
       >
-        {/* Close button only on mobile and only when sidebar is open */}
-        {isMobileMenuOpen && (
-          <button
-            type="button"
-            className="absolute right-4 top-[0.875rem] z-[80] rounded-lg p-2 transition-colors hover:bg-secondary/80 lg:hidden"
-            onClick={() => setIsMobileMenuOpen(false)}
-            aria-label="Close sidebar"
-            style={{ background: 'transparent' }}
-          >
-            <X className="h-5 w-5 text-foreground" />
-          </button>
-        )}
-        {/* Toggle Button für Collapse/Expand (nur sichtbar auf Desktop) */}
         <button
           type="button"
           className="et-topbar absolute -right-3 top-32 z-[80] hidden rounded-md border p-1 transition-all duration-200 ease-in-out hover:bg-secondary lg:flex"
@@ -1503,12 +1524,167 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         </div>
       </nav>
 
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-[65] bg-slate-950/45 lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
+      {mobilePanel && (
+        <button
+          type="button"
+          className="fixed inset-0 z-[62] bg-slate-950/40 lg:hidden"
+          onClick={handleNavigation}
+          aria-label="Close mobile navigation panel"
         />
       )}
+
+      {mobilePanel && (
+        <section
+          id="mobile-nav-panel"
+          className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-md lg:hidden"
+          aria-label={mobilePanel === 'modules' ? 'Module navigation' : 'Help and legal links'}
+        >
+          <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+            <p className="text-sm font-semibold text-foreground">
+              {mobilePanel === 'modules' ? 'Quick Modules' : 'Help & Legal'}
+            </p>
+            <button
+              type="button"
+              onClick={handleNavigation}
+              className="et-module-action h-7 w-7"
+              aria-label="Close mobile panel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="et-scrollbar max-h-[56vh] overflow-y-auto p-3">
+            {mobilePanel === 'modules' ? (
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  className="et-sidebar-link et-sidebar-link-inactive flex w-full items-center justify-center rounded-lg border border-dashed border-border/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em]"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new CustomEvent('showOnlyModule', { detail: 'ALL' }));
+                    }
+                    handleNavigation();
+                  }}
+                >
+                  Show All Modules
+                </button>
+                {mobileModuleGroups.map((group) => (
+                  <div key={group.title} className="space-y-2">
+                    <h3 className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      {group.title}
+                    </h3>
+                    <div className="space-y-1.5">
+                      {group.items.map((item) => {
+                        const isVisible = visibleModules.includes(item.module);
+                        const Icon = item.icon;
+
+                        return (
+                          <button
+                            key={item.module}
+                            type="button"
+                            className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                              isVisible
+                                ? 'border-border bg-secondary/90 text-foreground'
+                                : 'border-border/70 bg-card/50 text-muted-foreground hover:text-foreground'
+                            }`}
+                            onClick={() => {
+                              if (!isVisible) {
+                                showModule(item.module);
+                              }
+                              focusModule(item.module, isVisible);
+                              handleNavigation();
+                            }}
+                          >
+                            <Icon className="h-4 w-4 flex-shrink-0" />
+                            <span className="flex-1">{item.label}</span>
+                            {isVisible && (
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                                On
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <SimpleNavItem href="/settings/about" icon={Info}>
+                  About
+                </SimpleNavItem>
+                <SimpleNavItem href="/settings/mission" icon={ShieldCheck}>
+                  Our Mission
+                </SimpleNavItem>
+                <SimpleNavItem href="/settings/privacy-policy" icon={FileText}>
+                  Privacy Policy
+                </SimpleNavItem>
+                <SimpleNavItem href="/settings/terms-of-service" icon={BookOpen}>
+                  Terms of Service
+                </SimpleNavItem>
+                <SimpleNavItem href="/settings/contact" icon={Mail}>
+                  Contact
+                </SimpleNavItem>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.7rem)] z-[64] flex justify-center px-3 lg:hidden">
+        <nav
+          className="et-mobile-nav-pill pointer-events-auto flex w-full max-w-[26rem] items-center justify-between gap-1 rounded-full px-2 py-1.5"
+          aria-label="Mobile floating navigation"
+        >
+          <Link
+            href="/"
+            onClick={() => {
+              handleNavigation();
+              setActiveView('dashboard');
+            }}
+            className={`et-mobile-nav-item ${activeView === 'dashboard' ? 'et-mobile-nav-item-active' : ''}`}
+            aria-current={activeView === 'dashboard' ? 'page' : undefined}
+          >
+            <Home className="h-4 w-4" />
+            <span>Home</span>
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setMobilePanel((prev) => (prev === 'modules' ? null : 'modules'))}
+            className={`et-mobile-nav-item ${mobilePanel === 'modules' ? 'et-mobile-nav-item-active' : ''}`}
+            aria-expanded={mobilePanel === 'modules'}
+            aria-controls="mobile-nav-panel"
+          >
+            <PieChart className="h-4 w-4" />
+            <span>Modules</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMobilePanel((prev) => (prev === 'help' ? null : 'help'))}
+            className={`et-mobile-nav-item ${mobilePanel === 'help' ? 'et-mobile-nav-item-active' : ''}`}
+            aria-expanded={mobilePanel === 'help'}
+            aria-controls="mobile-nav-panel"
+          >
+            <HelpCircle className="h-4 w-4" />
+            <span>Help</span>
+          </button>
+
+          <Link
+            href="/blog"
+            onClick={() => {
+              handleNavigation();
+              setActiveView('blog');
+            }}
+            className={`et-mobile-nav-item ${activeView === 'blog' ? 'et-mobile-nav-item-active' : ''}`}
+            aria-current={activeView === 'blog' ? 'page' : undefined}
+          >
+            <BookOpen className="h-4 w-4" />
+            <span>Blog</span>
+          </Link>
+        </nav>
+      </div>
     </>
   );
 }

@@ -146,7 +146,7 @@ export default function TopNav() {
   return (
     <>
       <nav className="flex h-full items-center justify-between gap-3 px-3 sm:px-5 lg:pl-[17rem]">
-        <div className="et-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pl-12 lg:pl-0">
+        <div className="et-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className={`${triggerClass} mr-1`}>
