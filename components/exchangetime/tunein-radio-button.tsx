@@ -73,7 +73,6 @@ export default function TuneInRadioButton({
 }: TuneInRadioButtonProps) {
   const isPill = mode === 'pill';
   const [internalOpen, setInternalOpen] = useState(false);
-  const [hasOpened, setHasOpened] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const wasDragging = useRef(false);
   const [position, setPosition] = useState(() => {
@@ -147,12 +146,6 @@ export default function TuneInRadioButton({
   useEffect(() => {
     setIsMounted(true);
   }, []);
-
-  useEffect(() => {
-    if (open) {
-      setHasOpened(true);
-    }
-  }, [open]);
 
   useEffect(() => {
     if (!open || dragging || isPill) return;
@@ -297,7 +290,7 @@ export default function TuneInRadioButton({
         </button>
 
         {isMounted &&
-          (open || hasOpened) &&
+          open &&
           createPortal(
             <>
               <motion.button
@@ -305,22 +298,20 @@ export default function TuneInRadioButton({
                 className="fixed inset-0 z-[62] bg-slate-950/40 lg:hidden"
                 onClick={() => setOpenState(false)}
                 aria-label="Close radio player"
-                style={{ pointerEvents: open ? 'auto' : 'none' }}
                 initial={false}
-                animate={{ opacity: open ? 1 : 0 }}
+                animate={{ opacity: 1 }}
                 transition={mobileBackdropTransition}
               />
               <motion.section
                 id={modalId}
                 className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-md lg:hidden"
-                aria-hidden={!open}
+                aria-hidden={false}
                 aria-label="Radio player"
-                style={{ pointerEvents: open ? 'auto' : 'none' }}
                 initial={false}
                 animate={{
-                  opacity: open ? 1 : 0,
-                  y: open ? 0 : 18,
-                  scale: open ? 1 : 0.985,
+                  opacity: 1,
+                  y: 0,
+                  scale: 1,
                 }}
                 transition={mobileSheetTransition}
               >

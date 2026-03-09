@@ -149,8 +149,8 @@ export default function HolidayCalendar() {
         </select>
       </div>
 
-      <div className="grid min-h-0 grid-cols-1 gap-3 sm:flex-1 sm:grid-rows-[auto_minmax(0,1fr)]">
-        <div className="rounded-lg border border-border/70 bg-background/50 p-2 sm:p-3">
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-3">
+        <div className="rounded-lg border border-border/70 bg-background/50 p-2.5 sm:p-3">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Calendar</span>
             <button
@@ -189,7 +189,7 @@ export default function HolidayCalendar() {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-col rounded-lg border border-border/70 bg-background/50 p-3">
+        <div className="flex min-h-0 flex-col rounded-lg border border-border/70 bg-background/50 p-2.5 sm:p-3">
           <div className="mb-2">
             <div className="text-xs text-muted-foreground">Selected date</div>
             <div className="text-sm font-semibold text-foreground">
@@ -202,10 +202,12 @@ export default function HolidayCalendar() {
               <div className="space-y-2">
                 {selectedDateHolidays.map((holiday) => (
                   <div key={holiday.id} className="rounded-md border border-border/70 bg-card/40 px-3 py-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="break-words text-sm font-medium text-foreground">{holiday.name}</div>
+                    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 break-words text-sm font-medium text-foreground">
+                        {holiday.name}
+                      </div>
                       <span
-                        className={`rounded border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] ${
+                        className={`self-start shrink-0 rounded border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] ${
                           holiday.type === 'early'
                             ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
                             : 'border-border bg-background text-muted-foreground'
