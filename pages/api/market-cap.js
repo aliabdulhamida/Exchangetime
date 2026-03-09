@@ -1,14 +1,20 @@
+import {
+  fetchYahooQuoteSnapshot,
+  normalizeYahooSymbol,
+  toNullableString,
+} from '../../lib/server/yahoo-finance';
+
 const FMP_BASE_URL = 'https://financialmodelingprep.com/stable';
-const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
 const DEFAULT_TIMEOUT_MS = 12000;
 const TWELVE_DATA_API_KEY = String(process.env.TWELVE_DATA_API_KEY || '').trim();
 const MASSIVE_API_KEY = String(process.env.MASSIVE_API_KEY || '').trim();
 
 function parseSymbol(raw) {
-  if (typeof raw !== 'string') return null;
-  const normalized = raw.trim().toUpperCase();
-  if (!normalized || !SYMBOL_PATTERN.test(normalized)) return null;
-  return normalized;
+  const normalized = normalizeYahooSymbol(raw, {
+    allowFxPair: false,
+    allowFxWithSuffix: false,
+  });
+  return normalized || null;
 }
 
 function parseNumber(value) {
@@ -17,6 +23,9 @@ function parseNumber(value) {
     const normalized = value.replace(/,/g, '');
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (value && typeof value === 'object' && typeof value.raw === 'number' && Number.isFinite(value.raw)) {
+    return value.raw;
   }
   return null;
 }
@@ -36,7 +45,7 @@ async function fetchWithTimeout(url, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, { signal: controller.signal, cache: 'no-store' });
   } finally {
     clearTimeout(timer);
   }
@@ -70,6 +79,32 @@ async function fetchMassiveTickerDetails(symbol) {
   return payload?.results || null;
 }
 
+async function fetchFmpMarketCap(ticker, apiKey) {
+  if (!apiKey) return null;
+
+  const profileUrl = `${FMP_BASE_URL}/profile?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`;
+  const metricsUrl = `${FMP_BASE_URL}/key-metrics?symbol=${encodeURIComponent(ticker)}&limit=1&apikey=${apiKey}`;
+
+  const [profileRes, metricsRes] = await Promise.all([
+    fetchWithTimeout(profileUrl),
+    fetchWithTimeout(metricsUrl),
+  ]);
+
+  if (!profileRes.ok && !metricsRes.ok) return null;
+
+  const profilePayload = profileRes.ok ? await parseJsonSafe(profileRes) : null;
+  const metricsPayload = metricsRes.ok ? await parseJsonSafe(metricsRes) : null;
+  const profileRow = Array.isArray(profilePayload) ? profilePayload[0] : profilePayload;
+  const metricsRow = Array.isArray(metricsPayload) ? metricsPayload[0] : metricsPayload;
+
+  return {
+    symbol: ticker,
+    marketCap: pickMarketCap(profileRow) ?? pickMarketCap(metricsRow),
+    currency: profileRow?.currency || null,
+    source: 'fmp',
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -83,7 +118,7 @@ export default async function handler(req, res) {
 
   const apiKey = String(process.env.FMP_API_KEY || '').trim();
   if (!apiKey) {
-    console.warn('[api/market-cap] FMP_API_KEY missing; skipping FMP provider.');
+    console.warn('[api/market-cap] FMP_API_KEY missing; FMP fallback unavailable.');
   }
   if (!TWELVE_DATA_API_KEY) {
     console.warn('[api/market-cap] TWELVE_DATA_API_KEY missing; Twelve Data fallback unavailable.');
@@ -93,30 +128,37 @@ export default async function handler(req, res) {
   }
 
   try {
-    if (apiKey) {
-      const profileUrl = `${FMP_BASE_URL}/profile?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`;
-      const metricsUrl = `${FMP_BASE_URL}/key-metrics?symbol=${encodeURIComponent(ticker)}&limit=1&apikey=${apiKey}`;
+    const yahooSnapshot = await fetchYahooQuoteSnapshot(ticker, [
+      'summaryDetail',
+      'defaultKeyStatistics',
+      'financialData',
+      'price',
+      'summaryProfile',
+      'assetProfile',
+    ]).catch(() => null);
 
-      const [profileRes, metricsRes] = await Promise.all([
-        fetchWithTimeout(profileUrl),
-        fetchWithTimeout(metricsUrl),
-      ]);
+    if (yahooSnapshot?.ok) {
+      const marketCap =
+        parseNumber(yahooSnapshot.data?.quoteResult?.marketCap) ||
+        parseNumber(yahooSnapshot.data?.summaryDetail?.marketCap) ||
+        parseNumber(yahooSnapshot.data?.defaultKeyStats?.marketCap) ||
+        parseNumber(yahooSnapshot.data?.financialData?.marketCap);
 
-      if (profileRes.ok || metricsRes.ok) {
-        const profilePayload = profileRes.ok ? await parseJsonSafe(profileRes) : null;
-        const metricsPayload = metricsRes.ok ? await parseJsonSafe(metricsRes) : null;
-        const profileRow = Array.isArray(profilePayload) ? profilePayload[0] : profilePayload;
-        const metricsRow = Array.isArray(metricsPayload) ? metricsPayload[0] : metricsPayload;
-        const marketCap = pickMarketCap(profileRow) ?? pickMarketCap(metricsRow);
-
+      if (marketCap !== null) {
         res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
         return res.status(200).json({
           symbol: ticker,
           marketCap,
-          currency: profileRow?.currency || null,
-          source: 'fmp',
+          currency: toNullableString(yahooSnapshot.data?.currency),
+          source: 'yahoo',
         });
       }
+    }
+
+    const fmpPayload = await fetchFmpMarketCap(ticker, apiKey);
+    if (fmpPayload) {
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
+      return res.status(200).json(fmpPayload);
     }
 
     const quote = await fetchTwelveDataQuote(ticker);
@@ -141,7 +183,9 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(502).json({ error: 'Failed to fetch market cap from FMP, Twelve Data, and Massive fallback' });
+    return res
+      .status(502)
+      .json({ error: 'Failed to fetch market cap from Yahoo and fallback providers' });
   } catch (err) {
     const isTimeout = err && typeof err === 'object' && err.name === 'AbortError';
 
@@ -173,7 +217,7 @@ export default async function handler(req, res) {
 
     return res.status(isTimeout ? 504 : 500).json({
       error: isTimeout
-        ? 'Upstream request timed out (FMP, Twelve Data, and Massive fallback unavailable)'
+        ? 'Upstream request timed out (Yahoo and fallback providers unavailable)'
         : 'Internal server error',
     });
   }

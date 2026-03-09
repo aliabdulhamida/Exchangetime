@@ -1,18 +1,24 @@
+import {
+  fetchYahooQuoteSnapshot,
+  mapYahooInsiderTrades,
+  normalizeYahooSymbol,
+} from '../../lib/server/yahoo-finance';
+
 const NASDAQ_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (compatible; Exchangetime/1.0)',
   Accept: 'application/json, text/plain, */*',
   Referer: 'https://www.nasdaq.com/',
 };
 
-const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const cache = new Map();
 
 function parseSymbol(raw) {
-  if (typeof raw !== 'string') return null;
-  const normalized = raw.trim().toUpperCase();
-  if (!normalized || !SYMBOL_PATTERN.test(normalized)) return null;
-  return normalized;
+  const normalized = normalizeYahooSymbol(raw, {
+    allowFxPair: false,
+    allowFxWithSuffix: false,
+  });
+  return normalized || null;
 }
 
 function parseNumeric(value) {
@@ -62,14 +68,13 @@ async function fetchNasdaqJson(url) {
     ok: response.ok,
     status: response.status,
     payload,
-    text,
   };
 }
 
-function mapTrades(rows, ticker, company) {
+function mapNasdaqTrades(rows, ticker, company) {
   if (!Array.isArray(rows)) return [];
 
-  const trades = rows
+  return rows
     .map((row) => {
       const shares = parseNumeric(row?.sharesTraded);
       const price = parseNumeric(row?.lastPrice);
@@ -88,8 +93,38 @@ function mapTrades(rows, ticker, company) {
     })
     .filter((trade) => trade.date && trade.insider)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
 
-  return trades;
+async function fetchNasdaqTrades(ticker) {
+  const insiderUrl = `https://api.nasdaq.com/api/company/${encodeURIComponent(ticker)}/insider-trades`;
+  const companyUrl = `https://api.nasdaq.com/api/company/${encodeURIComponent(ticker)}/company-profile`;
+
+  const [insiderResponse, companyResponse] = await Promise.all([
+    fetchNasdaqJson(insiderUrl),
+    fetchNasdaqJson(companyUrl),
+  ]);
+
+  if (!insiderResponse.ok) {
+    return {
+      ok: false,
+      status: insiderResponse.status,
+    };
+  }
+
+  const rows = insiderResponse.payload?.data?.transactionTable?.table?.rows;
+  const companyName =
+    companyResponse.payload?.data?.CompanyName?.value ||
+    companyResponse.payload?.data?.companyName ||
+    ticker;
+
+  return {
+    ok: true,
+    data: {
+      company: companyName,
+      trades: mapNasdaqTrades(rows, ticker, companyName),
+      source: 'nasdaq',
+    },
+  };
 }
 
 export default async function handler(req, res) {
@@ -110,39 +145,50 @@ export default async function handler(req, res) {
   }
 
   try {
-    const insiderUrl = `https://api.nasdaq.com/api/company/${encodeURIComponent(ticker)}/insider-trades`;
-    const companyUrl = `https://api.nasdaq.com/api/company/${encodeURIComponent(ticker)}/company-profile`;
+    const yahooSnapshot = await fetchYahooQuoteSnapshot(ticker, [
+      'insiderTransactions',
+      'price',
+      'summaryProfile',
+      'assetProfile',
+      'defaultKeyStatistics',
+    ]).catch(() => null);
 
-    const [insiderResponse, companyResponse] = await Promise.all([
-      fetchNasdaqJson(insiderUrl),
-      fetchNasdaqJson(companyUrl),
-    ]);
+    const yahooData = yahooSnapshot?.ok
+      ? mapYahooInsiderTrades(yahooSnapshot.data, ticker)
+      : null;
 
-    if (!insiderResponse.ok) {
-      return res.status(502).json({
-        error: 'Failed to fetch insider trades',
-        status: insiderResponse.status,
+    if (yahooData && Array.isArray(yahooData.trades) && yahooData.trades.length > 0) {
+      cache.set(ticker, {
+        expiresAt: Date.now() + CACHE_TTL_MS,
+        data: yahooData,
       });
+      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=900');
+      return res.status(200).json(yahooData);
     }
 
-    const rows = insiderResponse.payload?.data?.transactionTable?.table?.rows;
-    const companyName =
-      companyResponse.payload?.data?.CompanyName?.value ||
-      companyResponse.payload?.data?.companyName ||
-      ticker;
+    const nasdaqData = await fetchNasdaqTrades(ticker);
+    if (nasdaqData.ok) {
+      cache.set(ticker, {
+        expiresAt: Date.now() + CACHE_TTL_MS,
+        data: nasdaqData.data,
+      });
+      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=900');
+      return res.status(200).json(nasdaqData.data);
+    }
 
-    const response = {
-      company: companyName,
-      trades: mapTrades(rows, ticker, companyName),
-    };
+    if (yahooData) {
+      cache.set(ticker, {
+        expiresAt: Date.now() + CACHE_TTL_MS,
+        data: yahooData,
+      });
+      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=900');
+      return res.status(200).json(yahooData);
+    }
 
-    cache.set(ticker, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      data: response,
+    return res.status(502).json({
+      error: 'Failed to fetch insider trades',
+      status: nasdaqData.status,
     });
-
-    res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=900');
-    return res.status(200).json(response);
   } catch (err) {
     console.error('Insider trades API error:', err);
     return res.status(500).json({ error: 'Internal server error' });

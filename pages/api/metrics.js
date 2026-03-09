@@ -1,20 +1,28 @@
-const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
+import {
+  fetchYahooQuoteSnapshot,
+  mapYahooMetrics,
+  normalizeYahooSymbol,
+} from '../../lib/server/yahoo-finance';
+
 const DEFAULT_TIMEOUT_MS = 12000;
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const TWELVE_DATA_API_KEY = String(process.env.TWELVE_DATA_API_KEY || '').trim();
 const MASSIVE_API_KEY = String(process.env.MASSIVE_API_KEY || '').trim();
+const metricsCache = new Map();
 
 function parseSymbol(raw) {
-  if (typeof raw !== 'string') return null;
-  const normalized = raw.trim().toUpperCase();
-  if (!normalized || !SYMBOL_PATTERN.test(normalized)) return null;
-  return normalized;
+  const normalized = normalizeYahooSymbol(raw, {
+    allowFxPair: false,
+    allowFxWithSuffix: false,
+  });
+  return normalized || null;
 }
 
 async function fetchWithTimeout(url, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, { signal: controller.signal, cache: 'no-store' });
   } finally {
     clearTimeout(timer);
   }
@@ -96,6 +104,167 @@ function buildFallbackMetricsFromMassive(ticker, details) {
   };
 }
 
+async function fetchFmpMetrics(ticker, apiKey) {
+  if (!apiKey) return null;
+
+  const base = 'https://financialmodelingprep.com/stable';
+  const url = (path) => `${base}/${path}?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`;
+
+  const [profileRes, ratiosRes, growthRes, cashFlowRes, keyMetricsRes] = await Promise.all([
+    fetchWithTimeout(url('profile')),
+    fetchWithTimeout(url('ratios')),
+    fetchWithTimeout(url('financial-growth')),
+    fetchWithTimeout(
+      `${base}/cash-flow-statement?symbol=${encodeURIComponent(ticker)}&limit=1&apikey=${apiKey}`,
+    ),
+    fetchWithTimeout(url('key-metrics')),
+  ]);
+
+  if (!profileRes.ok || !ratiosRes.ok) return null;
+
+  const profileData = await profileRes.json().catch(() => []);
+  const ratiosData = await ratiosRes.json().catch(() => []);
+  const growthData = growthRes.ok ? await growthRes.json().catch(() => []) : [];
+  const cashFlowData = cashFlowRes.ok ? await cashFlowRes.json().catch(() => []) : [];
+  const keyMetricsData = keyMetricsRes.ok ? await keyMetricsRes.json().catch(() => []) : [];
+
+  const profile = Array.isArray(profileData) ? profileData[0] : profileData;
+  const ratios = Array.isArray(ratiosData) ? ratiosData[0] : ratiosData;
+  const growth = Array.isArray(growthData) ? growthData[0] : growthData;
+  const cashFlow = Array.isArray(cashFlowData) ? cashFlowData[0] : cashFlowData;
+  const keyMetrics = Array.isArray(keyMetricsData) ? keyMetricsData[0] : keyMetricsData;
+
+  return {
+    peRatio: toNum(ratios?.priceToEarningsRatio),
+    pbRatio: toNum(ratios?.priceToBookRatio),
+    pegRatio: toNum(
+      ratios?.priceToEarningsGrowthRatio || ratios?.forwardPriceToEarningsGrowthRatio,
+    ),
+    roe: toPercent(keyMetrics?.returnOnEquity || ratios?.returnOnEquity),
+    profitMargin: toPercent(ratios?.netProfitMargin),
+    roic: toPercent(
+      keyMetrics?.returnOnCapitalEmployed ||
+        keyMetrics?.returnOnInvestedCapital ||
+        ratios?.returnOnCapitalEmployed ||
+        ratios?.returnOnAssets,
+    ),
+    debtToEquity: toNum(ratios?.debtToEquityRatio),
+    currentRatio: toNum(ratios?.currentRatio),
+    freeCashFlow:
+      typeof cashFlow?.freeCashFlow === 'number' && Number.isFinite(cashFlow.freeCashFlow)
+        ? cashFlow.freeCashFlow / 1_000_000_000
+        : undefined,
+    dividendYield: toPercent(ratios?.dividendYield || ratios?.dividendYieldPercentage),
+    revenueGrowth: toPercent(growth?.revenueGrowth),
+    earningsGrowth: toPercent(growth?.netIncomeGrowth),
+    epsGrowth: undefined,
+    companyName: profile?.companyName || ticker,
+    source: 'fmp',
+  };
+}
+
+async function fetchFallbackMetrics(ticker, apiKey) {
+  const fmp = await fetchFmpMetrics(ticker, apiKey).catch(() => null);
+  if (fmp) return fmp;
+
+  const twelveDataQuote = await fetchTwelveDataQuote(ticker).catch(() => null);
+  if (twelveDataQuote) return buildFallbackMetricsFromTwelveData(ticker, twelveDataQuote);
+
+  const massiveDetails = await fetchMassiveTickerDetails(ticker).catch(() => null);
+  if (massiveDetails) return buildFallbackMetricsFromMassive(ticker, massiveDetails);
+
+  return null;
+}
+
+function readCachedMetrics(symbol) {
+  const cached = metricsCache.get(symbol);
+  if (!cached) return null;
+  if (Date.now() - cached.fetchedAt > CACHE_TTL_MS) return null;
+  return cached.data;
+}
+
+function writeCachedMetrics(symbol, data) {
+  metricsCache.set(symbol, { fetchedAt: Date.now(), data });
+}
+
+function buildUnavailableMetrics(ticker, reason = 'upstream_unavailable') {
+  return {
+    peRatio: undefined,
+    pbRatio: undefined,
+    pegRatio: undefined,
+    roe: undefined,
+    profitMargin: undefined,
+    roic: undefined,
+    debtToEquity: undefined,
+    currentRatio: undefined,
+    freeCashFlow: undefined,
+    dividendYield: undefined,
+    revenueGrowth: undefined,
+    earningsGrowth: undefined,
+    epsGrowth: undefined,
+    companyName: ticker,
+    source: 'unavailable',
+    unavailableReason: reason,
+  };
+}
+
+function hasAnySignalMetrics(metrics) {
+  if (!metrics || typeof metrics !== 'object') return false;
+  const keys = [
+    'peRatio',
+    'pbRatio',
+    'pegRatio',
+    'roe',
+    'profitMargin',
+    'roic',
+    'debtToEquity',
+    'currentRatio',
+    'freeCashFlow',
+    'dividendYield',
+    'revenueGrowth',
+    'earningsGrowth',
+    'epsGrowth',
+  ];
+
+  return keys.some((key) => typeof metrics[key] === 'number' && Number.isFinite(metrics[key]));
+}
+
+function needsFallbackMerge(metrics) {
+  const mergeKeys = [
+    'peRatio',
+    'pbRatio',
+    'pegRatio',
+    'roe',
+    'profitMargin',
+    'roic',
+    'debtToEquity',
+    'currentRatio',
+    'freeCashFlow',
+    'dividendYield',
+    'revenueGrowth',
+    'earningsGrowth',
+    'epsGrowth',
+  ];
+  return mergeKeys.some((key) => metrics[key] === undefined || metrics[key] === null);
+}
+
+function mergeMissingMetrics(primary, fallback) {
+  if (!fallback) return primary;
+  const merged = { ...primary };
+  for (const [key, value] of Object.entries(fallback)) {
+    if (key === 'source') continue;
+    if (merged[key] === undefined || merged[key] === null || merged[key] === '') {
+      merged[key] = value;
+    }
+  }
+
+  if (primary.source === 'yahoo' && fallback.source && fallback.source !== 'yahoo') {
+    merged.fallbackSource = fallback.source;
+  }
+
+  return merged;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -108,9 +277,8 @@ export default async function handler(req, res) {
   }
 
   const apiKey = String(process.env.FMP_API_KEY || '').trim();
-  const base = 'https://financialmodelingprep.com/stable';
   if (!apiKey) {
-    console.warn('[api/metrics] FMP_API_KEY missing; skipping FMP provider.');
+    console.warn('[api/metrics] FMP_API_KEY missing; FMP fallback unavailable.');
   }
   if (!TWELVE_DATA_API_KEY) {
     console.warn('[api/metrics] TWELVE_DATA_API_KEY missing; Twelve Data fallback unavailable.');
@@ -120,106 +288,65 @@ export default async function handler(req, res) {
   }
 
   try {
-    if (apiKey) {
-      const url = (path) => `${base}/${path}?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`;
+    const yahooSnapshot = await fetchYahooQuoteSnapshot(ticker).catch(() => null);
+    if (yahooSnapshot?.ok) {
+      let metrics = mapYahooMetrics(yahooSnapshot.data, ticker);
 
-      // Use current stable endpoints (legacy v3/v4 endpoints were discontinued after 2025-08-31).
-      const [profileRes, ratiosRes, growthRes, cashFlowRes, keyMetricsRes] = await Promise.all([
-        fetchWithTimeout(url('profile')),
-        fetchWithTimeout(url('ratios')),
-        fetchWithTimeout(url('financial-growth')),
-        fetchWithTimeout(
-          `${base}/cash-flow-statement?symbol=${encodeURIComponent(ticker)}&limit=1&apikey=${apiKey}`,
-        ),
-        fetchWithTimeout(url('key-metrics')),
-      ]);
+      if (!hasAnySignalMetrics(metrics)) {
+        const fallback = await fetchFallbackMetrics(ticker, apiKey);
+        if (fallback) {
+          writeCachedMetrics(ticker, fallback);
+          res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
+          return res.status(200).json(fallback);
+        }
+      } else {
+        const fallback = needsFallbackMerge(metrics)
+          ? await fetchFallbackMetrics(ticker, apiKey)
+          : null;
+        metrics = mergeMissingMetrics(metrics, fallback);
 
-      if (profileRes.ok && ratiosRes.ok) {
-        const profileData = await profileRes.json();
-        const ratiosData = await ratiosRes.json();
-        const growthData = growthRes.ok ? await growthRes.json() : [];
-        const cashFlowData = cashFlowRes.ok ? await cashFlowRes.json() : [];
-        const keyMetricsData = keyMetricsRes.ok ? await keyMetricsRes.json() : [];
-
-        const profile = Array.isArray(profileData) ? profileData[0] : profileData;
-        const ratios = Array.isArray(ratiosData) ? ratiosData[0] : ratiosData;
-        const growth = Array.isArray(growthData) ? growthData[0] : growthData;
-        const cashFlow = Array.isArray(cashFlowData) ? cashFlowData[0] : cashFlowData;
-        const keyMetrics = Array.isArray(keyMetricsData) ? keyMetricsData[0] : keyMetricsData;
-
-        const metrics = {
-          peRatio: toNum(ratios?.priceToEarningsRatio),
-          pbRatio: toNum(ratios?.priceToBookRatio),
-          pegRatio: toNum(
-            ratios?.priceToEarningsGrowthRatio || ratios?.forwardPriceToEarningsGrowthRatio,
-          ),
-          roe: toPercent(keyMetrics?.returnOnEquity || ratios?.returnOnEquity),
-          profitMargin: toPercent(ratios?.netProfitMargin),
-          roic: toPercent(
-            keyMetrics?.returnOnCapitalEmployed ||
-              keyMetrics?.returnOnInvestedCapital ||
-              ratios?.returnOnCapitalEmployed ||
-              ratios?.returnOnAssets,
-          ),
-          debtToEquity: toNum(ratios?.debtToEquityRatio),
-          currentRatio: toNum(ratios?.currentRatio),
-          // Keep unit in billions to match frontend formatting logic.
-          freeCashFlow:
-            typeof cashFlow?.freeCashFlow === 'number' && Number.isFinite(cashFlow.freeCashFlow)
-              ? cashFlow.freeCashFlow / 1_000_000_000
-              : undefined,
-          dividendYield: toPercent(ratios?.dividendYield || ratios?.dividendYieldPercentage),
-          revenueGrowth: toPercent(growth?.revenueGrowth),
-          earningsGrowth: toPercent(growth?.netIncomeGrowth),
-          epsGrowth: undefined,
-          companyName: profile?.companyName || ticker,
-          source: 'fmp',
-        };
-
+        writeCachedMetrics(ticker, metrics);
         res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
         return res.status(200).json(metrics);
       }
     }
 
-    const twelveDataQuote = await fetchTwelveDataQuote(ticker);
-    if (twelveDataQuote) {
+    const fallbackMetrics = await fetchFallbackMetrics(ticker, apiKey);
+    if (fallbackMetrics) {
+      writeCachedMetrics(ticker, fallbackMetrics);
       res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
-      return res.status(200).json(buildFallbackMetricsFromTwelveData(ticker, twelveDataQuote));
+      return res.status(200).json(fallbackMetrics);
     }
 
-    const massiveDetails = await fetchMassiveTickerDetails(ticker);
-    if (massiveDetails) {
-      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
-      return res.status(200).json(buildFallbackMetricsFromMassive(ticker, massiveDetails));
+    const stale = readCachedMetrics(ticker);
+    if (stale) {
+      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+      res.setHeader('X-Data-Stale', '1');
+      return res.status(200).json({ ...stale, stale: true });
     }
 
-    return res.status(502).json({ error: 'Failed to fetch metrics from FMP, Twelve Data, and Massive fallback' });
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+    return res.status(200).json(buildUnavailableMetrics(ticker));
   } catch (err) {
-    const isTimeout = err && typeof err === 'object' && err.name === 'AbortError';
-    if (!isTimeout) {
+    if (!(err && typeof err === 'object' && err.name === 'AbortError')) {
       console.error('Metrics API error:', err);
     }
 
-    try {
-      const twelveDataQuote = await fetchTwelveDataQuote(ticker);
-      if (twelveDataQuote) {
-        res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
-        return res.status(200).json(buildFallbackMetricsFromTwelveData(ticker, twelveDataQuote));
-      }
-
-      const massiveDetails = await fetchMassiveTickerDetails(ticker);
-      if (massiveDetails) {
-        res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
-        return res.status(200).json(buildFallbackMetricsFromMassive(ticker, massiveDetails));
-      }
-    } catch {
-      // Fall through to error response.
+    const fallbackMetrics = await fetchFallbackMetrics(ticker, apiKey).catch(() => null);
+    if (fallbackMetrics) {
+      writeCachedMetrics(ticker, fallbackMetrics);
+      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
+      return res.status(200).json(fallbackMetrics);
     }
 
-    return res.status(isTimeout ? 504 : 500).json({
-      error: isTimeout
-        ? 'Upstream request timed out (FMP, Twelve Data, and Massive fallback unavailable)'
-        : 'Internal server error',
-    });
+    const stale = readCachedMetrics(ticker);
+    if (stale) {
+      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+      res.setHeader('X-Data-Stale', '1');
+      return res.status(200).json({ ...stale, stale: true });
+    }
+
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+    return res.status(200).json(buildUnavailableMetrics(ticker));
   }
 }

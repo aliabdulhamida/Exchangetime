@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
-const FX_PAIR_PATTERN = /^[A-Z]{6}(=X)?$/;
+import {
+  fetchYahooChart,
+  fetchYahooQuoteSnapshot,
+  normalizeYahooSymbol,
+  normalizeUnixParam,
+  toYahooRequestSymbol,
+} from '@/lib/server/yahoo-finance';
+
 const ALLOWED_RANGES = new Set([
   '1d',
   '5d',
@@ -17,18 +23,12 @@ const ALLOWED_RANGES = new Set([
 ]);
 
 function normalizeSymbol(raw: string): string | null {
-  const normalized = raw.trim().toUpperCase();
+  const normalized = normalizeYahooSymbol(raw, {
+    allowFxPair: true,
+    allowFxWithSuffix: true,
+  });
   if (!normalized) return null;
-  if (FX_PAIR_PATTERN.test(normalized)) return normalized.replace('=X', '');
-  if (SYMBOL_PATTERN.test(normalized)) return normalized;
-  return null;
-}
-
-function normalizeUnixParam(raw: string): string {
-  if (!raw) return '';
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0) return '';
-  return String(Math.floor(parsed));
+  return normalized.replace('=X', '');
 }
 
 function toIsoDateFromUnix(unixSeconds: string): string {
@@ -105,11 +105,6 @@ async function fetchCurrency(symbol: string, apiKey: string): Promise<string | n
 
 export async function GET(req: NextRequest) {
   try {
-    const apiKey = String(process.env.FMP_API_KEY || '').trim();
-    if (!apiKey) {
-      return NextResponse.json({ error: 'FMP_API_KEY is missing' }, { status: 500 });
-    }
-
     const url = new URL(req.url);
     const symbol = normalizeSymbol(url.searchParams.get('symbol') || '');
     if (!symbol) {
@@ -119,18 +114,63 @@ export async function GET(req: NextRequest) {
     const wantChart =
       url.searchParams.get('chart') === '1' || url.searchParams.get('chart') === 'true';
 
+    const interval = (url.searchParams.get('interval') || '1d').toLowerCase();
+    if (wantChart && interval !== '1d') {
+      return NextResponse.json(
+        { error: 'Only interval=1d is supported for portfolio-market endpoint' },
+        { status: 400 },
+      );
+    }
+
+    const yahooSymbol = toYahooRequestSymbol(symbol);
+
+    if (wantChart) {
+      const rangeRaw = (url.searchParams.get('range') || '').trim().toLowerCase();
+      const range = ALLOWED_RANGES.has(rangeRaw) ? rangeRaw : '1y';
+      const period1 = normalizeUnixParam((url.searchParams.get('period1') || '').trim());
+      const period2 = normalizeUnixParam((url.searchParams.get('period2') || '').trim());
+
+      const yahooChart = await fetchYahooChart(yahooSymbol, {
+        interval,
+        period1,
+        period2,
+        range,
+        events: url.searchParams.get('events') || '',
+      });
+
+      if (yahooChart.ok && yahooChart.data.chartResult) {
+        return NextResponse.json({
+          chart: { result: [yahooChart.data.chartResult], error: null },
+          series: yahooChart.data.series,
+          timestamps: yahooChart.data.timestamps,
+          currency: yahooChart.data.currency,
+          source: 'yahoo',
+        });
+      }
+    } else {
+      const yahooQuote = await fetchYahooQuoteSnapshot(yahooSymbol).catch(() => null);
+      if (yahooQuote?.ok) {
+        return NextResponse.json({
+          price: yahooQuote.data.price,
+          previousClose: yahooQuote.data.previousClose,
+          currency: yahooQuote.data.currency,
+          symbol,
+          source: 'yahoo',
+          meta: yahooQuote.data.meta,
+        });
+      }
+    }
+
+    // Fallback provider path.
+    const apiKey = String(process.env.FMP_API_KEY || '').trim();
+    if (!apiKey) {
+      return NextResponse.json({ error: 'FMP_API_KEY is missing' }, { status: 500 });
+    }
+
     const isFx = /^[A-Z]{6}$/.test(symbol);
     const targetCurrency = isFx ? symbol.slice(3) : null;
 
     if (wantChart) {
-      const interval = (url.searchParams.get('interval') || '1d').toLowerCase();
-      if (interval !== '1d') {
-        return NextResponse.json(
-          { error: 'Only interval=1d is supported for portfolio-market endpoint' },
-          { status: 400 },
-        );
-      }
-
       const period1 = normalizeUnixParam((url.searchParams.get('period1') || '').trim());
       const period2 = normalizeUnixParam((url.searchParams.get('period2') || '').trim());
       const rangeRaw = (url.searchParams.get('range') || '').trim().toLowerCase();

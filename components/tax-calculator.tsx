@@ -1,7 +1,7 @@
 'use client';
 
 import { Info } from 'lucide-react';
-import { useMemo, useState, type InputHTMLAttributes } from 'react';
+import { useEffect, useMemo, useRef, useState, type InputHTMLAttributes } from 'react';
 import type React from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -70,7 +70,7 @@ function Segmented({
             type="button"
             onClick={() => onChange(opt.value)}
             className={
-              'px-2 py-1 text-xs rounded-md transition-colors ' +
+              'rounded-md px-2.5 py-1.5 text-sm transition-colors sm:px-2 sm:py-1 sm:text-xs ' +
               (fullWidth ? 'flex-1 text-center' : '') +
               ' ' +
               (active
@@ -157,7 +157,10 @@ function InputAdornment({
         placeholder={placeholder}
         inputMode="decimal"
         className={
-          (className ?? '') + ' h-8 text-sm ' + (prefix ? ' pl-5' : '') + (suffix ? ' pr-8' : '')
+          (className ?? '') +
+          ' h-10 text-base sm:h-8 sm:text-sm ' +
+          (prefix ? ' pl-5' : '') +
+          (suffix ? ' pr-8' : '')
         }
       />
       {suffix && (
@@ -177,42 +180,42 @@ function currency(value: number, locale = 'en-US', currency = 'USD') {
   }).format(v);
 }
 
-// --- USA Federal (2025 per IRS Rev. Proc. 2024-40 via Tax Foundation) ---
-// Ordinary income tax brackets (taxable income) for 2025
-const USA_BRACKETS_2025: Record<FilingStatus, ReadonlyArray<{ upto: number; rate: number }>> = {
+// --- USA Federal (2026 per IRS Rev. Proc. 2025-32) ---
+// Ordinary income tax brackets (taxable income) for 2026
+const USA_BRACKETS_2026: Record<FilingStatus, ReadonlyArray<{ upto: number; rate: number }>> = {
   single: [
-    { upto: 11925, rate: 0.1 },
-    { upto: 48475, rate: 0.12 },
-    { upto: 103350, rate: 0.22 },
-    { upto: 197300, rate: 0.24 },
-    { upto: 250525, rate: 0.32 },
-    { upto: 626350, rate: 0.35 },
+    { upto: 12400, rate: 0.1 },
+    { upto: 50400, rate: 0.12 },
+    { upto: 105700, rate: 0.22 },
+    { upto: 201775, rate: 0.24 },
+    { upto: 256225, rate: 0.32 },
+    { upto: 640600, rate: 0.35 },
     { upto: Infinity, rate: 0.37 },
   ],
   married: [
-    { upto: 23850, rate: 0.1 },
-    { upto: 96950, rate: 0.12 },
-    { upto: 206700, rate: 0.22 },
-    { upto: 394600, rate: 0.24 },
-    { upto: 501050, rate: 0.32 },
-    { upto: 751600, rate: 0.35 },
+    { upto: 24800, rate: 0.1 },
+    { upto: 100800, rate: 0.12 },
+    { upto: 211400, rate: 0.22 },
+    { upto: 403550, rate: 0.24 },
+    { upto: 512450, rate: 0.32 },
+    { upto: 768700, rate: 0.35 },
     { upto: Infinity, rate: 0.37 },
   ],
 };
 
-// Long-term capital gains rate thresholds (based on taxable income) for 2025
-const USA_LTCG_THRESHOLDS_2025: Record<
+// Long-term capital gains rate thresholds (based on taxable income) for 2026
+const USA_LTCG_THRESHOLDS_2026: Record<
   FilingStatus,
   ReadonlyArray<{ upto: number; rate: number }>
 > = {
   single: [
-    { upto: 48350, rate: 0.0 },
-    { upto: 533400, rate: 0.15 },
+    { upto: 49450, rate: 0.0 },
+    { upto: 545500, rate: 0.15 },
     { upto: Infinity, rate: 0.2 },
   ],
   married: [
-    { upto: 96700, rate: 0.0 },
-    { upto: 600050, rate: 0.15 },
+    { upto: 98900, rate: 0.0 },
+    { upto: 613700, rate: 0.15 },
     { upto: Infinity, rate: 0.2 },
   ],
 };
@@ -231,13 +234,13 @@ function progressiveTax(amount: number, brackets: ReadonlyArray<{ upto: number; 
 }
 
 function usaOrdinaryIncomeTax(taxableOrdinary: number, status: FilingStatus) {
-  return progressiveTax(taxableOrdinary, USA_BRACKETS_2025[status]);
+  return progressiveTax(taxableOrdinary, USA_BRACKETS_2026[status]);
 }
 
 function usaLTCGTax(ltcg: number, status: FilingStatus, taxableOrdinary: number) {
   // Apply preferential rates based on taxable income + LTCG positioning (simplified)
   if (ltcg <= 0) return 0;
-  const thresholds = USA_LTCG_THRESHOLDS_2025[status];
+  const thresholds = USA_LTCG_THRESHOLDS_2026[status];
   let remaining = ltcg;
   let tax = 0;
   let incomePosition = taxableOrdinary; // simplified: stack LTCG on top of ordinary
@@ -375,15 +378,16 @@ export default function TaxCalculator() {
   const [inputMode, setInputMode] = useState<'simple' | 'advanced'>('simple');
 
   // Common inputs
+  const [salaryInputBasis, setSalaryInputBasis] = useState<'annual' | 'monthly'>('annual');
   const [salaryIncome, setSalaryIncome] = useState(80000);
-  const [capitalGains, setCapitalGains] = useState(5000);
+  const [capitalGains, setCapitalGains] = useState(0);
   const [holdingPeriodLong, setHoldingPeriodLong] = useState(true); // US only meaningful
-  const [dividends, setDividends] = useState(2000);
+  const [dividends, setDividends] = useState(0);
   const [qualifiedDividends, setQualifiedDividends] = useState(true); // US only
   const [interestIncome, setInterestIncome] = useState(0);
 
   // USA specific
-  const getUsStandardDeduction = (s: FilingStatus) => (s === 'married' ? 30000 : 15000);
+  const getUsStandardDeduction = (s: FilingStatus) => (s === 'married' ? 32200 : 16100);
   const [usStandardDeduction, setUsStandardDeduction] = useState(() =>
     getUsStandardDeduction(status),
   );
@@ -464,6 +468,13 @@ export default function TaxCalculator() {
     setDeAllowance(next === 'single' ? 1000 : 2000);
     setDeTaxClass(next === 'married' ? 'IV' : 'I');
   }
+
+  const mobileSelectClass =
+    'w-full rounded-md border border-input bg-transparent px-2 text-base h-10 sm:h-8 sm:text-sm';
+  const toAnnualSalary = (value: number) => (salaryInputBasis === 'monthly' ? value * 12 : value);
+  const fromAnnualSalary = (value: number) =>
+    salaryInputBasis === 'monthly' ? Number((value / 12).toFixed(2)) : value;
+  const salaryStep = salaryInputBasis === 'monthly' ? 100 : 1000;
 
   const result = useMemo(() => {
     const effectiveUsStandardDeduction =
@@ -585,9 +596,9 @@ export default function TaxCalculator() {
       const stateTax = (taxableOrdinary + taxablePref) * stateRate;
 
       // Payroll taxes (FICA)
-      const SSA_WAGE_BASE_2025 = 176100;
-      const ssTaxPrimary = Math.min(primaryWages, SSA_WAGE_BASE_2025) * 0.062;
-      const ssTaxSpouse = Math.min(spouseWages, SSA_WAGE_BASE_2025) * 0.062;
+      const SSA_WAGE_BASE_2026 = 184500;
+      const ssTaxPrimary = Math.min(primaryWages, SSA_WAGE_BASE_2026) * 0.062;
+      const ssTaxSpouse = Math.min(spouseWages, SSA_WAGE_BASE_2026) * 0.062;
       const ssTax = ssTaxPrimary + ssTaxSpouse;
       const addlMedicareThreshold = status === 'married' ? 250000 : 200000; // Single/HoH $200k
       const medicareBase = wages * 0.0145;
@@ -933,12 +944,12 @@ export default function TaxCalculator() {
           </div>
         </CardHeader>
         <CardContent className="grid gap-3 p-0">
-          <div className="lg:hidden">
+          <div className="sticky top-0 z-10 bg-background/95 pb-1 backdrop-blur lg:hidden">
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
               <button
                 type="button"
                 onClick={() => setMobilePanel('inputs')}
-                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                   mobilePanel === 'inputs'
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground hover:text-foreground'
@@ -950,7 +961,7 @@ export default function TaxCalculator() {
               <button
                 type="button"
                 onClick={() => setMobilePanel('results')}
-                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                   mobilePanel === 'results'
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground hover:text-foreground'
@@ -964,7 +975,7 @@ export default function TaxCalculator() {
           <div className="grid gap-3 lg:grid-cols-2 lg:gap-4">
             {/* Left: Inputs */}
             <div className={`space-y-3 ${mobilePanel === 'inputs' ? 'block' : 'hidden lg:block'}`}>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <div>
                   <Label className="text-xs mb-1 block">Country</Label>
                   <Segmented
@@ -989,7 +1000,7 @@ export default function TaxCalculator() {
                     ]}
                   />
                 </div>
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <div className="flex items-center gap-2 mb-1">
                     <Label className="text-xs">Input mode</Label>
                     {country === 'Germany' && (
@@ -1022,38 +1033,56 @@ export default function TaxCalculator() {
                 </div>
               </div>
               <div>
-                <div>
-                  <Label htmlFor="salary" className="text-xs mb-1 block">
-                    Annual salary income
-                  </Label>
-                  <InputAdornment
-                    id="salary"
-                    className="w-full"
-                    prefix={country === 'USA' ? '$' : '€'}
-                    step={1000}
-                    min={0}
-                    value={salaryIncome}
-                    onChange={(e) => setSalaryIncome(Number(e.target.value))}
-                  />
+                <div className="flex items-end gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Label htmlFor="salary" className="text-xs mb-1 block">
+                      {salaryInputBasis === 'monthly'
+                        ? 'Monthly salary income'
+                        : 'Annual salary income'}
+                    </Label>
+                    <InputAdornment
+                      id="salary"
+                      className="w-full"
+                      prefix={country === 'USA' ? '$' : '€'}
+                      step={salaryStep}
+                      min={0}
+                      value={fromAnnualSalary(salaryIncome)}
+                      onChange={(e) => setSalaryIncome(toAnnualSalary(Number(e.target.value)))}
+                    />
+                  </div>
+                  <div className="w-36 shrink-0">
+                    <Label className="text-xs mb-1 block">Salary input</Label>
+                    <Segmented
+                      value={salaryInputBasis}
+                      onChange={(v: string) => setSalaryInputBasis(v as 'annual' | 'monthly')}
+                      fullWidth
+                      options={[
+                        { label: 'Annual', value: 'annual' },
+                        { label: 'Monthly', value: 'monthly' },
+                      ]}
+                    />
+                  </div>
                 </div>
               </div>
               {country === 'USA' && status === 'married' && (
                 <div>
                   <Label htmlFor="usSpouseSalary" className="text-xs mb-1 block">
-                    Spouse salary income
+                    {salaryInputBasis === 'monthly'
+                      ? 'Spouse salary income (monthly)'
+                      : 'Spouse salary income (annual)'}
                   </Label>
                   <InputAdornment
                     id="usSpouseSalary"
                     prefix="$"
-                    step={1000}
+                    step={salaryStep}
                     min={0}
-                    value={usSpouseSalary}
-                    onChange={(e) => setUsSpouseSalary(Number(e.target.value))}
+                    value={fromAnnualSalary(usSpouseSalary)}
+                    onChange={(e) => setUsSpouseSalary(toAnnualSalary(Number(e.target.value)))}
                   />
                 </div>
               )}
               {country === 'Germany' && (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4 items-start">
+                <div className="grid grid-cols-2 items-start gap-2 sm:grid-cols-2 xl:grid-cols-4">
                   <div>
                     <Label
                       htmlFor="allowance"
@@ -1082,7 +1111,7 @@ export default function TaxCalculator() {
                     </Label>
                     <select
                       id="church"
-                      className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
+                      className={mobileSelectClass}
                       value={deChurchTaxPct}
                       onChange={(e) => setDeChurchTaxPct(Number(e.target.value) as 0 | 8 | 9)}
                     >
@@ -1101,7 +1130,7 @@ export default function TaxCalculator() {
                     </Label>
                     <select
                       id="steuerklasse"
-                      className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
+                      className={mobileSelectClass}
                       value={deTaxClass}
                       onChange={(e) => setDeTaxClass(e.target.value as DeTaxClass)}
                     >
@@ -1131,7 +1160,9 @@ export default function TaxCalculator() {
               )}
 
               <div
-                className={`grid grid-cols-1 gap-2 sm:grid-cols-2 ${
+                className={`grid gap-2 ${
+                  country === 'Germany' ? 'grid-cols-2 sm:grid-cols-2' : 'grid-cols-2 sm:grid-cols-2'
+                } ${
                   country === 'Germany' && inputMode !== 'advanced'
                     ? 'xl:grid-cols-2'
                     : 'xl:grid-cols-3'
@@ -1168,11 +1199,12 @@ export default function TaxCalculator() {
                     prefix={country === 'USA' ? '$' : '€'}
                   />
                   {country === 'USA' && (
-                    <div className="mt-1 flex gap-2 text-[11px] items-center">
-                      <span className="opacity-80">Term:</span>
+                    <div className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-[11px]">
+                      <span className="opacity-80 whitespace-nowrap">Term:</span>
                       <Segmented
                         value={holdingPeriodLong ? 'lt' : 'st'}
                         onChange={(v: string) => setHoldingPeriodLong(v === 'lt')}
+                        fullWidth
                         options={[
                           { label: 'Short', value: 'st' },
                           { label: 'Long (1y+)', value: 'lt' },
@@ -1194,11 +1226,12 @@ export default function TaxCalculator() {
                     prefix={country === 'USA' ? '$' : '€'}
                   />
                   {country === 'USA' && (
-                    <div className="mt-1 flex gap-2 text-[11px] items-center">
-                      <span className="opacity-80">Qualified?</span>
+                    <div className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-[11px]">
+                      <span className="opacity-80 whitespace-nowrap">Qualified?</span>
                       <Segmented
                         value={qualifiedDividends ? 'yes' : 'no'}
                         onChange={(v: string) => setQualifiedDividends(v === 'yes')}
+                        fullWidth
                         options={[
                           { label: 'No', value: 'no' },
                           { label: 'Yes', value: 'yes' },
@@ -1225,7 +1258,7 @@ export default function TaxCalculator() {
                         </Label>
                         <select
                           id="dtaCountry"
-                          className="w-full h-9 rounded-md border bg-background text-sm px-2"
+                          className={mobileSelectClass}
                           value={deDtaCountry}
                           onChange={(e) => setDeDtaCountry(e.target.value as DeDtaCountry)}
                         >
@@ -1283,10 +1316,10 @@ export default function TaxCalculator() {
               </div>
 
               {country === 'USA' ? (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 items-start">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 xl:grid-cols-3 items-start">
                   {inputMode === 'simple' && (
                     <div className="col-span-full rounded-md border border-border/50 bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
-                      Simple mode uses the 2025 standard deduction and common defaults. Use advanced
+                      Simple mode uses the 2026 standard deduction and common defaults. Use advanced
                       mode for itemized deductions, NIIT, QBI, and AMT.
                     </div>
                   )}
@@ -1307,7 +1340,7 @@ export default function TaxCalculator() {
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
-                            2025 defaults: Single $15,000 · MFJ $30,000 · HoH $22,500.
+                            2026 defaults: Single $16,100 · MFJ $32,200.
                           </TooltipContent>
                         </Tooltip>
                       </div>
@@ -1342,7 +1375,8 @@ export default function TaxCalculator() {
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
-                            Single/HoH ≈ $1,950 each; Married ≈ $1,550 each. Enter the total amount
+                            2026 add-on: $2,050 each (single), $1,650 each (married). Enter the
+                            total amount
                             for all qualifying taxpayers.
                           </TooltipContent>
                         </Tooltip>
@@ -1431,7 +1465,7 @@ export default function TaxCalculator() {
                     </Label>
                     <select
                       id="statePreset"
-                      className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
+                      className={mobileSelectClass}
                       value={usStatePreset}
                       onChange={(e) => {
                         const v = e.target.value as typeof usStatePreset;
@@ -1474,16 +1508,17 @@ export default function TaxCalculator() {
                     </div>
                   </div>
                   <div
-                    className={`grid grid-cols-1 gap-2 col-span-full ${
-                      inputMode === 'advanced' ? 'sm:grid-cols-2' : 'sm:grid-cols-1'
+                    className={`grid col-span-full gap-2 ${
+                      inputMode === 'advanced' ? 'grid-cols-2 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-1'
                     }`}
                   >
                     {inputMode === 'advanced' && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] opacity-80">NIIT 3.8%</span>
+                      <div className="rounded-md border border-border/50 bg-muted/20 px-2 py-1.5">
+                        <div className="mb-1 text-[11px] opacity-80">NIIT 3.8%</div>
                         <Segmented
                           value={includeNIIT ? 'on' : 'off'}
                           onChange={(v: string) => setIncludeNIIT(v === 'on')}
+                          fullWidth
                           options={[
                             { label: 'Off', value: 'off' },
                             { label: 'On', value: 'on' },
@@ -1491,11 +1526,12 @@ export default function TaxCalculator() {
                         />
                       </div>
                     )}
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] opacity-80">FICA</span>
+                    <div className="rounded-md border border-border/50 bg-muted/20 px-2 py-1.5">
+                      <div className="mb-1 text-[11px] opacity-80">FICA</div>
                       <Segmented
                         value={usIncludePayroll ? 'on' : 'off'}
                         onChange={(v: string) => setUsIncludePayroll(v === 'on')}
+                        fullWidth
                         options={[
                           { label: 'Off', value: 'off' },
                           { label: 'On', value: 'on' },
@@ -1509,7 +1545,7 @@ export default function TaxCalculator() {
                       <summary className="cursor-pointer text-xs font-medium opacity-80 select-none">
                         USA Estimators (QBI & AMT)
                       </summary>
-                      <div className="grid md:grid-cols-3 gap-2 mt-2">
+                      <div className="grid grid-cols-2 gap-2 mt-2">
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] opacity-80">QBI</span>
                           <Segmented
@@ -1598,7 +1634,7 @@ export default function TaxCalculator() {
                               </Label>
                               <select
                                 id="amtRate"
-                                className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
+                                className={mobileSelectClass}
                                 value={usAMTRate}
                                 onChange={(e) => setUsAMTRate(e.target.value as '26' | '28')}
                               >
@@ -1617,14 +1653,16 @@ export default function TaxCalculator() {
                   {status === 'married' && (
                     <div>
                       <Label htmlFor="spouseSalary" className="text-xs mb-1 block">
-                        Spouse salary (annual)
+                        {salaryInputBasis === 'monthly'
+                          ? 'Spouse salary (monthly)'
+                          : 'Spouse salary (annual)'}
                       </Label>
                       <InputAdornment
                         id="spouseSalary"
                         min={0}
-                        step={1000}
-                        value={deSpouseSalary}
-                        onChange={(e) => setDeSpouseSalary(Number(e.target.value))}
+                        step={salaryStep}
+                        value={fromAnnualSalary(deSpouseSalary)}
+                        onChange={(e) => setDeSpouseSalary(toAnnualSalary(Number(e.target.value)))}
                         prefix="€"
                       />
                     </div>
@@ -1749,7 +1787,7 @@ export default function TaxCalculator() {
                         <div>
                           <Label className="text-xs mb-1 block">Teilfreistellung</Label>
                           <select
-                            className="w-full h-8 text-sm px-2 rounded-md bg-transparent border border-input"
+                            className={mobileSelectClass}
                             value={deVorabTeilfreistellungPct}
                             onChange={(e) =>
                               setDeVorabTeilfreistellungPct(
@@ -1795,9 +1833,18 @@ export default function TaxCalculator() {
 }
 
 function TaxVisuals({ result }: { result: any }) {
+  type PieTooltipState = {
+    x: number;
+    y: number;
+    label: string;
+    amount: number;
+    pct: number;
+  };
   const grossIncome = Math.max(0, Number(result.totalIncome || 0));
   const details = result._details || {};
   const isUSA = result.currencyCode === 'USD';
+  const pieRef = useRef<HTMLDivElement | null>(null);
+  const [pieTooltip, setPieTooltip] = useState<PieTooltipState | null>(null);
 
   const reductionItems = isUSA
     ? [
@@ -1805,19 +1852,37 @@ function TaxVisuals({ result }: { result: any }) {
           label: 'Federal income tax',
           amount: Number(details.federalOrdinaryTax || 0),
           color: 'bg-rose-500/80',
+          chartColor: '#f43f5e',
         },
         {
           label: 'Federal capital tax',
           amount: Number(details.federalLTCGTax || 0),
           color: 'bg-red-500/70',
+          chartColor: '#ef4444',
         },
-        { label: 'State tax', amount: Number(details.stateTax || 0), color: 'bg-orange-500/70' },
-        { label: 'NIIT', amount: Number(details.niit || 0), color: 'bg-amber-500/70' },
-        { label: 'AMT top-up', amount: Number(details.amt?.topUp || 0), color: 'bg-yellow-500/70' },
+        {
+          label: 'State tax',
+          amount: Number(details.stateTax || 0),
+          color: 'bg-orange-500/70',
+          chartColor: '#f97316',
+        },
+        {
+          label: 'NIIT',
+          amount: Number(details.niit || 0),
+          color: 'bg-amber-500/70',
+          chartColor: '#f59e0b',
+        },
+        {
+          label: 'AMT top-up',
+          amount: Number(details.amt?.topUp || 0),
+          color: 'bg-yellow-500/70',
+          chartColor: '#eab308',
+        },
         {
           label: 'Payroll (FICA)',
           amount: Number(details.payroll?.total || 0),
           color: 'bg-fuchsia-500/70',
+          chartColor: '#d946ef',
         },
       ]
     : [
@@ -1825,26 +1890,31 @@ function TaxVisuals({ result }: { result: any }) {
           label: 'Income tax (ESt)',
           amount: Number(details.payroll?.est || 0),
           color: 'bg-rose-500/80',
+          chartColor: '#f43f5e',
         },
         {
           label: 'Soli (income)',
           amount: Number(details.payroll?.soliOnIncome || 0),
           color: 'bg-red-500/70',
+          chartColor: '#ef4444',
         },
         {
           label: 'Church tax (income)',
           amount: Number(details.payroll?.churchTax || 0),
           color: 'bg-orange-500/70',
+          chartColor: '#f97316',
         },
         {
           label: 'Capital income tax',
           amount: Number(result.capitalTax || 0),
           color: 'bg-amber-500/70',
+          chartColor: '#f59e0b',
         },
         {
           label: 'Social contributions',
           amount: Number(details.payroll?.socialSum || 0),
           color: 'bg-fuchsia-500/70',
+          chartColor: '#d946ef',
         },
       ];
 
@@ -1853,84 +1923,240 @@ function TaxVisuals({ result }: { result: any }) {
     .sort((a, b) => b.amount - a.amount);
   const totalReduction = reductions.reduce((sum, item) => sum + item.amount, 0);
   const netAfterReductions = Math.max(0, grossIncome - totalReduction);
-  const reductionPct = grossIncome > 0 ? Math.min(100, (totalReduction / grossIncome) * 100) : 0;
-  const netPct = Math.max(0, 100 - reductionPct);
+  const netPct = grossIncome > 0 ? Math.max(0, (netAfterReductions / grossIncome) * 100) : 0;
+  const pieSegments = [
+    ...reductions.map((item) => ({
+      label: item.label,
+      amount: item.amount,
+      color: item.color,
+      chartColor: item.chartColor,
+    })),
+    ...(netAfterReductions > 0
+      ? [
+          {
+            label: 'Net remaining',
+            amount: netAfterReductions,
+            color: 'bg-cyan-400/80',
+            chartColor: '#22d3ee',
+          },
+        ]
+      : []),
+  ];
+  const pieTotal = pieSegments.reduce((sum, item) => sum + item.amount, 0);
+  const pieRanges = (() => {
+    let running = 0;
+    return pieSegments.map((item) => {
+      const pct = pieTotal > 0 ? (item.amount / pieTotal) * 100 : 0;
+      const start = running;
+      const end = running + pct;
+      running = end;
+      return {
+        ...item,
+        pct,
+        start,
+        end,
+      };
+    });
+  })();
+  const pieGradient =
+    pieRanges.length > 0 && pieTotal > 0
+      ? `conic-gradient(${pieRanges
+          .map((item) => {
+            return `${item.chartColor} ${item.start.toFixed(3)}% ${item.end.toFixed(3)}%`;
+          })
+          .join(', ')})`
+      : 'conic-gradient(hsl(var(--muted)) 0 100%)';
 
   const fmt = (v: number) => currency(v, result.locale, result.currencyCode);
+  const monthlyNet = Number(result.monthlyNet || 0);
+  const annualNet = Number(result.annualNet || 0);
+  const allInBurdenPct = grossIncome > 0 ? (totalReduction / grossIncome) * 100 : 0;
+
+  useEffect(() => {
+    if (!pieTooltip) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!pieRef.current?.contains(event.target as Node)) setPieTooltip(null);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [pieTooltip]);
+
+  const handlePieClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const host = pieRef.current;
+    if (!host || pieRanges.length === 0 || pieTotal <= 0) return;
+
+    const rect = host.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const dx = x - cx;
+    const dy = y - cy;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const outerRadius = Math.min(rect.width, rect.height) / 2;
+    const innerRadius = outerRadius * 0.46;
+
+    if (distance < innerRadius || distance > outerRadius) {
+      setPieTooltip(null);
+      return;
+    }
+
+    const degrees = ((Math.atan2(dy, dx) * 180) / Math.PI + 450) % 360;
+    const percent = (degrees / 360) * 100;
+    const segment =
+      pieRanges.find((item) => percent >= item.start && percent < item.end) ||
+      pieRanges[pieRanges.length - 1];
+
+    if (!segment) {
+      setPieTooltip(null);
+      return;
+    }
+
+    setPieTooltip({
+      x,
+      y,
+      label: segment.label,
+      amount: segment.amount,
+      pct: segment.pct,
+    });
+  };
+
+  const showPrimaryPieTooltip = () => {
+    const host = pieRef.current;
+    const first = pieRanges[0];
+    if (!host || !first) return;
+    setPieTooltip({
+      x: host.clientWidth / 2,
+      y: host.clientHeight / 2,
+      label: first.label,
+      amount: first.amount,
+      pct: first.pct,
+    });
+  };
 
   return (
-    <Card className="bg-transparent border border-border/50">
-      <CardHeader className="py-3">
-        <CardTitle className="text-base">Income Reduction Map</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0 px-4 pb-4 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div className="rounded-md border border-border/50 px-3 py-2 bg-muted/20">
-            <div className="text-[11px] text-muted-foreground">Gross income</div>
-            <div className="text-base font-semibold">{fmt(grossIncome)}</div>
+    <Card className="border border-border/70 bg-gradient-to-b from-background/95 to-muted/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+      <CardContent className="space-y-3 px-2.5 pb-3 pt-2.5 sm:space-y-4 sm:px-4 sm:pb-4 sm:pt-3">
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] sm:gap-2">
+          <div className="col-span-2 rounded-xl border border-border/60 bg-background/60 px-2.5 py-2 sm:col-span-1 sm:px-3 sm:py-3">
+            <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              Monthly Net
+            </div>
+            <div className="mt-1 text-2xl font-semibold leading-none text-foreground sm:text-3xl">
+              {fmt(monthlyNet)}
+            </div>
+            <div className="mt-1.5 text-[10px] text-muted-foreground sm:mt-2 sm:text-[11px]">
+              Annual net: {fmt(annualNet)}
+            </div>
           </div>
-          <div className="rounded-md border border-border/50 px-3 py-2 bg-muted/20">
-            <div className="text-[11px] text-muted-foreground">Total reductions</div>
-            <div className="text-base font-semibold">{fmt(totalReduction)}</div>
+          <div className="rounded-xl border border-border/60 bg-background/60 px-2.5 py-2 sm:px-3 sm:py-3">
+            <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              All-in Burden
+            </div>
+            <div className="mt-1 text-xl font-semibold leading-none text-foreground sm:text-2xl">
+              {allInBurdenPct.toFixed(1)}%
+            </div>
+            <div className="mt-1.5 text-[10px] text-muted-foreground sm:mt-2 sm:text-[11px]">
+              {netPct.toFixed(1)}% retained
+            </div>
           </div>
-          <div className="rounded-md border border-border/50 px-3 py-2 bg-muted/20">
-            <div className="text-[11px] text-muted-foreground">Net after reductions</div>
-            <div className="text-base font-semibold">{fmt(netAfterReductions)}</div>
+          <div className="rounded-xl border border-border/60 bg-background/60 px-2.5 py-2 sm:px-3 sm:py-3">
+            <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              Total Reductions
+            </div>
+            <div className="mt-1 text-xl font-semibold leading-none text-foreground sm:text-2xl">
+              {fmt(totalReduction)}
+            </div>
+            <div className="mt-1.5 text-[10px] text-muted-foreground sm:mt-2 sm:text-[11px]">
+              Gross: {fmt(grossIncome)}
+            </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <span>Effective rate: {(Number(result.effectiveRate || 0) * 100).toFixed(1)}%</span>
         </div>
 
-        <div className="space-y-1">
-          <div className="h-3 rounded-full bg-muted overflow-hidden flex">
-            {reductions.map((item) => (
+        <div className="rounded-xl border border-border/50 bg-gradient-to-b from-muted/20 to-background/45 p-2.5 sm:p-4">
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-4">
+            <div className="mx-auto">
               <div
-                key={item.label}
-                className={item.color}
-                style={{
-                  width:
-                    grossIncome > 0 ? `${Math.max(0, (item.amount / grossIncome) * 100)}%` : '0%',
+                ref={pieRef}
+                onClick={handlePieClick}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    showPrimaryPieTooltip();
+                  }
+                  if (event.key === 'Escape') setPieTooltip(null);
                 }}
-                title={`${item.label}: ${fmt(item.amount)}`}
-              />
-            ))}
-            <div className="bg-emerald-500/70" style={{ width: `${netPct}%` }} />
-          </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Reduced: {reductionPct.toFixed(1)}%</span>
-            <span>Kept: {netPct.toFixed(1)}%</span>
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          {reductions.map((item) => {
-            const pctOfGross = grossIncome > 0 ? (item.amount / grossIncome) * 100 : 0;
-            return (
-              <div key={item.label} className="flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
-                  <span>{item.label}</span>
+                role="button"
+                tabIndex={0}
+                aria-label="Show pie segment details"
+                className="relative h-32 w-32 cursor-pointer sm:h-44 sm:w-44"
+              >
+                <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-cyan-500/20 via-fuchsia-500/20 to-rose-500/20 blur-md" />
+                <div
+                  className="relative h-full w-full rounded-full border border-border/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
+                  style={{ background: pieGradient }}
+                />
+                <div className="absolute inset-[27%] rounded-full border border-border/50 bg-background/95 backdrop-blur" />
+                {pieTooltip && (
+                  <div
+                    className="pointer-events-none absolute z-20 min-w-[8.5rem] rounded-md border border-border/70 bg-background/95 px-2.5 py-2 text-left shadow-lg backdrop-blur"
+                    style={{
+                      left: `${pieTooltip.x}px`,
+                      top: pieTooltip.y < 44 ? `${pieTooltip.y + 16}px` : `${pieTooltip.y - 12}px`,
+                      transform: pieTooltip.y < 44 ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+                    }}
+                  >
+                    <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      {pieTooltip.label}
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-foreground">
+                      {fmt(pieTooltip.amount)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {pieTooltip.pct.toFixed(1)}% of gross
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1.5 sm:space-y-2">
+              {reductions.map((item) => {
+                const pctOfGross = grossIncome > 0 ? (item.amount / grossIncome) * 100 : 0;
+                return (
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between gap-2.5 rounded-lg border border-border/50 bg-background/40 px-2.5 py-2 text-[13px] transition-colors hover:bg-background/60 sm:gap-3 sm:px-3 sm:py-2.5 sm:text-sm"
+                  >
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
+                      <span
+                        className="h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5"
+                        style={{ backgroundColor: item.chartColor }}
+                      />
+                      <span>{item.label}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-foreground sm:text-base">{fmt(item.amount)}</div>
+                      <div className="text-[10px] text-muted-foreground sm:text-[11px]">
+                        {pctOfGross.toFixed(1)}% of gross
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="mt-2.5 flex items-center justify-between gap-2.5 rounded-lg border border-border/60 bg-background/55 px-2.5 py-2 text-[13px] sm:mt-3 sm:gap-3 sm:px-3 sm:py-2.5 sm:text-sm">
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className="h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5"
+                    style={{ backgroundColor: '#22d3ee' }}
+                  />
+                  <span>Net remaining</span>
                 </div>
                 <div className="text-right">
-                  <div>{fmt(item.amount)}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {pctOfGross.toFixed(1)}% of gross
+                  <div className="text-sm font-semibold text-foreground sm:text-base">{fmt(netAfterReductions)}</div>
+                  <div className="text-[10px] text-muted-foreground sm:text-[11px]">
+                    {netPct.toFixed(1)}% of gross
                   </div>
                 </div>
-              </div>
-            );
-          })}
-          <div className="flex items-center justify-between gap-3 text-sm border-t border-border/40 pt-2">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/70" />
-              <span>Net remaining</span>
-            </div>
-            <div className="text-right">
-              <div>{fmt(netAfterReductions)}</div>
-              <div className="text-[11px] text-muted-foreground">{netPct.toFixed(1)}% of gross</div>
-              <div className="text-[11px] text-muted-foreground">
-                Monthly net: {fmt(Number(result.monthlyNet || 0))}
               </div>
             </div>
           </div>

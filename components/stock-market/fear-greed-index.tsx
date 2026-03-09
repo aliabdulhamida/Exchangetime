@@ -11,21 +11,46 @@ export default function FearGreedIndex() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const prevIndexRef = useRef<number | null>(null);
+  const providerUnavailableRef = useRef(false);
+  const PROVIDER_UNAVAILABLE_SESSION_KEY = 'fear_greed_provider_unavailable';
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem(PROVIDER_UNAVAILABLE_SESSION_KEY) === '1') {
+      providerUnavailableRef.current = true;
+      setLoading(false);
+      setError('Provider not configured.');
+      return;
+    }
+
     const fetchFearGreedIndex = async () => {
+      if (providerUnavailableRef.current) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
         const response = await fetch('/api/fear-greed', { method: 'GET' });
         if (!response.ok) {
-          if (response.status === 429) setError('Too many requests. Please try again later.');
-          else setError(`API error: ${response.status}`);
+          if (response.status === 429) {
+            setError('Too many requests. Please try again later.');
+          } else if (response.status === 503) {
+            setError('Provider not configured.');
+            providerUnavailableRef.current = true;
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem(PROVIDER_UNAVAILABLE_SESSION_KEY, '1');
+            }
+          } else {
+            setError(`API error: ${response.status}`);
+          }
           setLoading(false);
           return;
         }
         const data = await response.json();
         const score: number = data.fgi.now.value;
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(PROVIDER_UNAVAILABLE_SESSION_KEY);
+        }
         // Compute trend based on previous value kept in a ref
         const prev = prevIndexRef.current;
         if (prev !== null) {

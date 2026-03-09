@@ -31,16 +31,22 @@ function impactClass(impact) {
 }
 
 function formatSourceDate(dateString, timeString) {
-  const dateMatch = dateString.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (!dateMatch) return `${dateString} ${timeString}`.trim();
-  const [, month, day, year] = dateMatch;
-  const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+  const safeDate = String(dateString || '').trim();
+  const safeTime = String(timeString || '').trim();
+  const mmddyyyy = safeDate.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  const yyyymmdd = safeDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!mmddyyyy && !yyyymmdd) return `${safeDate} ${safeTime}`.trim();
+  const year = mmddyyyy ? Number(mmddyyyy[3]) : Number(yyyymmdd[1]);
+  const month = mmddyyyy ? Number(mmddyyyy[1]) : Number(yyyymmdd[2]);
+  const day = mmddyyyy ? Number(mmddyyyy[2]) : Number(yyyymmdd[3]);
+  const parsed = new Date(year, month - 1, day);
+  if (Number.isNaN(parsed.getTime())) return `${safeDate} ${safeTime}`.trim();
   const humanDate = parsed.toLocaleDateString(undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
   });
-  return `${humanDate} • ${timeString}`;
+  return `${humanDate} • ${safeTime}`.trim();
 }
 
 function TradingviewEcCalendar() {
@@ -118,9 +124,9 @@ function TradingviewEcCalendar() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="flex items-center justify-between rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
         <span>{loading ? 'Loading events...' : `${visibleEvents.length} events`}</span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setFiltersOpen((current) => !current)}
@@ -253,28 +259,25 @@ function TradingviewEcCalendar() {
                 key={`${event.url}-${index}`}
                 className="rounded-lg border border-border/70 bg-card/40 p-3 sm:p-4"
               >
-                <div className="sm:grid sm:grid-cols-[1fr_13rem] sm:items-start sm:gap-4">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                      <span className="font-semibold tracking-wide text-foreground/90">
-                        {event.country}
-                      </span>
-                      <span className="hidden h-1 w-1 rounded-full bg-border sm:inline-block" />
-                      <span>{formatSourceDate(event.date, event.time)}</span>
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <span className="font-semibold tracking-wide text-foreground/90">{event.country}</span>
+                        <span className="hidden h-1 w-1 rounded-full bg-border sm:inline-block" />
+                        <span>{formatSourceDate(event.date, event.time)}</span>
+                      </div>
+                      <p className="mt-2 break-words text-sm leading-5 text-foreground">
+                        {event.title}
+                      </p>
                     </div>
                     <div
-                      className={`mt-2 inline-flex w-fit items-center rounded border px-2 py-0.5 text-[11px] font-medium ${impactClass(event.impact)}`}
+                      className={`inline-flex w-fit shrink-0 items-center rounded border px-2 py-0.5 text-[11px] font-medium ${impactClass(event.impact)}`}
                     >
                       {event.impact}
                     </div>
                   </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-0 sm:w-[13rem]">
-                    <div
-                      className="col-span-2 rounded-md border border-border/70 bg-background/60 px-2.5 py-2"
-                    >
-                      <p className="text-sm leading-5 text-foreground">{event.title}</p>
-                    </div>
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-md border border-border/70 bg-background/60 px-2.5 py-2">
                       <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                         Forecast

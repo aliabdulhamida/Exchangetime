@@ -342,3 +342,44 @@ select {
   background: #3f3f46 !important;
   color: #f4f4f5 !important;
 }
+
+.et-holiday-calendar .react-calendar {
+  width: 100%;
+  max-width: 100%;
+}
+
+.et-holiday-calendar .react-calendar__navigation {
+  margin-bottom: 0.5rem;
+}
+
+.et-holiday-calendar .react-calendar__navigation button {
+  min-width: 2rem;
+}
+
+.et-holiday-calendar .react-calendar__month-view__weekdays {
+  font-size: 0.72rem;
+}
+
+.et-holiday-calendar .react-calendar__tile {
+  padding: 0.65em 0.4em;
+}
+
+@media (max-width: 640px) {
+  .et-holiday-calendar .react-calendar {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .et-holiday-calendar .react-calendar__navigation button {
+    min-width: 2.25rem;
+    font-size: 1rem;
+  }
+
+  .et-holiday-calendar .react-calendar__month-view__weekdays {
+    font-size: 0.7rem;
+  }
+
+  .et-holiday-calendar .react-calendar__tile {
+    padding: 0.6em 0.35em;
+  }
+}

@@ -1,6 +1,7 @@
 const FEAR_GREED_API_URL = 'https://fear-and-greed-index.p.rapidapi.com/v1/fgi';
 const FEAR_GREED_API_HOST = 'fear-and-greed-index.p.rapidapi.com';
 const REQUEST_TIMEOUT_MS = 12000;
+let missingKeyLogged = false;
 
 function getRapidApiKey() {
   return String(process.env.RAPIDAPI_KEY || '').trim();
@@ -24,9 +25,13 @@ export default async function handler(req, res) {
 
   const rapidApiKey = getRapidApiKey();
   if (!rapidApiKey) {
-    console.warn('[api/fear-greed] RAPIDAPI_KEY missing; endpoint unavailable.');
+    if (!missingKeyLogged) {
+      console.warn('[api/fear-greed] RAPIDAPI_KEY missing; endpoint unavailable.');
+      missingKeyLogged = true;
+    }
     return res.status(503).json({ error: 'Fear & Greed provider not configured' });
   }
+  missingKeyLogged = false;
 
   try {
     const response = await fetchWithTimeout(FEAR_GREED_API_URL, {

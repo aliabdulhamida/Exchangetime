@@ -14,10 +14,10 @@ import TaxCalculator from '../tax-calculator';
 import BacktestTool from '../stock-market/backtest-tool';
 import CurrencyConverter from '../stock-market/currency-converter';
 import DcfCalculator from '../dcf-calculator';
+import DividendCalendar from '../stock-market/dividend-calendar';
 import EarningsCalendar from '../stock-market/earnings-calendar';
 import ExchangeTimes from '../stock-market/exchange-times';
 import HolidayCalendar from '../stock-market/holiday-calendar';
-import InsiderTrades from '../stock-market/insider-trades';
 import PortfolioTracker from '../stock-market/portfolio-tracker';
 import OptionsPayoffLab from '../stock-market/sankey-budget';
 import StockAnalysis from '../stock-market/stock-analysis';
@@ -44,13 +44,19 @@ function ModuleWrapper({
   moduleKey: string;
   className?: string;
 }) {
+  const alignHeaderActions =
+    moduleKey === 'StockAnalysis' ||
+    moduleKey === 'BacktestTool';
+  const actionTopClass = alignHeaderActions ? 'top-4' : 'top-3';
+  const actionRightClass = alignHeaderActions ? 'right-4' : 'right-3';
+
   return (
     <div
       id={moduleAnchorId(moduleKey)}
       className={`et-module-card relative scroll-mt-20 p-3 sm:p-4 ${className ?? ''}`}
       data-module-key={moduleKey}
     >
-      <div className="absolute right-3 top-3 flex gap-1.5" style={{ zIndex: 10 }}>
+      <div className={`absolute ${actionRightClass} ${actionTopClass} flex gap-1.5`} style={{ zIndex: 10 }}>
         {onSolo && (
           <button
             onClick={onSolo}
@@ -105,8 +111,8 @@ const DEFAULT_VISIBLE_MODULES = [
   'CompoundInterest',
   'PersonalBudget',
   'TaxCalculator',
-  'InsiderTrades',
   'EarningsCalendar',
+  'DividendCalendar',
   'HolidayCalendar',
   // ... weitere Standardmodule falls gewünscht
 ];
@@ -173,48 +179,39 @@ export default function Content(props: ContentProps) {
           )}
         </div>
 
-        {/* Zweite Zeile: Stock Analysis, Insider Trades, Backtest Tool (Backtest rechts von Insider Trades) */}
-        {(modules.includes('StockAnalysis') ||
-          modules.includes('InsiderTrades') ||
-          modules.includes('BacktestTool')) && (
-          <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3 sm:gap-6">
+        {/* Zweite Zeile: Merged Stock Analysis + Backtest Tool */}
+        {(modules.includes('StockAnalysis') || modules.includes('BacktestTool')) && (
+          <div
+            className={`grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 sm:gap-6 ${
+              modules.includes('StockAnalysis') && modules.includes('BacktestTool')
+                ? 'xl:grid-cols-3'
+                : 'xl:grid-cols-2'
+            }`}
+          >
             {modules.includes('StockAnalysis') && (
               <div
                 className={
-                  (modules.length === 1 ? 'w-full max-w-2xl mx-auto ' : '') + 'flex h-full flex-col'
+                  (modules.length === 1 ? 'w-full max-w-6xl mx-auto ' : '') +
+                  `flex h-full flex-col ${
+                    modules.includes('BacktestTool') ? 'xl:col-span-2' : ''
+                  }`
                 }
               >
-                <div className="flex h-full flex-col min-h-0 sm:min-h-[420px]">
+                <div className="flex h-full flex-col min-h-0 sm:min-h-[300px]">
                   <ModuleWrapper
                     moduleKey="StockAnalysis"
                     onClose={() => hideModule('StockAnalysis')}
                     onSolo={() => showOnlyModule('StockAnalysis')}
                     className="h-full"
                   >
-                    <div className="flex h-full flex-col min-h-0 sm:min-h-[420px]">
+                    <div className="flex h-full flex-col min-h-0 sm:min-h-[300px]">
                       <StockAnalysis />
                     </div>
                   </ModuleWrapper>
                 </div>
               </div>
             )}
-            {modules.includes('InsiderTrades') && (
-              <div
-                className={(modules.length === 1 ? 'w-full md:max-w-xl md:mx-auto ' : 'w-full ') + 'flex h-full flex-col min-h-0 sm:min-h-[420px]'}
-              >
-                <ModuleWrapper
-                  moduleKey="InsiderTrades"
-                  onClose={() => hideModule('InsiderTrades')}
-                  onSolo={() => showOnlyModule('InsiderTrades')}
-                  className="h-full"
-                >
-                  <div className="et-scrollbar flex h-full min-h-0 flex-col overflow-y-auto pr-1 sm:min-h-[420px]">
-                    <InsiderTrades />
-                  </div>
-                </ModuleWrapper>
-              </div>
-            )}
-            {/* Backtest Tool now placed to the right of Insider Trades (3rd column) */}
+            {/* Backtest Tool stays in the third column when merged Stock Analysis spans two columns */}
             {modules.includes('BacktestTool') && (
               <div className={(modules.length === 1 ? 'w-full max-w-xl mx-auto ' : 'w-full ') + 'h-full'}>
                 <ModuleWrapper
@@ -249,21 +246,23 @@ export default function Content(props: ContentProps) {
         {/* Neue Zeile: Technical Analysis */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {modules.includes('TechnicalAnalysis') && (
-            <ModuleWrapper
-              moduleKey="TechnicalAnalysis"
-              onClose={() => hideModule('TechnicalAnalysis')}
-              onSolo={() => showOnlyModule('TechnicalAnalysis')}
-              className="h-full"
-            >
-              <div className="flex h-full flex-col">
-                <h2 className="mb-4 text-lg font-semibold text-foreground">
-                  Technical Analysis
-                </h2>
-                <div className="flex-1 min-h-[420px] sm:min-h-[560px] lg:min-h-[700px]">
-                  <TradingViewWidget />
+            <div className="min-h-[760px] md:h-[800px] lg:h-[900px]">
+              <ModuleWrapper
+                moduleKey="TechnicalAnalysis"
+                onClose={() => hideModule('TechnicalAnalysis')}
+                onSolo={() => showOnlyModule('TechnicalAnalysis')}
+                className="h-full"
+              >
+                <div className="flex h-full min-h-0 flex-col">
+                  <h2 className="mb-4 text-lg font-semibold text-foreground">
+                    Technical Analysis
+                  </h2>
+                  <div className="flex-1 min-h-0">
+                    <TradingViewWidget />
+                  </div>
                 </div>
-              </div>
-            </ModuleWrapper>
+              </ModuleWrapper>
+            </div>
           )}
         </div>
 
@@ -351,7 +350,7 @@ export default function Content(props: ContentProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{/* MarketSummary removed */}</div>
 
         {/* Fifth Row - Calendar und Holiday Info */}
-        <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3 sm:gap-6">
+        <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4 sm:gap-6">
           {/* Neues Modul links neben Earnings Calendar */}
           {modules.includes('EconomicCalendar') && (
             <div
@@ -391,6 +390,24 @@ export default function Content(props: ContentProps) {
                 className="h-full"
               >
                 <EarningsCalendar />
+              </ModuleWrapper>
+            </div>
+          )}
+          {modules.includes('DividendCalendar') && (
+            <div
+              className={
+                modules.length === 1
+                  ? 'h-[64vh] min-h-[460px] max-h-[760px] w-full max-w-xl mx-auto md:h-[680px] lg:h-[760px]'
+                  : 'h-[64vh] min-h-[460px] max-h-[760px] md:h-[680px] lg:h-[760px]'
+              }
+            >
+              <ModuleWrapper
+                moduleKey="DividendCalendar"
+                onClose={() => hideModule('DividendCalendar')}
+                onSolo={() => showOnlyModule('DividendCalendar')}
+                className="h-full"
+              >
+                <DividendCalendar />
               </ModuleWrapper>
             </div>
           )}
@@ -705,7 +722,7 @@ function CompoundInterestCalculator() {
                 htmlFor="compounding-select"
                 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
               >
-                Frequency
+                Interest
               </label>
               <div className="relative">
                 <select
@@ -729,7 +746,7 @@ function CompoundInterestCalculator() {
                 htmlFor="contribution-frequency-select"
                 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
               >
-                Frequency
+                Deposits
               </label>
               <div className="relative">
                 <select

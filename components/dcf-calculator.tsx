@@ -407,7 +407,7 @@ export default function DcfCalculator() {
     }
   }
 
-  async function autofillFromFmp(symbol: string) {
+  async function autofillFromApi(symbol: string) {
     setFetchError(null);
     const s = String(symbol || '').trim().toUpperCase();
     setTicker(s);
@@ -421,7 +421,7 @@ export default function DcfCalculator() {
       const res = await fetch(`/api/dcf-inputs?symbol=${encodeURIComponent(s)}`);
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
-        throw new Error(`FMP auto-fill failed (${res.status}) ${txt}`);
+        throw new Error(`Auto-fill failed (${res.status}) ${txt}`);
       }
 
       const payload = await res.json();
@@ -507,7 +507,7 @@ export default function DcfCalculator() {
       }
 
       if (!appliedFcf) {
-        throw new Error('FMP did not return usable free cash flow data for this symbol.');
+        throw new Error('The auto-fill provider did not return usable free cash flow data for this symbol.');
       }
 
       // Make auto-filled workflow the default and keep valuation model in Gordon mode.
@@ -517,12 +517,18 @@ export default function DcfCalculator() {
       setPreset(null);
 
       const asOf = typeof payload?.asOf === 'string' && payload.asOf.trim() ? payload.asOf.trim() : null;
+      const provider =
+        typeof payload?.source === 'string' && payload.source.trim()
+          ? payload.source.trim().toUpperCase()
+          : 'API';
       toast?.({
-        title: 'FMP auto-fill complete',
-        description: asOf ? `${s} assumptions loaded (as of ${asOf}).` : `${s} assumptions loaded from FMP.`,
+        title: 'Auto-fill complete',
+        description: asOf
+          ? `${s} assumptions loaded from ${provider} (as of ${asOf}).`
+          : `${s} assumptions loaded from ${provider}.`,
       });
     } catch (e: any) {
-      const msg = String(e?.message || e || 'Failed to auto-fill from FMP');
+      const msg = String(e?.message || e || 'Failed to auto-fill');
       setFetchError(msg);
     } finally {
       setFetchingFmp(false);
@@ -1228,13 +1234,13 @@ export default function DcfCalculator() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && ticker) {
                           e.preventDefault();
-                          autofillFromFmp(ticker);
+                          autofillFromApi(ticker);
                         }
                       }}
                       type="text"
                       className="w-full"
                     />
-                    <Button size="sm" className="w-full md:w-auto" onClick={() => autofillFromFmp(ticker)} disabled={fetchingFmp || !ticker}>
+                    <Button size="sm" className="w-full md:w-auto" onClick={() => autofillFromApi(ticker)} disabled={fetchingFmp || !ticker}>
                       {fetchingFmp ? 'Loading…' : 'Auto-fill'}
                     </Button>
                     <Button size="sm" variant="outline" className="w-full md:w-auto" onClick={() => fetchMarketPrice(ticker)} disabled={fetchingPrice || !ticker}>

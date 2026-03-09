@@ -63,7 +63,6 @@ import {
   FileText,
   ShieldCheck,
   Mail,
-  UserCheck,
   CalendarCheck2,
   CalendarClock,
   Briefcase,
@@ -1424,7 +1423,6 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   </div>
                 )}
                 <div className="space-y-1">
-                  <ModuleButton module="InsiderTrades" icon={UserCheck} label="Insider Trades" />
                   <ModuleButton
                     module="EconomicCalendar"
                     icon={CalendarCheck2}
@@ -1434,6 +1432,11 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                     module="EarningsCalendar"
                     icon={CalendarClock}
                     label="Earnings Calendar"
+                  />
+                  <ModuleButton
+                    module="DividendCalendar"
+                    icon={PiggyBank}
+                    label="Dividend Calendar"
                   />
                   <ModuleButton module="HolidayCalendar" icon={CupSoda} label="Holiday Calendar" />
                 </div>

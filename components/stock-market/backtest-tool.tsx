@@ -1,64 +1,17 @@
 'use client';
-// Hilfsfunktion: aggregierte Dividendenzahlungen nach gehaltenen Aktien
-function calculateDividendHistory(
-  data: any[],
-  dividendData: any[],
-  initialAmount: number,
-  monthlyAmount: number,
-  startDate: string,
-  endDate: string,
-  reinvestDividends = false,
-) {
-  let totalShares = 0;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const startPrice = data[0].close;
-  if (initialAmount > 0) {
-    const initialShares = initialAmount / startPrice;
-    totalShares += initialShares;
-  }
-  let nextInvestmentDate = new Date(start);
-  nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
-  nextInvestmentDate.setDate(1);
-  let dividendIndex = 0;
-  const dividendHistory: { date: string; amount: number }[] = [];
-  for (const day of data) {
-    const currentDay = new Date(day.date);
-    // Add monthly investment if it's the first trading day of the month
-    if (monthlyAmount > 0 && currentDay >= nextInvestmentDate && currentDay <= end) {
-      const sharesBought = monthlyAmount / day.close;
-      totalShares += sharesBought;
-      nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
-    }
-    // Process dividends for this date
-    while (
-      dividendIndex < dividendData.length &&
-      new Date(dividendData[dividendIndex].date) <= currentDay
-    ) {
-      const dividend = dividendData[dividendIndex];
-      const dividendAmount = totalShares * dividend.amount;
-      dividendHistory.push({ date: dividend.date, amount: dividendAmount });
-      if (reinvestDividends) {
-        const additionalShares = dividendAmount / day.close;
-        totalShares += additionalShares;
-      }
-      dividendIndex++;
-    }
-  }
-  return dividendHistory;
-}
 
-import { Play, Settings, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, Play, Settings } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Tooltip,
+  Area,
+  AreaChart,
   Bar,
   BarChart,
-  AreaChart,
-  Area,
+  CartesianGrid,
+  ReferenceLine,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 
 import { Alert } from '@/components/ui/alert';
@@ -77,9 +30,112 @@ interface BacktestResult {
   totalShares: number;
 }
 
-// Hilfsfunktionen für Yahoo Finance API
+type PricePoint = {
+  date: string;
+  close: number;
+};
+
+type DividendPoint = {
+  date: string;
+  amount: number;
+};
+
+type PortfolioPoint = {
+  date: string;
+  value: number;
+};
+
+type DividendHistoryPoint = {
+  date: string;
+  amount: number;
+};
+
 function dateToUnix(date: string) {
   return Math.floor(new Date(date).getTime() / 1000);
+}
+
+function formatCurrency(value: number, digits = 2) {
+  if (!Number.isFinite(value)) return '-';
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
+}
+
+function formatPercent(value: number, digits = 2) {
+  if (!Number.isFinite(value)) return '-';
+  return `${value.toFixed(digits)}%`;
+}
+
+function formatCompact(value: number, digits = 1) {
+  if (!Number.isFinite(value)) return '-';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(digits)}B`;
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(digits)}M`;
+  if (abs >= 1_000) return `${(value / 1_000).toFixed(digits)}K`;
+  return value.toLocaleString('en-US', { maximumFractionDigits: digits });
+}
+
+function formatShortDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+}
+
+function formatFullDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+}
+
+function calculateDividendHistory(
+  data: PricePoint[],
+  dividendData: DividendPoint[],
+  initialAmount: number,
+  monthlyAmount: number,
+  startDate: string,
+  endDate: string,
+  reinvestDividends = false,
+) {
+  let totalShares = 0;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const startPrice = data[0].close;
+
+  if (initialAmount > 0) {
+    totalShares += initialAmount / startPrice;
+  }
+
+  const nextInvestmentDate = new Date(start);
+  nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
+  nextInvestmentDate.setDate(1);
+
+  let dividendIndex = 0;
+  const dividendHistory: DividendHistoryPoint[] = [];
+
+  for (const day of data) {
+    const currentDay = new Date(day.date);
+
+    if (monthlyAmount > 0 && currentDay >= nextInvestmentDate && currentDay <= end) {
+      totalShares += monthlyAmount / day.close;
+      nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
+    }
+
+    while (
+      dividendIndex < dividendData.length &&
+      new Date(dividendData[dividendIndex].date) <= currentDay
+    ) {
+      const dividend = dividendData[dividendIndex];
+      const dividendAmount = totalShares * dividend.amount;
+      dividendHistory.push({ date: dividend.date, amount: dividendAmount });
+      if (reinvestDividends) {
+        totalShares += dividendAmount / day.close;
+      }
+      dividendIndex++;
+    }
+  }
+
+  return dividendHistory;
 }
 
 async function fetchStockData(stockSymbol: string, startDate: string, endDate: string) {
@@ -89,9 +145,12 @@ async function fetchStockData(stockSymbol: string, startDate: string, endDate: s
     const url = `/api/quote?symbol=${encodeURIComponent(stockSymbol)}&chart=1&period1=${period1}&period2=${period2}&interval=1d`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
+
     const data = await response.json();
-    if (!data.chart || !data.chart.result || !data.chart.result[0])
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) {
       throw new Error('Invalid data format received');
+    }
+
     const timestamps = data.chart.result[0].timestamp;
     const closePrices = data.chart.result[0].indicators.quote[0].close;
     return timestamps
@@ -99,9 +158,9 @@ async function fetchStockData(stockSymbol: string, startDate: string, endDate: s
         date: new Date(timestamp * 1000).toISOString().split('T')[0],
         close: closePrices[index],
       }))
-      .filter((item: any) => item.close !== null);
-  } catch (error: any) {
-    return { error: error.message };
+      .filter((item: PricePoint) => item.close !== null);
+  } catch (error: unknown) {
+    return { error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
@@ -112,24 +171,27 @@ async function fetchDividendData(stockSymbol: string, startDate: string, endDate
     const url = `/api/quote?symbol=${encodeURIComponent(stockSymbol)}&chart=1&period1=${startUnix}&period2=${endUnix}&interval=1d&events=div`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
+
     const data = await response.json();
     if (!data.chart || !data.chart.result || !data.chart.result[0]) return [];
+
     const result = data.chart.result[0];
     const dividends = result.events?.dividends
       ? Object.values(result.events.dividends).sort((a: any, b: any) => a.date - b.date)
       : [];
+
     return dividends.map((div: any) => ({
       date: new Date(div.date * 1000).toISOString().split('T')[0],
       amount: div.amount,
     }));
-  } catch (error: any) {
+  } catch {
     return [];
   }
 }
 
 function calculateStockInvestment(
-  data: any[],
-  dividendData: any[],
+  data: PricePoint[],
+  dividendData: DividendPoint[],
   initialAmount: number,
   monthlyAmount: number,
   startDate: string,
@@ -140,30 +202,32 @@ function calculateStockInvestment(
   let totalInvested = 0;
   let totalDividends = 0;
   let cashDividends = 0;
+
   const start = new Date(startDate);
   const end = new Date(endDate);
-  const portfolioHistory: { date: string; value: number }[] = [];
-  // Initial investment at start date
+  const portfolioHistory: PortfolioPoint[] = [];
+
   const startPrice = data[0].close;
   if (initialAmount > 0) {
-    const initialShares = initialAmount / startPrice;
-    totalShares += initialShares;
+    totalShares += initialAmount / startPrice;
     totalInvested += initialAmount;
   }
-  let nextInvestmentDate = new Date(start);
+
+  const nextInvestmentDate = new Date(start);
   nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
   nextInvestmentDate.setDate(1);
+
   let dividendIndex = 0;
+
   for (const day of data) {
     const currentDay = new Date(day.date);
-    // Add monthly investment if it's the first trading day of the month
+
     if (monthlyAmount > 0 && currentDay >= nextInvestmentDate && currentDay <= end) {
-      const sharesBought = monthlyAmount / day.close;
-      totalShares += sharesBought;
+      totalShares += monthlyAmount / day.close;
       totalInvested += monthlyAmount;
       nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
     }
-    // Process dividends for this date
+
     while (
       dividendIndex < dividendData.length &&
       new Date(dividendData[dividendIndex].date) <= currentDay
@@ -172,19 +236,19 @@ function calculateStockInvestment(
       const dividendAmount = totalShares * dividend.amount;
       totalDividends += dividendAmount;
       if (reinvestDividends) {
-        const additionalShares = dividendAmount / day.close;
-        totalShares += additionalShares;
+        totalShares += dividendAmount / day.close;
       } else {
         cashDividends += dividendAmount;
       }
       dividendIndex++;
     }
-    // Portfolio-Wert für diesen Tag berechnen
-    const value = totalShares * day.close + cashDividends;
-    portfolioHistory.push({ date: day.date, value });
+
+    portfolioHistory.push({ date: day.date, value: totalShares * day.close + cashDividends });
   }
+
   const finalPrice = data[data.length - 1].close;
   const finalValue = totalShares * finalPrice + cashDividends;
+
   return {
     totalInvested,
     finalValue,
@@ -203,54 +267,124 @@ export default function BacktestTool() {
   const [endDate, setEndDate] = useState('2024-01-01');
   const [reinvestDividends, setReinvestDividends] = useState(true);
   const [result, setResult] = useState<BacktestResult | null>(null);
-  const [portfolioHistory, setPortfolioHistory] = useState<
-    { date: string; value: number }[] | null
-  >(null);
+  const [portfolioHistory, setPortfolioHistory] = useState<PortfolioPoint[] | null>(null);
+  const [dividendHistory, setDividendHistory] = useState<DividendHistoryPoint[] | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dividendHistory, setDividendHistory] = useState<{ date: string; amount: number }[] | null>(
-    null,
-  );
 
-  const runBacktest = async () => {
+  const portfolioColor = useMemo(() => {
+    if (!portfolioHistory || portfolioHistory.length < 2) return '#e5e7eb';
+    const first = portfolioHistory[0].value;
+    const last = portfolioHistory[portfolioHistory.length - 1].value;
+    if (last > first) return '#34d399';
+    if (last < first) return '#fb7185';
+    return '#e5e7eb';
+  }, [portfolioHistory]);
+
+  const summaryCards = useMemo(() => {
+    if (!result) return [];
+    return [
+      {
+        label: 'Total Investment',
+        value: formatCurrency(result.initialValue, 0),
+        className: 'text-foreground',
+      },
+      {
+        label: 'Final Value',
+        value: formatCurrency(result.finalValue, 0),
+        className: 'text-foreground',
+      },
+      {
+        label: 'Total Return',
+        value: formatPercent(result.totalReturn),
+        className: result.totalReturn >= 0 ? 'text-emerald-300' : 'text-rose-300',
+      },
+      {
+        label: 'Annualized',
+        value: formatPercent(result.annualizedReturn),
+        className: result.annualizedReturn >= 0 ? 'text-emerald-300' : 'text-rose-300',
+      },
+      {
+        label: `Dividends ${reinvestDividends ? 'Reinvested' : 'Cash'}`,
+        value: formatCurrency(result.dividendsReinvested, 0),
+        className: 'text-foreground',
+      },
+      {
+        label: 'Shares Held',
+        value: Number.isFinite(result.totalShares) ? result.totalShares.toFixed(2) : '-',
+        className: 'text-foreground',
+      },
+    ];
+  }, [result, reinvestDividends]);
+  const portfolioStats = useMemo(() => {
+    if (!portfolioHistory || portfolioHistory.length === 0) return null;
+    const values = portfolioHistory
+      .map((point) => point.value)
+      .filter((value) => typeof value === 'number' && Number.isFinite(value));
+    if (!values.length) return null;
+    const low = Math.min(...values);
+    const high = Math.max(...values);
+    const last = values[values.length - 1];
+    return { low, high, last };
+  }, [portfolioHistory]);
+  const dividendStats = useMemo(() => {
+    if (!dividendHistory || dividendHistory.length === 0) return null;
+    const payouts = dividendHistory
+      .map((point) => point.amount)
+      .filter((value) => typeof value === 'number' && Number.isFinite(value));
+    if (!payouts.length) return null;
+    const total = payouts.reduce((sum, amount) => sum + amount, 0);
+    const avg = total / payouts.length;
+    const peak = Math.max(...payouts);
+    return { total, avg, peak };
+  }, [dividendHistory]);
+
+  async function runBacktest() {
     setIsRunning(true);
     setError(null);
     setResult(null);
+
     const stockData = await fetchStockData(symbol, startDate, endDate);
     if (!Array.isArray(stockData) || stockData.length < 2) {
       setError('Error loading price data.');
       setIsRunning(false);
       return;
     }
+
     const dividendData = await fetchDividendData(symbol, startDate, endDate);
-    // dividendHistory jetzt aggregiert berechnen
+    const parsedInitial = Number.parseFloat(initialAmount);
+    const parsedMonthly = Number.parseFloat(monthlyAmount);
+    const normalizedInitial = Number.isFinite(parsedInitial) ? parsedInitial : 0;
+    const normalizedMonthly = Number.isFinite(parsedMonthly) ? parsedMonthly : 0;
+
     const dividendHistoryAgg = calculateDividendHistory(
       stockData,
       dividendData,
-      parseFloat(initialAmount),
-      parseFloat(monthlyAmount),
+      normalizedInitial,
+      normalizedMonthly,
       startDate,
       endDate,
       reinvestDividends,
     );
     setDividendHistory(dividendHistoryAgg);
+
     const {
       totalInvested,
       finalValue,
       totalShares,
       totalDividends,
       cashDividends,
-      portfolioHistory,
+      portfolioHistory: computedPortfolioHistory,
     } = calculateStockInvestment(
       stockData,
       dividendData,
-      parseFloat(initialAmount),
-      parseFloat(monthlyAmount),
+      normalizedInitial,
+      normalizedMonthly,
       startDate,
       endDate,
       reinvestDividends,
     );
-    // Kennzahlen berechnen
+
     const totalReturn = ((finalValue - totalInvested) / totalInvested) * 100;
     const annualizedReturn =
       (Math.pow(
@@ -259,7 +393,7 @@ export default function BacktestTool() {
       ) -
         1) *
       100;
-    // Max Drawdown und Sharpe Ratio können später ergänzt werden
+
     setResult({
       initialValue: totalInvested,
       finalValue,
@@ -270,321 +404,356 @@ export default function BacktestTool() {
       dividendsReinvested: reinvestDividends ? totalDividends : cashDividends,
       totalShares,
     });
-    setPortfolioHistory(portfolioHistory);
+    setPortfolioHistory(computedPortfolioHistory);
     setIsRunning(false);
-  };
+  }
+
+  const shellClass = 'mx-auto w-full max-w-[34rem] space-y-2 sm:space-y-3';
+  const panelClass = 'rounded-2xl border border-border/70 bg-card/70';
+  const sectionClass = `${panelClass} p-3 sm:p-3.5`;
+  const captionClass = 'text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px]';
 
   return (
-    <div className="pt-0">
-      <div className="flex items-center justify-start mb-6">
-        <h2 className="text-lg font-bold text-foreground">Backtest Tool</h2>
+    <div className={shellClass}>
+      <div className={`${panelClass} px-3 py-3 pr-14 sm:px-3.5 sm:py-3.5 sm:pr-16`}>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-[1.4rem]">
+          Backtest Tool
+        </h2>
       </div>
+
+      {error && (
+        <Alert
+          variant="destructive"
+          className="flex items-start gap-2 rounded-2xl border border-rose-500/40 bg-rose-900/20 px-3 py-2.5 text-rose-200"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+          <span className="text-sm">{error}</span>
+        </Alert>
+      )}
+
       {!result ? (
         <>
-          <div className="space-y-4 mb-6 flex-1 flex flex-col justify-center">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className={sectionClass}>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">
-                  Symbol
-                </label>
+                <label className={captionClass}>Symbol</label>
                 <Input
                   value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  onChange={(event) => setSymbol(event.target.value.toUpperCase())}
                   placeholder="Ticker"
+                  className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">
-                  Initial Amount
-                </label>
+                <label className={captionClass}>Initial Amount</label>
                 <Input
                   type="number"
                   value={initialAmount}
-                  onChange={(e) => setInitialAmount(e.target.value)}
+                  onChange={(event) => setInitialAmount(event.target.value)}
                   placeholder="10000"
+                  className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">
-                  Monthly Amount
-                </label>
+                <label className={captionClass}>Monthly Amount</label>
                 <Input
                   type="number"
                   value={monthlyAmount}
-                  onChange={(e) => setMonthlyAmount(e.target.value)}
+                  onChange={(event) => setMonthlyAmount(event.target.value)}
                   placeholder="0"
+                  className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-muted-foreground">
-                    Start Date
-                  </label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-muted-foreground">
-                    End Date
-                  </label>
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                </div>
+              <div>
+                <label className={captionClass}>Start Date</label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={captionClass}>End Date</label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
+                />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="reinvest"
-                className="flex items-center cursor-pointer select-none gap-3"
-              >
-                <span className="text-sm text-muted-foreground">Reinvest Dividends</span>
-                <span className="relative">
-                  <input
-                    type="checkbox"
-                    id="reinvest"
-                    checked={reinvestDividends}
-                    onChange={(e) => setReinvestDividends(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <span className="block h-6 w-10 rounded-full border border-border bg-secondary transition-colors duration-200 peer-checked:bg-foreground"></span>
-                  <span className="absolute left-0 top-0 h-6 w-6 transform rounded-full border border-border bg-background transition-transform duration-200 peer-checked:translate-x-4"></span>
-                </span>
-              </label>
-            </div>
+
+            <label htmlFor="reinvest" className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-border bg-background/50 px-3 py-2">
+              <span className="text-xs text-foreground sm:text-sm">Reinvest Dividends</span>
+              <span className="relative">
+                <input
+                  id="reinvest"
+                  type="checkbox"
+                  checked={reinvestDividends}
+                  onChange={(event) => setReinvestDividends(event.target.checked)}
+                  className="peer sr-only"
+                />
+                <span className="block h-6 w-10 rounded-full border border-border bg-background transition-colors peer-checked:bg-foreground" />
+                <span className="absolute left-0 top-0 h-6 w-6 rounded-full border border-border bg-card transition-transform peer-checked:translate-x-4" />
+              </span>
+            </label>
           </div>
-          <Button onClick={runBacktest} disabled={isRunning} className="w-full mb-6">
+
+          <Button
+            onClick={runBacktest}
+            disabled={isRunning}
+            className="h-9 w-full rounded-lg border border-border bg-background text-foreground hover:bg-secondary/70"
+          >
             {isRunning ? (
               <>
-                <Settings className="w-4 h-4 mr-2 animate-spin" />
+                <Settings className="mr-2 h-4 w-4 animate-spin" />
                 Running Backtest...
               </>
             ) : (
               <>
-                <Play className="w-4 h-4 mr-2" />
+                <Play className="mr-2 h-4 w-4" />
                 Run Backtest
               </>
             )}
           </Button>
-          {error && (
-            <Alert
-              variant="destructive"
-              className="relative mb-4 flex flex-col items-center justify-center border border-red-400 bg-red-900/20 px-4 py-8 text-center text-red-300"
-            >
-              <div className="flex flex-col items-center w-full">
-                <AlertTriangle className="mb-2 h-8 w-8 text-red-300" />
-                <div className="text-lg mb-1 mx-auto max-w-xs break-words">{error}</div>
-              </div>
-            </Alert>
-          )}
         </>
       ) : (
-        <div className="flex flex-col justify-center h-full flex-1">
-          <div className="space-y-3 flex-1 flex flex-col justify-center h-full">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-xs text-muted-foreground">Total Investment</p>
-                <p className="font-semibold text-foreground">
-                  ${result.initialValue.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-xs text-muted-foreground">Final Value</p>
-                <p className="font-semibold text-foreground">
-                  ${result.finalValue.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-xs text-muted-foreground">Total Return</p>
-                <p
-                  className={`font-semibold ${result.totalReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                >
-                  {result.totalReturn.toFixed(2)}%
-                </p>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-xs text-muted-foreground">Annualized Return</p>
-                <p
-                  className={`font-semibold ${result.annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                >
-                  {result.annualizedReturn.toFixed(2)}%
-                </p>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-xs text-muted-foreground">
-                  Dividends {reinvestDividends ? 'Reinvested' : '(Cash)'}
-                </p>
-                <p className="font-semibold text-foreground">
-                  ${result.dividendsReinvested.toFixed(2)}
-                </p>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-xs text-muted-foreground">Total Shares Held</p>
-                <p className="font-semibold text-foreground">
-                  {result.totalShares ? result.totalShares.toFixed(2) : '-'}
-                </p>
-              </div>
+        <div className="space-y-2.5 sm:space-y-3">
+          <div className={sectionClass}>
+            <p className={captionClass}>Backtest</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h3 className="text-[1.15rem] font-semibold tracking-tight text-foreground sm:text-[1.3rem]">
+                {symbol.toUpperCase()}
+              </h3>
+              <span className="rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+                {startDate} to {endDate}
+              </span>
             </div>
-            {(portfolioHistory && portfolioHistory.length > 0) ||
-            (dividendHistory && dividendHistory.length > 0) ? (
-              <div className="mt-6 flex flex-col gap-6 w-full">
-                {portfolioHistory &&
-                  portfolioHistory.length > 0 &&
-                  (() => {
-                    let chartColor = '#2563eb';
-                    if (portfolioHistory.length > 1) {
-                      const first = portfolioHistory[0].value;
-                      const last = portfolioHistory[portfolioHistory.length - 1].value;
-                      if (last > first) chartColor = '#16a34a';
-                      else if (last < first) chartColor = '#dc2626';
-                    }
-                    return (
-                      <div className="w-full">
-                        <ChartContainer
-                          config={{ value: { label: 'Portfolio Value', color: chartColor } }}
-                        >
-                          <ResponsiveContainer width="100%" height={120}>
-                            <AreaChart
-                              data={portfolioHistory}
-                              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                            >
-                              <defs>
-                                <linearGradient
-                                  id="colorPortfolioValue"
-                                  x1="0"
-                                  y1="0"
-                                  x2="0"
-                                  y2="1"
-                                >
-                                  <stop offset="5%" stopColor={chartColor} stopOpacity={0.8} />
-                                  <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
-                                </linearGradient>
-                              </defs>
-                              <XAxis
-                                dataKey="date"
-                                tick={{ fontSize: 12, fill: '#a1a1aa' }}
-                                minTickGap={30}
-                              />
-                              <YAxis
-                                tick={{ fontSize: 12, fill: '#a1a1aa' }}
-                                width={80}
-                                domain={['auto', 'auto']}
-                                tickFormatter={(v: number) =>
-                                  v >= 1_000_000
-                                    ? (v / 1_000_000).toFixed(1) + 'M'
-                                    : v >= 1_000
-                                      ? (v / 1_000).toFixed(1) + 'K'
-                                      : v.toLocaleString()
-                                }
-                              />
-                              <Tooltip
-                                content={({ active, payload, label }) => {
-                                  if (!active || !payload || !payload.length) return null;
-                                  const item = payload[0].payload;
-                                  function formatPrice(num: number) {
-                                    if (typeof num !== 'number') return '-';
-                                    return num
-                                      .toFixed(2)
-                                      .replace('.', ',')
-                                      .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                                  }
-                                  return (
-                                    <div className="flex min-w-[110px] max-w-[180px] flex-col gap-1 rounded-lg border border-border bg-black px-2 py-1 text-[11px] text-white shadow-lg">
-                                      <div className="font-semibold mb-0.5">
-                                        {item && item.date
-                                          ? new Date(item.date).toLocaleDateString('en-US', {
-                                              year: 'numeric',
-                                              month: 'short',
-                                              day: 'numeric',
-                                            })
-                                          : label}
-                                      </div>
-                                      <div className="flex flex-col gap-0.5">
-                                        <span className="font-mono text-[12px]">
-                                          ${formatPrice(item?.value)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                }}
-                              />
-                              <Area
-                                type="monotone"
-                                dataKey="value"
-                                stroke={chartColor}
-                                fillOpacity={1}
-                                fill="url(#colorPortfolioValue)"
-                                name="Portfolio Value"
-                              />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        </ChartContainer>
-                      </div>
-                    );
-                  })()}
-                {dividendHistory && dividendHistory.length > 0 && (
-                  <div className="w-full">
-                    <ChartContainer config={{ amount: { label: 'Dividende', color: '#22c55e' } }}>
-                      <ResponsiveContainer width="100%" height={120}>
-                        <BarChart
-                          data={dividendHistory}
-                          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                        >
-                          <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={30} />
-                          <YAxis tick={{ fontSize: 10 }} width={60} domain={[0, 'auto']} />
-                          <Tooltip
-                            content={({ active, payload, label }) => {
-                              if (!active || !payload || !payload.length) return null;
-                              const item = payload[0].payload;
-                              function formatPrice(num: number) {
-                                if (typeof num !== 'number') return '-';
-                                return num
-                                  .toFixed(2)
-                                  .replace('.', ',')
-                                  .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                              }
-                              return (
-                                <div className="flex min-w-[110px] max-w-[180px] flex-col gap-1 rounded-lg border border-border bg-black px-2 py-1 text-[11px] text-white shadow-lg">
-                                  <div className="font-semibold mb-0.5">
-                                    {item && item.date
-                                      ? new Date(item.date).toLocaleDateString('en-US', {
-                                          year: 'numeric',
-                                          month: 'short',
-                                          day: 'numeric',
-                                        })
-                                      : label}
-                                  </div>
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="font-mono text-[12px]">
-                                      ${formatPrice(item?.amount)}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            }}
-                          />
-                          <Bar dataKey="amount" fill="#22c55e" name="Dividende" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </ChartContainer>
-                  </div>
-                )}
-              </div>
-            ) : null}
-            <button
-              className="mt-8 flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-card text-sm font-medium text-foreground transition hover:bg-secondary"
-              onClick={() => {
-                setResult(null);
-                setPortfolioHistory(null);
-                setDividendHistory(null);
-                setError(null);
-              }}
-            >
-              <Play className="w-5 h-5" />
-              New Backtest
-            </button>
           </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {summaryCards.map((card) => (
+              <div key={card.label} className={`${panelClass} px-2.5 py-2`}>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{card.label}</p>
+                <p className={`mt-1 text-xs font-semibold tabular-nums sm:text-sm ${card.className}`}>
+                  {card.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {portfolioHistory && portfolioHistory.length > 0 && (
+            <div className={sectionClass}>
+              <div className="mb-2">
+                <p className={captionClass}>Portfolio Value</p>
+              </div>
+              {portfolioStats && (
+                <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
+                  <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                    <span className="text-muted-foreground">Low</span>
+                    <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                      ${formatCompact(portfolioStats.low, 2)}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                    <span className="text-muted-foreground">Peak</span>
+                    <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                      ${formatCompact(portfolioStats.high, 2)}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                    <span className="text-muted-foreground">Last</span>
+                    <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                      ${formatCompact(portfolioStats.last, 2)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <ChartContainer
+                className="h-[145px] !aspect-auto sm:h-[170px]"
+                config={{ value: { label: 'Portfolio Value', color: portfolioColor } }}
+              >
+                <AreaChart data={portfolioHistory} margin={{ top: 8, right: 6, left: 2, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="backtestPortfolioGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="4%" stopColor={portfolioColor} stopOpacity={0.66} />
+                      <stop offset="96%" stopColor={portfolioColor} stopOpacity={0.04} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    vertical={false}
+                    stroke="rgba(161,161,170,0.18)"
+                    strokeDasharray="3 3"
+                  />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#a1a1aa', fontSize: 11 }}
+                    tickFormatter={(value: string) => formatShortDate(value)}
+                    axisLine={false}
+                    tickLine={false}
+                    minTickGap={24}
+                  />
+                  <YAxis
+                    tick={{ fill: '#a1a1aa', fontSize: 11 }}
+                    tickFormatter={(value: number) => formatCompact(value, 1)}
+                    axisLine={false}
+                    tickLine={false}
+                    width={44}
+                  />
+                  <ReferenceLine
+                    y={result.initialValue}
+                    stroke="rgba(161,161,170,0.35)"
+                    strokeDasharray="4 4"
+                    ifOverflow="extendDomain"
+                  />
+                  <Tooltip
+                    cursor={{ stroke: 'rgba(161,161,170,0.35)', strokeDasharray: '4 4' }}
+                    content={({
+                      active,
+                      payload,
+                      label,
+                    }: {
+                      active?: boolean;
+                      payload?: Array<{ payload: PortfolioPoint }>;
+                      label?: string;
+                    }) => {
+                      if (!active || !payload?.length) return null;
+                      const point = payload[0].payload;
+                      return (
+                        <div className="rounded-lg border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground shadow-sm">
+                          <div className="font-medium text-muted-foreground">
+                            {formatFullDate(label || point.date)}
+                          </div>
+                          <div className="mt-0.5 tabular-nums text-xs font-semibold text-foreground">
+                            {formatCurrency(point.value)}
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={portfolioColor}
+                    fill="url(#backtestPortfolioGradient)"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={true}
+                    animationDuration={450}
+                    activeDot={{
+                      r: 2.5,
+                      strokeWidth: 1,
+                      stroke: portfolioColor,
+                      fill: '#0a0a0a',
+                    }}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            </div>
+          )}
+
+          {dividendHistory && dividendHistory.length > 0 && (
+            <div className={sectionClass}>
+              <div className="mb-2">
+                <p className={captionClass}>Dividend Cashflow</p>
+              </div>
+              {dividendStats && (
+                <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
+                  <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                    <span className="text-muted-foreground">Total</span>
+                    <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                      ${formatCompact(dividendStats.total, 2)}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                    <span className="text-muted-foreground">Average</span>
+                    <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                      ${formatCompact(dividendStats.avg, 2)}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                    <span className="text-muted-foreground">Peak</span>
+                    <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                      ${formatCompact(dividendStats.peak, 2)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <ChartContainer
+                className="h-[145px] !aspect-auto sm:h-[170px]"
+                config={{ amount: { label: 'Dividend', color: '#34d399' } }}
+              >
+                <BarChart data={dividendHistory} margin={{ top: 8, right: 6, left: 2, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="backtestDividendGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.9} />
+                      <stop offset="95%" stopColor="#34d399" stopOpacity={0.45} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    vertical={false}
+                    stroke="rgba(161,161,170,0.18)"
+                    strokeDasharray="3 3"
+                  />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#a1a1aa', fontSize: 11 }}
+                    tickFormatter={(value: string) => formatShortDate(value)}
+                    axisLine={false}
+                    tickLine={false}
+                    minTickGap={24}
+                  />
+                  <YAxis
+                    tick={{ fill: '#a1a1aa', fontSize: 11 }}
+                    tickFormatter={(value: number) => formatCompact(value, 1)}
+                    axisLine={false}
+                    tickLine={false}
+                    width={44}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                    content={({
+                      active,
+                      payload,
+                      label,
+                    }: {
+                      active?: boolean;
+                      payload?: Array<{ payload: DividendHistoryPoint }>;
+                      label?: string;
+                    }) => {
+                      if (!active || !payload?.length) return null;
+                      const point = payload[0].payload;
+                      return (
+                        <div className="rounded-lg border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground shadow-sm">
+                          <div className="font-medium text-muted-foreground">
+                            {formatFullDate(label || point.date)}
+                          </div>
+                          <div className="mt-0.5 tabular-nums text-xs font-semibold text-foreground">
+                            {formatCurrency(point.amount)}
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="amount" fill="url(#backtestDividendGradient)" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+            </div>
+          )}
+
+          <Button
+            onClick={() => {
+              setResult(null);
+              setPortfolioHistory(null);
+              setDividendHistory(null);
+              setError(null);
+            }}
+            className="h-9 w-full rounded-lg border border-border bg-background text-foreground hover:bg-secondary/70"
+          >
+            <Play className="mr-2 h-4 w-4" />
+            New Backtest
+          </Button>
         </div>
       )}
     </div>

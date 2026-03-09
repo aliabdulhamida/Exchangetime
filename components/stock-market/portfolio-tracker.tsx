@@ -1,12 +1,17 @@
 'use client';
 
-import { ChevronDown, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,
   Bar,
   BarChart as BarChartComponent,
+  Cell,
+  ComposedChart,
+  Line,
+  Pie,
+  PieChart,
   ReferenceDot,
   ReferenceArea,
   ReferenceLine,
@@ -20,6 +25,7 @@ import HoldingDetailsModal from '@/components/stock-market/holding-details-modal
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer } from '@/components/ui/chart';
+import { useIsMobile } from '@/components/ui/use-mobile';
 
 interface StockDataPoint {
   date: string; // yyyy-mm-dd
@@ -30,8 +36,9 @@ type TransactionSide = 'BUY' | 'SELL';
 type SupportedCurrency = 'USD' | 'EUR' | 'GBP' | 'CHF';
 type Timeframe = '1M' | '3M' | '6M' | '1Y' | 'ALL';
 type AddInputMode = 'manual' | 'automatic';
-type MobileTab = 'overview' | 'holdings';
-type HoldingsPanelTab = 'holdings' | 'transactions';
+type HoldingsPanelTab = 'holdings' | 'transactions' | 'insights' | 'allocation';
+type HoldingsSort = 'weight' | 'pnl' | 'value' | 'symbol';
+type HoldingsFilter = 'all' | 'gainers' | 'losers' | 'highWeight';
 type DateRange = { start: string; end: string };
 
 interface PortfolioTransaction {
@@ -117,7 +124,132 @@ interface HoldingSnapshot {
   weightPct: number;
 }
 
+type HoldingSignal = 'highWeight' | 'gainer' | 'loser' | 'flat';
+type AllocationBreakdownDatum = {
+  name: string;
+  value: number;
+  weightPct: number;
+  holdings: number;
+};
+type AllocationDriftDatum = {
+  name: string;
+  currentPct: number;
+  targetPct: number;
+  driftPct: number;
+};
+type CorrelationCell = {
+  symbol: string;
+  corr: number | null;
+};
+type CorrelationMatrixRow = {
+  symbol: string;
+  cells: CorrelationCell[];
+};
+type DrawdownAttributionDatum = {
+  symbol: string;
+  delta: number;
+  contributionPct: number;
+};
+
 const SUPPORTED_CURRENCIES: SupportedCurrency[] = ['USD', 'EUR', 'GBP', 'CHF'];
+const ALLOCATION_FALLBACK_COLORS = [
+  '#3b82f6',
+  '#06b6d4',
+  '#22c55e',
+  '#84cc16',
+  '#eab308',
+  '#f97316',
+  '#ef4444',
+  '#a855f7',
+  '#ec4899',
+] as const;
+const ALLOCATION_COLOR_MAP: Record<string, Record<string, string>> = {
+  Sector: {
+    technology: '#3b82f6',
+    healthcare: '#22c55e',
+    'real estate': '#f97316',
+    industrials: '#06b6d4',
+    financials: '#a855f7',
+    utilities: '#14b8a6',
+    energy: '#ef4444',
+    materials: '#eab308',
+    'consumer discretionary': '#ec4899',
+    'consumer staples': '#84cc16',
+    communication: '#8b5cf6',
+    'communication services': '#8b5cf6',
+    other: '#64748b',
+    unclassified: '#94a3b8',
+  },
+  Region: {
+    'north america': '#22c55e',
+    europe: '#3b82f6',
+    'asia-pacific': '#f97316',
+    'latin america': '#eab308',
+    'middle east & africa': '#ef4444',
+    other: '#a855f7',
+    unclassified: '#94a3b8',
+  },
+  'Asset Class': {
+    equity: '#3b82f6',
+    'etf/etn': '#06b6d4',
+    fund: '#a855f7',
+    reit: '#f97316',
+    bond: '#22c55e',
+    index: '#eab308',
+    crypto: '#ec4899',
+    other: '#64748b',
+    unclassified: '#94a3b8',
+  },
+};
+const EUROPE_COUNTRIES = new Set([
+  'austria',
+  'belgium',
+  'denmark',
+  'finland',
+  'france',
+  'germany',
+  'ireland',
+  'italy',
+  'netherlands',
+  'norway',
+  'portugal',
+  'spain',
+  'sweden',
+  'switzerland',
+  'united kingdom',
+  'uk',
+]);
+const APAC_COUNTRIES = new Set([
+  'australia',
+  'china',
+  'hong kong',
+  'india',
+  'indonesia',
+  'japan',
+  'malaysia',
+  'new zealand',
+  'singapore',
+  'south korea',
+  'taiwan',
+  'thailand',
+  'vietnam',
+]);
+const LATAM_COUNTRIES = new Set([
+  'argentina',
+  'brazil',
+  'chile',
+  'colombia',
+  'mexico',
+  'peru',
+]);
+const MEA_COUNTRIES = new Set([
+  'israel',
+  'qatar',
+  'saudi arabia',
+  'south africa',
+  'united arab emirates',
+  'uae',
+]);
 
 function normalizeCurrency(value: unknown): SupportedCurrency {
   const upper = String(value || '').toUpperCase();
@@ -186,6 +318,163 @@ function formatShortDate(date: string): string {
   });
 }
 
+function resolveHoldingSignal(holding: HoldingSnapshot): HoldingSignal {
+  if (holding.weightPct >= 15) return 'highWeight';
+  if ((holding.unrealizedPct ?? 0) < 0) return 'loser';
+  if ((holding.unrealizedPct ?? 0) > 0) return 'gainer';
+  return 'flat';
+}
+
+function holdingSignalPillClass(signal: HoldingSignal): string {
+  if (signal === 'highWeight') return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
+  if (signal === 'loser') return 'border-rose-500/30 bg-rose-500/10 text-rose-400';
+  if (signal === 'gainer') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
+  return 'border-border bg-background text-muted-foreground';
+}
+
+function holdingSignalLabel(signal: HoldingSignal): string {
+  if (signal === 'highWeight') return 'High Weight';
+  if (signal === 'loser') return 'Loser';
+  if (signal === 'gainer') return 'Gainer';
+  return 'Flat';
+}
+
+function normalizeBucketLabel(value: string | null): string {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : 'Unclassified';
+}
+
+function resolveRegionFromCountry(country: string | null): string {
+  const normalized = country?.trim().toLowerCase();
+  if (!normalized) return 'Unclassified';
+  if (normalized === 'united states' || normalized === 'usa' || normalized === 'us' || normalized === 'canada') {
+    return 'North America';
+  }
+  if (EUROPE_COUNTRIES.has(normalized)) return 'Europe';
+  if (APAC_COUNTRIES.has(normalized)) return 'Asia-Pacific';
+  if (LATAM_COUNTRIES.has(normalized)) return 'Latin America';
+  if (MEA_COUNTRIES.has(normalized)) return 'Middle East & Africa';
+  return 'Other';
+}
+
+function resolveAssetClass(quoteType: string | null): string {
+  const normalized = quoteType?.trim().toLowerCase();
+  if (!normalized) return 'Unclassified';
+  if (normalized.includes('etf') || normalized.includes('etn')) return 'ETF/ETN';
+  if (normalized.includes('mutual') || normalized.includes('fund')) return 'Fund';
+  if (normalized.includes('equity') || normalized.includes('stock')) return 'Equity';
+  if (normalized.includes('reit')) return 'REIT';
+  if (normalized.includes('bond') || normalized.includes('fixed')) return 'Bond';
+  if (normalized.includes('index')) return 'Index';
+  if (normalized.includes('crypto') || normalized.includes('coin')) return 'Crypto';
+  return 'Other';
+}
+
+function buildAllocationBreakdown(
+  holdings: HoldingSnapshot[],
+  resolveLabel: (holding: HoldingSnapshot) => string | null,
+  maxSegments = 6,
+): AllocationBreakdownDatum[] {
+  if (!holdings.length) return [];
+  const totalValue = holdings.reduce((sum, holding) => sum + Math.max(0, holding.currentValue), 0);
+  if (totalValue <= 0) return [];
+
+  const grouped = new Map<string, { value: number; holdings: number }>();
+  holdings.forEach((holding) => {
+    const value = Math.max(0, holding.currentValue);
+    if (value <= 0) return;
+    const label = normalizeBucketLabel(resolveLabel(holding));
+    const entry = grouped.get(label);
+    if (entry) {
+      entry.value += value;
+      entry.holdings += 1;
+      return;
+    }
+    grouped.set(label, { value, holdings: 1 });
+  });
+
+  const rows = Array.from(grouped.entries())
+    .map(([name, entry]) => ({
+      name,
+      value: entry.value,
+      weightPct: (entry.value / totalValue) * 100,
+      holdings: entry.holdings,
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  if (rows.length <= maxSegments) return rows;
+
+  const leading = rows.slice(0, maxSegments - 1);
+  const trailing = rows.slice(maxSegments - 1);
+  const other = trailing.reduce(
+    (acc, row) => {
+      acc.value += row.value;
+      acc.holdings += row.holdings;
+      return acc;
+    },
+    { value: 0, holdings: 0 },
+  );
+
+  return [
+    ...leading,
+    {
+      name: 'Other',
+      value: other.value,
+      weightPct: (other.value / totalValue) * 100,
+      holdings: other.holdings,
+    },
+  ];
+}
+
+function buildEqualWeightDrift(data: AllocationBreakdownDatum[]): AllocationDriftDatum[] {
+  if (!data.length) return [];
+  const targetPct = 100 / data.length;
+  return data
+    .map((row) => ({
+      name: row.name,
+      currentPct: row.weightPct,
+      targetPct,
+      driftPct: row.weightPct - targetPct,
+    }))
+    .sort((a, b) => Math.abs(b.driftPct) - Math.abs(a.driftPct));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function mean(values: number[]): number {
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function computeCorrelation(xs: number[], ys: number[]): number | null {
+  if (xs.length !== ys.length || xs.length < 4) return null;
+  const mx = mean(xs);
+  const my = mean(ys);
+  let cov = 0;
+  let vx = 0;
+  let vy = 0;
+  for (let i = 0; i < xs.length; i += 1) {
+    const dx = xs[i] - mx;
+    const dy = ys[i] - my;
+    cov += dx * dy;
+    vx += dx * dx;
+    vy += dy * dy;
+  }
+  if (vx <= 0 || vy <= 0) return null;
+  return cov / Math.sqrt(vx * vy);
+}
+
+function getAllocationColor(groupTitle: string, label: string, index: number): string {
+  const key = label.trim().toLowerCase();
+  const mapped = ALLOCATION_COLOR_MAP[groupTitle]?.[key];
+  if (mapped) return mapped;
+
+  const seed = `${groupTitle}:${label}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return ALLOCATION_FALLBACK_COLORS[(seed + index) % ALLOCATION_FALLBACK_COLORS.length];
+}
+
 function toNullableNumber(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
@@ -215,7 +504,36 @@ function parseChartPoints(result: any): StockDataPoint[] {
     .filter((item: StockDataPoint) => Number.isFinite(item.close));
 }
 
-const MARKET_DATA_ENDPOINTS = ['/api/portfolio-market', '/api/quote'] as const;
+// Prefer quote endpoint first to avoid repeated failing attempts on providers that may be unavailable.
+const MARKET_DATA_ENDPOINTS = ['/api/quote', '/api/portfolio-market'] as const;
+const MARKET_ENDPOINT_COOLDOWN_MS = 5 * 60 * 1000;
+const marketEndpointBackoffUntil: Partial<Record<(typeof MARKET_DATA_ENDPOINTS)[number], number>> =
+  {};
+const inFlightMarketRequests = new Map<string, Promise<any>>();
+
+function shouldBackoffEndpoint(endpoint: (typeof MARKET_DATA_ENDPOINTS)[number], errorText: string): boolean {
+  if (endpoint !== '/api/portfolio-market') return false;
+  return (
+    errorText.includes('HTTP 500') ||
+    errorText.includes('HTTP 502') ||
+    errorText.toLowerCase().includes('fmp_api_key') ||
+    errorText.toLowerCase().includes('historical endpoint failed') ||
+    errorText.toLowerCase().includes('quote endpoint failed')
+  );
+}
+
+function getDailyPeriod2Unix(): number {
+  const now = new Date();
+  const endOfUtcDay = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    23,
+    59,
+    59,
+  );
+  return Math.floor(endOfUtcDay / 1000);
+}
 
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
@@ -238,6 +556,7 @@ function parseApiErrorMessage(payload: any, fallbackText: string): string {
 
 function resolveMarketSourceLabel(source: unknown): string {
   if (source === 'fmp') return 'Financial Modeling Prep (via /api/portfolio-market)';
+  if (source === 'yahoo') return 'Yahoo Finance (via /api/quote)';
   if (source === 'chart') return 'Yahoo Finance (via /api/quote)';
   return 'Market data proxy';
 }
@@ -258,18 +577,47 @@ async function fetchJsonWithApiError(url: string): Promise<any> {
 }
 
 async function fetchChartDataWithFallback(params: URLSearchParams): Promise<any> {
-  const errors: string[] = [];
   const query = params.toString();
+  const existing = inFlightMarketRequests.get(query);
+  if (existing) return existing;
 
-  for (const endpoint of MARKET_DATA_ENDPOINTS) {
-    try {
-      return await fetchJsonWithApiError(`${endpoint}?${query}`);
-    } catch (error) {
-      errors.push(`${endpoint}: ${toErrorMessage(error)}`);
+  const requestPromise = (async () => {
+    const errors: string[] = [];
+    const now = Date.now();
+    const preferredEndpoints = MARKET_DATA_ENDPOINTS.filter(
+      (endpoint) => (marketEndpointBackoffUntil[endpoint] || 0) <= now,
+    );
+    const fallbackEndpoints = MARKET_DATA_ENDPOINTS.filter(
+      (endpoint) => (marketEndpointBackoffUntil[endpoint] || 0) > now,
+    );
+    const orderedEndpoints =
+      preferredEndpoints.length > 0
+        ? [...preferredEndpoints, ...fallbackEndpoints]
+        : [...MARKET_DATA_ENDPOINTS];
+
+    for (const endpoint of orderedEndpoints) {
+      try {
+        const payload = await fetchJsonWithApiError(`${endpoint}?${query}`);
+        marketEndpointBackoffUntil[endpoint] = 0;
+        return payload;
+      } catch (error) {
+        const message = toErrorMessage(error);
+        errors.push(`${endpoint}: ${message}`);
+        if (shouldBackoffEndpoint(endpoint, message)) {
+          marketEndpointBackoffUntil[endpoint] = Date.now() + MARKET_ENDPOINT_COOLDOWN_MS;
+        }
+      }
     }
-  }
 
-  throw new Error(errors.join(' | '));
+    throw new Error(errors.join(' | '));
+  })();
+
+  inFlightMarketRequests.set(query, requestPromise);
+  try {
+    return await requestPromise;
+  } finally {
+    inFlightMarketRequests.delete(query);
+  }
 }
 
 function getPriceOnOrBefore(series: StockDataPoint[], date: string): number | null {
@@ -371,7 +719,7 @@ async function fetchDividendData(
     const start = new Date(startDate);
     start.setDate(start.getDate() - 30);
     const startUnix = Math.floor(start.getTime() / 1000);
-    const endUnix = Math.floor(Date.now() / 1000);
+    const endUnix = getDailyPeriod2Unix();
     const params = new URLSearchParams({
       symbol,
       chart: '1',
@@ -397,7 +745,7 @@ async function fetchDividendData(
 
 async function fetchStockSnapshot(symbol: string): Promise<StockSnapshot | { error: string }> {
   try {
-    const end = Math.floor(Date.now() / 1000);
+    const end = getDailyPeriod2Unix();
     const params = new URLSearchParams({
       symbol,
       chart: '1',
@@ -435,7 +783,7 @@ async function fetchFxSeries(
   if (from === to) return [];
 
   const fetchPair = async (pair: string): Promise<StockDataPoint[] | null> => {
-    const end = Math.floor(Date.now() / 1000);
+    const end = getDailyPeriod2Unix();
     const params = new URLSearchParams({
       symbol: pair,
       chart: '1',
@@ -482,6 +830,7 @@ export async function fetchStockData(
 }
 
 export default function PortfolioTracker() {
+  const isMobile = useIsMobile();
   const [stockData, setStockData] = useState<Record<string, StockDataPoint[]>>(() => {
     if (typeof window === 'undefined') return {};
     try {
@@ -583,13 +932,10 @@ export default function PortfolioTracker() {
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [addInputMode, setAddInputMode] = useState<AddInputMode>('manual');
-  const [mobileTab, setMobileTab] = useState<MobileTab>('overview');
   const [holdingsPanelTab, setHoldingsPanelTab] = useState<HoldingsPanelTab>('holdings');
-  const [mobileAnalyticsOpen, setMobileAnalyticsOpen] = useState({
-    returns: false,
-    risk: false,
-    benchmark: false,
-  });
+  const [holdingSearch, setHoldingSearch] = useState('');
+  const [holdingsSort, setHoldingsSort] = useState<HoldingsSort>('weight');
+  const [holdingsFilter, setHoldingsFilter] = useState<HoldingsFilter>('all');
   const [search, setSearch] = useState('');
   const [transactionSide, setTransactionSide] = useState<TransactionSide>('BUY');
   const [shares, setShares] = useState('');
@@ -600,6 +946,7 @@ export default function PortfolioTracker() {
   const [tradeCurrency, setTradeCurrency] = useState<SupportedCurrency>('USD');
 
   const [activeChart, setActiveChart] = useState<'value' | 'dividends'>('value');
+  const [valueChartStyle, setValueChartStyle] = useState<'area' | 'line'>('area');
   const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('ALL');
   const [dividendYear, setDividendYear] = useState<number>(() => new Date().getFullYear());
   const [performanceDragRange, setPerformanceDragRange] = useState<DateRange | null>(null);
@@ -632,16 +979,6 @@ export default function PortfolioTracker() {
   const [dividendLoading, setDividendLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
-    setMobileAnalyticsOpen({
-      returns: isDesktop,
-      risk: isDesktop,
-      benchmark: isDesktop,
-    });
-  }, []);
 
   const trackedSymbols = useMemo(
     () => Array.from(new Set(transactions.map((tx) => tx.symbol))).sort(),
@@ -869,17 +1206,42 @@ export default function PortfolioTracker() {
       setHoldingQuoteErrorBySymbol((prev) => ({ ...prev, [symbol]: null }));
       try {
         const period2 = Math.floor(Date.now() / 1000);
-        const period1 = Math.max(0, period2 - 90 * 24 * 60 * 60);
-        const params = new URLSearchParams({
+        const period1 = Math.max(0, period2 - 5 * 365 * 24 * 60 * 60);
+        const chartParams = new URLSearchParams({
           symbol,
           chart: '1',
           period1: String(period1),
           period2: String(period2),
           interval: '1d',
+          includePrePost: 'false',
         });
-        const payload = await fetchJsonWithApiError(`/api/quote?${params.toString()}`);
-        const result = payload?.chart?.result?.[0] || null;
-        const meta = result?.meta || {};
+
+        const [chartResult, quoteResult, metricsResult, dcfResult] = await Promise.allSettled([
+          fetchJsonWithApiError(`/api/quote?${chartParams.toString()}`),
+          fetchJsonWithApiError(`/api/quote?symbol=${encodeURIComponent(symbol)}`),
+          fetchJsonWithApiError(`/api/metrics?symbol=${encodeURIComponent(symbol)}`),
+          fetchJsonWithApiError(`/api/dcf?symbol=${encodeURIComponent(symbol)}`),
+        ]);
+
+        const chartPayload = chartResult.status === 'fulfilled' ? chartResult.value : null;
+        const quotePayload = quoteResult.status === 'fulfilled' ? quoteResult.value : null;
+        const metricsPayload = metricsResult.status === 'fulfilled' ? metricsResult.value : null;
+        const dcfPayload = dcfResult.status === 'fulfilled' ? dcfResult.value : null;
+
+        if (!chartPayload && !quotePayload) {
+          const chartError =
+            chartResult.status === 'rejected' ? toErrorMessage(chartResult.reason) : 'No chart payload';
+          const quoteError =
+            quoteResult.status === 'rejected' ? toErrorMessage(quoteResult.reason) : 'No quote payload';
+          throw new Error(`${chartError} | ${quoteError}`);
+        }
+
+        const result = chartPayload?.chart?.result?.[0] || null;
+        const chartMeta = result?.meta || {};
+        const quoteMeta = quotePayload?.meta || {};
+        const quoteCompany = quotePayload?.company || {};
+        const quoteMetrics = quotePayload?.metrics || {};
+
         const closesRaw: unknown[] = Array.isArray(result?.indicators?.quote?.[0]?.close)
           ? result.indicators.quote[0].close
           : [];
@@ -896,27 +1258,32 @@ export default function PortfolioTracker() {
         const latestClose = closes.length ? closes[closes.length - 1] : null;
         const previousCloseFromSeries = closes.length > 1 ? closes[closes.length - 2] : null;
         const price =
-          toNullableNumber(meta?.regularMarketPrice) ??
-          toNullableNumber(meta?.currentTradingPeriod?.post?.close) ??
+          toNullableNumber(chartMeta?.regularMarketPrice) ??
+          toNullableNumber(quotePayload?.price) ??
+          toNullableNumber(dcfPayload?.price) ??
+          toNullableNumber(chartMeta?.currentTradingPeriod?.post?.close) ??
           latestClose;
         const previousClose =
-          toNullableNumber(meta?.previousClose) ??
-          toNullableNumber(meta?.chartPreviousClose) ??
+          toNullableNumber(chartMeta?.previousClose) ??
+          toNullableNumber(quotePayload?.previousClose) ??
+          toNullableNumber(chartMeta?.chartPreviousClose) ??
           previousCloseFromSeries;
         const dayChange = price !== null && previousClose !== null ? price - previousClose : null;
         const dayChangePct =
           dayChange !== null && previousClose !== null && previousClose !== 0
             ? (dayChange / previousClose) * 100
             : null;
-        const regularMarketTime = Number(meta?.regularMarketTime);
+        const regularMarketTime =
+          toNullableNumber(chartMeta?.regularMarketTime) ??
+          toNullableNumber(quoteMeta?.regularMarketTime);
         const asOfUtc = Number.isFinite(regularMarketTime)
-          ? new Date(regularMarketTime * 1000).toISOString()
+          ? new Date((regularMarketTime as number) * 1000).toISOString()
           : null;
         const averageVolumeFromSeries = volumes.length
           ? volumes.slice(-20).reduce((acc, current) => acc + current, 0) /
             Math.min(20, volumes.length)
           : null;
-        const dividendYieldRaw = toNullableNumber(meta?.dividendYield);
+        const dividendYieldRaw = toNullableNumber(chartMeta?.dividendYield);
         const dividendYieldPct =
           dividendYieldRaw !== null
             ? Math.abs(dividendYieldRaw) <= 1
@@ -924,50 +1291,98 @@ export default function PortfolioTracker() {
               : dividendYieldRaw
             : null;
 
+        const mergedDividendYieldPct =
+          toNullableNumber(quoteMetrics?.dividendYieldPct) ??
+          toNullableNumber(metricsPayload?.dividendYield) ??
+          dividendYieldPct;
+        const resolvedSource = resolveMarketSourceLabel(
+          toNullableString(chartPayload?.source) ||
+            toNullableString(quotePayload?.source) ||
+            'chart',
+        );
+        const resolvedLongName =
+          toNullableString(quoteCompany?.longName) ||
+          toNullableString(quoteMeta?.longName) ||
+          toNullableString(chartMeta?.longName) ||
+          toNullableString(metricsPayload?.companyName);
+        const resolvedShortName =
+          toNullableString(quoteCompany?.shortName) ||
+          toNullableString(quoteMeta?.shortName) ||
+          toNullableString(chartMeta?.shortName) ||
+          toNullableString(metricsPayload?.companyName);
+        const resolvedQuoteType =
+          toNullableString(quoteCompany?.quoteType) ||
+          toNullableString(quoteMeta?.instrumentType) ||
+          toNullableString(chartMeta?.instrumentType);
+        const resolvedExchange =
+          toNullableString(quoteCompany?.exchange) ||
+          toNullableString(chartMeta?.fullExchangeName) ||
+          toNullableString(chartMeta?.exchangeName) ||
+          toNullableString(quoteMeta?.fullExchangeName) ||
+          toNullableString(quoteMeta?.exchangeName);
+
         setHoldingQuoteCache((prev) => ({
           ...prev,
           [symbol]: {
             price,
             previousClose,
             currency:
-              toNullableString(meta?.currency) ||
-              toNullableString(payload?.currency),
+              toNullableString(quotePayload?.currency) ||
+              toNullableString(chartMeta?.currency) ||
+              toNullableString(dcfPayload?.currency),
             dayChange,
             dayChangePct,
-            source: toNullableString(payload?.source) || 'chart',
+            source: resolvedSource,
             asOfUtc,
-            shortName: toNullableString(meta?.shortName),
-            longName: toNullableString(meta?.longName),
-            quoteType: toNullableString(meta?.instrumentType),
-            exchange:
-              toNullableString(meta?.fullExchangeName) ||
-              toNullableString(meta?.exchangeName),
-            sector: null,
-            industry: null,
-            country: null,
-            website: null,
-            businessSummary: null,
-            marketCap: toNullableNumber(meta?.marketCap),
+            shortName: resolvedShortName,
+            longName: resolvedLongName,
+            quoteType: resolvedQuoteType,
+            exchange: resolvedExchange,
+            sector: toNullableString(quoteCompany?.sector),
+            industry: toNullableString(quoteCompany?.industry),
+            country: toNullableString(quoteCompany?.country),
+            website: toNullableString(quoteCompany?.website),
+            businessSummary: toNullableString(quoteCompany?.businessSummary),
+            marketCap:
+              toNullableNumber(quoteMetrics?.marketCap) ??
+              toNullableNumber(chartMeta?.marketCap),
             dayHigh:
-              toNullableNumber(meta?.regularMarketDayHigh),
+              toNullableNumber(quoteMetrics?.dayHigh) ??
+              toNullableNumber(chartMeta?.regularMarketDayHigh),
             dayLow:
-              toNullableNumber(meta?.regularMarketDayLow),
+              toNullableNumber(quoteMetrics?.dayLow) ??
+              toNullableNumber(chartMeta?.regularMarketDayLow),
             fiftyTwoWeekHigh:
-              toNullableNumber(meta?.fiftyTwoWeekHigh),
+              toNullableNumber(quoteMetrics?.fiftyTwoWeekHigh) ??
+              toNullableNumber(chartMeta?.fiftyTwoWeekHigh),
             fiftyTwoWeekLow:
-              toNullableNumber(meta?.fiftyTwoWeekLow),
-            trailingPE: toNullableNumber(meta?.trailingPE),
-            forwardPE: toNullableNumber(meta?.forwardPE),
-            epsTrailingTwelveMonths: toNullableNumber(meta?.epsTrailingTwelveMonths),
-            beta: toNullableNumber(meta?.beta),
+              toNullableNumber(quoteMetrics?.fiftyTwoWeekLow) ??
+              toNullableNumber(chartMeta?.fiftyTwoWeekLow),
+            trailingPE:
+              toNullableNumber(quoteMetrics?.trailingPE) ??
+              toNullableNumber(metricsPayload?.peRatio) ??
+              toNullableNumber(chartMeta?.trailingPE),
+            forwardPE:
+              toNullableNumber(quoteMetrics?.forwardPE) ??
+              toNullableNumber(chartMeta?.forwardPE),
+            epsTrailingTwelveMonths:
+              toNullableNumber(quoteMetrics?.epsTrailingTwelveMonths) ??
+              toNullableNumber(chartMeta?.epsTrailingTwelveMonths),
+            beta:
+              toNullableNumber(quoteMetrics?.beta) ??
+              toNullableNumber(chartMeta?.beta),
             volume:
-              toNullableNumber(meta?.regularMarketVolume),
+              toNullableNumber(quoteMetrics?.volume) ??
+              toNullableNumber(chartMeta?.regularMarketVolume),
             averageVolume:
-              toNullableNumber(meta?.averageDailyVolume3Month) ??
-              toNullableNumber(meta?.averageDailyVolume10Day) ??
+              toNullableNumber(quoteMetrics?.averageVolume) ??
+              toNullableNumber(chartMeta?.averageDailyVolume3Month) ??
+              toNullableNumber(chartMeta?.averageDailyVolume10Day) ??
               averageVolumeFromSeries,
-            dividendRate: toNullableNumber(meta?.dividendRate),
-            dividendYieldPct,
+            dividendRate:
+              toNullableNumber(quoteMetrics?.dividendRate) ??
+              toNullableNumber(chartMeta?.dividendRate),
+            dividendYieldPct: mergedDividendYieldPct,
           },
         }));
       } catch (error) {
@@ -1262,13 +1677,99 @@ export default function PortfolioTracker() {
     dividendNetBySymbol,
   ]);
 
-  const currentPortfolioValue = useMemo(
-    () => holdingSnapshots.reduce((sum, row) => sum + row.currentValue, 0),
-    [holdingSnapshots],
+  const sectorBreakdownData = useMemo(
+    () =>
+      buildAllocationBreakdown(
+        holdingSnapshots,
+        (holding) => holdingQuoteCache[holding.symbol]?.sector || 'Unclassified',
+        7,
+      ),
+    [holdingSnapshots, holdingQuoteCache],
   );
 
-  const totalOpenCostBasis = useMemo(
-    () => holdingSnapshots.reduce((sum, row) => sum + row.openCostBasis, 0),
+  const regionBreakdownData = useMemo(
+    () =>
+      buildAllocationBreakdown(
+        holdingSnapshots,
+        (holding) => resolveRegionFromCountry(holdingQuoteCache[holding.symbol]?.country),
+        7,
+      ),
+    [holdingSnapshots, holdingQuoteCache],
+  );
+
+  const assetClassBreakdownData = useMemo(
+    () =>
+      buildAllocationBreakdown(
+        holdingSnapshots,
+        (holding) => resolveAssetClass(holdingQuoteCache[holding.symbol]?.quoteType),
+        7,
+      ),
+    [holdingSnapshots, holdingQuoteCache],
+  );
+
+  const pendingInsightsMetadataSymbols = useMemo(
+    () =>
+      holdingSnapshots.filter(
+        (holding) =>
+          !holdingQuoteCache[holding.symbol] &&
+          !holdingQuoteLoadingBySymbol[holding.symbol] &&
+          !holdingQuoteErrorBySymbol[holding.symbol],
+      ),
+    [holdingSnapshots, holdingQuoteCache, holdingQuoteLoadingBySymbol, holdingQuoteErrorBySymbol],
+  );
+
+  const concentrationMetrics = useMemo(() => {
+    const top1 = holdingSnapshots[0]?.weightPct ?? 0;
+    const top3 = holdingSnapshots.slice(0, 3).reduce((sum, holding) => sum + holding.weightPct, 0);
+    const top5 = holdingSnapshots.slice(0, 5).reduce((sum, holding) => sum + holding.weightPct, 0);
+    const hhi = holdingSnapshots.reduce(
+      (sum, holding) => sum + Math.pow(holding.weightPct / 100, 2),
+      0,
+    ) * 10000;
+    const level =
+      hhi >= 2500 || top1 >= 25 ? 'High' : hhi >= 1500 || top1 >= 18 ? 'Moderate' : 'Low';
+    const levelTone =
+      level === 'High'
+        ? 'text-rose-400'
+        : level === 'Moderate'
+          ? 'text-amber-300'
+          : 'text-emerald-400';
+    return { top1, top3, top5, hhi, level, levelTone };
+  }, [holdingSnapshots]);
+
+  const sectorDriftData = useMemo(() => buildEqualWeightDrift(sectorBreakdownData), [sectorBreakdownData]);
+  const regionDriftData = useMemo(() => buildEqualWeightDrift(regionBreakdownData), [regionBreakdownData]);
+  const assetClassDriftData = useMemo(
+    () => buildEqualWeightDrift(assetClassBreakdownData),
+    [assetClassBreakdownData],
+  );
+
+  const visibleHoldingSnapshots = useMemo(() => {
+    const query = holdingSearch.trim().toUpperCase();
+    let filtered = holdingSnapshots.filter((holding) =>
+      query ? holding.symbol.includes(query) : true,
+    );
+
+    if (holdingsFilter === 'gainers') {
+      filtered = filtered.filter((holding) => (holding.unrealizedPct ?? 0) > 0);
+    } else if (holdingsFilter === 'losers') {
+      filtered = filtered.filter((holding) => (holding.unrealizedPct ?? 0) < 0);
+    } else if (holdingsFilter === 'highWeight') {
+      filtered = filtered.filter((holding) => holding.weightPct >= 15);
+    }
+
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      if (holdingsSort === 'symbol') return a.symbol.localeCompare(b.symbol);
+      if (holdingsSort === 'pnl') return b.unrealizedPnl - a.unrealizedPnl;
+      if (holdingsSort === 'weight') return b.weightPct - a.weightPct;
+      return b.currentValue - a.currentValue;
+    });
+    return sorted;
+  }, [holdingSnapshots, holdingSearch, holdingsFilter, holdingsSort]);
+
+  const currentPortfolioValue = useMemo(
+    () => holdingSnapshots.reduce((sum, row) => sum + row.currentValue, 0),
     [holdingSnapshots],
   );
 
@@ -1280,11 +1781,6 @@ export default function PortfolioTracker() {
   const totalRealizedPnl = useMemo(
     () => holdingSnapshots.reduce((sum, row) => sum + row.realizedPnl, 0),
     [holdingSnapshots],
-  );
-
-  const totalDividendIncomeGross = useMemo(
-    () => dividendCashEvents.reduce((sum, event) => sum + event.grossAmount, 0),
-    [dividendCashEvents],
   );
 
   const totalDividendIncomeNet = useMemo(
@@ -1333,7 +1829,6 @@ export default function PortfolioTracker() {
   const totalReturn = priceReturn + totalDividendIncomeNet;
   const totalReturnPct = investedCapital > 0 ? (totalReturn / investedCapital) * 100 : null;
   const annualYield = currentPortfolioValue > 0 ? (ttmDividends.net / currentPortfolioValue) * 100 : null;
-  const yieldOnCost = totalOpenCostBasis > 0 ? (ttmDividends.net / totalOpenCostBasis) * 100 : null;
 
   const portfolioHistory = useMemo(() => {
     const allDates = new Set<string>();
@@ -1377,13 +1872,6 @@ export default function PortfolioTracker() {
     return monthlyDividendHistory.filter((entry) => new Date(entry.date).getFullYear() === dividendYear);
   }, [monthlyDividendHistory, activeChart, dividendYear]);
 
-  const totalReturnValueForRange = useMemo(() => {
-    if (!filteredPortfolioHistory.length) return null;
-    const first = filteredPortfolioHistory[0].value;
-    const last = filteredPortfolioHistory[filteredPortfolioHistory.length - 1].value;
-    return last - first;
-  }, [filteredPortfolioHistory]);
-
   const totalReturnPctForRange = useMemo(
     () => computeSeriesReturnPct(filteredPortfolioHistory.map((point) => point.value)),
     [filteredPortfolioHistory],
@@ -1411,10 +1899,235 @@ export default function PortfolioTracker() {
     [filteredBenchmarkHistory],
   );
 
+  const insightsComparisonChartData = useMemo(() => {
+    if (filteredPortfolioHistory.length < 2 || filteredBenchmarkHistory.length < 2) return [];
+    const portfolioByDate = new Map(filteredPortfolioHistory.map((point) => [point.date, point.value]));
+    const benchmarkByDate = new Map(filteredBenchmarkHistory.map((point) => [point.date, point.value]));
+    const commonDates = filteredPortfolioHistory
+      .map((point) => point.date)
+      .filter((date) => benchmarkByDate.has(date));
+    if (commonDates.length < 2) return [];
+
+    const firstPortfolioValue = portfolioByDate.get(commonDates[0]);
+    const firstBenchmarkValue = benchmarkByDate.get(commonDates[0]);
+    if (
+      !Number.isFinite(firstPortfolioValue) ||
+      !Number.isFinite(firstBenchmarkValue) ||
+      (firstPortfolioValue ?? 0) <= 0 ||
+      (firstBenchmarkValue ?? 0) <= 0
+    ) {
+      return [];
+    }
+
+    const safeFirstPortfolio = firstPortfolioValue as number;
+    const safeFirstBenchmark = firstBenchmarkValue as number;
+
+    return commonDates.map((date) => {
+      const portfolioPoint = portfolioByDate.get(date);
+      const benchmarkPoint = benchmarkByDate.get(date);
+      return {
+        date,
+        portfolio: ((portfolioPoint ?? safeFirstPortfolio) / safeFirstPortfolio) * 100,
+        benchmark: ((benchmarkPoint ?? safeFirstBenchmark) / safeFirstBenchmark) * 100,
+      };
+    });
+  }, [filteredPortfolioHistory, filteredBenchmarkHistory]);
+
   const excessVsBenchmark = useMemo(() => {
     if (totalReturnPctForRange === null || benchmarkReturnPctForRange === null) return null;
     return totalReturnPctForRange - benchmarkReturnPctForRange;
   }, [totalReturnPctForRange, benchmarkReturnPctForRange]);
+
+  const diversificationInsight = useMemo(() => {
+    const topHoldings = holdingSnapshots.filter((holding) => holding.weightPct > 0).slice(0, 8);
+    if (topHoldings.length < 2) {
+      return {
+        score: null as number | null,
+        averageCorrelation: null as number | null,
+        pairCount: 0,
+        minOverlapDays: 0,
+        matrix: [] as CorrelationMatrixRow[],
+      };
+    }
+
+    const cutoff = getTimeframeCutoff(activeTimeframe);
+    const returnsBySymbol = new Map<string, Map<string, number>>();
+
+    topHoldings.forEach((holding) => {
+      const series = (stockData[holding.symbol] || []).filter((point) =>
+        cutoff ? new Date(`${point.date}T00:00:00`).getTime() >= cutoff : true,
+      );
+      if (series.length < 10) return;
+
+      const returnMap = new Map<string, number>();
+      let previousBasePrice: number | null = null;
+      series.forEach((point) => {
+        const basePrice = convertToBase(
+          point.close,
+          stockCurrencyForSymbol(holding.symbol),
+          point.date,
+        );
+        if (previousBasePrice !== null && previousBasePrice > 0) {
+          returnMap.set(point.date, (basePrice - previousBasePrice) / previousBasePrice);
+        }
+        previousBasePrice = basePrice;
+      });
+      if (returnMap.size >= 8) returnsBySymbol.set(holding.symbol, returnMap);
+    });
+
+    const symbols = topHoldings
+      .map((holding) => holding.symbol)
+      .filter((symbol) => returnsBySymbol.has(symbol));
+    if (symbols.length < 2) {
+      return {
+        score: null as number | null,
+        averageCorrelation: null as number | null,
+        pairCount: 0,
+        minOverlapDays: 0,
+        matrix: [] as CorrelationMatrixRow[],
+      };
+    }
+
+    const weightsBySymbol = new Map(
+      topHoldings.map((holding) => [holding.symbol, holding.weightPct / 100]),
+    );
+    let weightedCorrTotal = 0;
+    let corrWeightTotal = 0;
+    let pairCount = 0;
+    let minOverlapDays = Number.POSITIVE_INFINITY;
+
+    const matrix: CorrelationMatrixRow[] = symbols.map((rowSymbol, rowIndex) => {
+      const rowMap = returnsBySymbol.get(rowSymbol)!;
+      const cells = symbols.map((colSymbol, colIndex) => {
+        if (rowIndex === colIndex) return { symbol: colSymbol, corr: 1 };
+
+        const colMap = returnsBySymbol.get(colSymbol)!;
+        const sharedDates = Array.from(rowMap.keys()).filter((date) => colMap.has(date));
+        if (sharedDates.length < 8) return { symbol: colSymbol, corr: null };
+
+        const xs = sharedDates.map((date) => rowMap.get(date) ?? 0);
+        const ys = sharedDates.map((date) => colMap.get(date) ?? 0);
+        const corr = computeCorrelation(xs, ys);
+
+        if (corr !== null && rowIndex < colIndex) {
+          pairCount += 1;
+          minOverlapDays = Math.min(minOverlapDays, sharedDates.length);
+          const pairWeight = (weightsBySymbol.get(rowSymbol) || 0) * (weightsBySymbol.get(colSymbol) || 0);
+          if (pairWeight > 0) {
+            weightedCorrTotal += corr * pairWeight;
+            corrWeightTotal += pairWeight;
+          }
+        }
+        return { symbol: colSymbol, corr };
+      });
+      return { symbol: rowSymbol, cells };
+    });
+
+    const averageCorrelation = corrWeightTotal > 0 ? weightedCorrTotal / corrWeightTotal : null;
+    const score = averageCorrelation === null ? null : clamp((1 - averageCorrelation) * 50, 0, 100);
+
+    return {
+      score,
+      averageCorrelation,
+      pairCount,
+      minOverlapDays: Number.isFinite(minOverlapDays) ? minOverlapDays : 0,
+      matrix,
+    };
+  }, [
+    holdingSnapshots,
+    activeTimeframe,
+    stockData,
+    convertToBase,
+    stockCurrencyForSymbol,
+  ]);
+
+  const drawdownInsight = useMemo(() => {
+    if (filteredPortfolioHistory.length < 2) {
+      return {
+        peakDate: null as string | null,
+        troughDate: null as string | null,
+        drawdownPct: null as number | null,
+        attribution: [] as DrawdownAttributionDatum[],
+      };
+    }
+
+    let rollingPeak = filteredPortfolioHistory[0];
+    let peakAtWorst = filteredPortfolioHistory[0];
+    let troughAtWorst = filteredPortfolioHistory[0];
+    let worstDrawdown = 0;
+
+    filteredPortfolioHistory.forEach((point) => {
+      if (point.value > rollingPeak.value) rollingPeak = point;
+      if (rollingPeak.value <= 0) return;
+      const drawdown = ((point.value - rollingPeak.value) / rollingPeak.value) * 100;
+      if (drawdown < worstDrawdown) {
+        worstDrawdown = drawdown;
+        peakAtWorst = rollingPeak;
+        troughAtWorst = point;
+      }
+    });
+
+    if (worstDrawdown >= 0) {
+      return {
+        peakDate: null as string | null,
+        troughDate: null as string | null,
+        drawdownPct: null as number | null,
+        attribution: [] as DrawdownAttributionDatum[],
+      };
+    }
+
+    const peakDate = peakAtWorst.date;
+    const troughDate = troughAtWorst.date;
+    const peakValue = peakAtWorst.value;
+
+    const attribution = trackedSymbols
+      .map((symbol) => {
+        const quantityAtPeak = sortedTransactions
+          .filter((tx) => tx.symbol === symbol && tx.date <= peakDate)
+          .reduce((sum, tx) => sum + toSignedShares(tx), 0);
+        const quantityAtTrough = sortedTransactions
+          .filter((tx) => tx.symbol === symbol && tx.date <= troughDate)
+          .reduce((sum, tx) => sum + toSignedShares(tx), 0);
+        if (quantityAtPeak <= 0 && quantityAtTrough <= 0) return null;
+
+        const peakPrice = getPriceOnOrBefore(stockData[symbol] || [], peakDate);
+        const troughPrice = getPriceOnOrBefore(stockData[symbol] || [], troughDate);
+
+        const peakPositionValue =
+          quantityAtPeak > 0 && peakPrice !== null
+            ? quantityAtPeak * convertToBase(peakPrice, stockCurrencyForSymbol(symbol), peakDate)
+            : 0;
+        const troughPositionValue =
+          quantityAtTrough > 0 && troughPrice !== null
+            ? quantityAtTrough * convertToBase(troughPrice, stockCurrencyForSymbol(symbol), troughDate)
+            : 0;
+
+        const delta = troughPositionValue - peakPositionValue;
+        return {
+          symbol,
+          delta,
+          contributionPct: peakValue > 0 ? (delta / peakValue) * 100 : 0,
+        };
+      })
+      .filter((entry): entry is DrawdownAttributionDatum => Boolean(entry))
+      .filter((entry) => entry.delta < 0)
+      .sort((a, b) => a.delta - b.delta)
+      .slice(0, 6);
+
+    return {
+      peakDate,
+      troughDate,
+      drawdownPct: worstDrawdown,
+      attribution,
+    };
+  }, [
+    filteredPortfolioHistory,
+    trackedSymbols,
+    sortedTransactions,
+    stockData,
+    convertToBase,
+    stockCurrencyForSymbol,
+  ]);
 
   const maxDrawdownPct = useMemo(
     () => computeMaxDrawdownPct(portfolioHistory.map((point) => point.value)),
@@ -1605,6 +2318,10 @@ export default function PortfolioTracker() {
           selectedRangeStartPoint.value) *
         100
       : null;
+  const showMobileDragSummary =
+    isMobile &&
+    activeChart === 'value' &&
+    Boolean(activeSelectionRange && selectedRangeStartPoint && selectedRangeEndPoint);
 
   const handleChartDragStart = useCallback(
     (state: any) => {
@@ -1635,6 +2352,14 @@ export default function PortfolioTracker() {
   }, []);
 
   useEffect(() => {
+    if (holdingsPanelTab !== 'allocation') return;
+    if (!pendingInsightsMetadataSymbols.length) return;
+    pendingInsightsMetadataSymbols.forEach((holding) => {
+      void fetchHoldingQuoteDetails(holding.symbol);
+    });
+  }, [holdingsPanelTab, pendingInsightsMetadataSymbols, fetchHoldingQuoteDetails]);
+
+  useEffect(() => {
     if (!holdingModalOpen || !holdingModalSymbol) return;
     fetchHoldingQuoteDetails(holdingModalSymbol);
   }, [holdingModalOpen, holdingModalSymbol, fetchHoldingQuoteDetails]);
@@ -1649,151 +2374,30 @@ export default function PortfolioTracker() {
   }, [holdingModalSymbol, holdingSnapshots]);
 
   return (
-    <div className="min-h-[50vh] w-full pt-0 text-xs sm:text-sm md:text-base">
-      <div className="mb-5 flex items-center justify-start">
-        <h2 className="text-lg font-bold text-foreground">Portfolio Tracker</h2>
+    <div className="min-h-[52vh] w-full text-sm">
+      <div className="mb-2">
+        <h2 className="text-xl font-semibold text-foreground">Portfolio Tracker</h2>
       </div>
-
-      <main className="w-full py-1 sm:py-6">
-        <div className="mb-4 lg:hidden">
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
-            <button
-              onClick={() => setMobileTab('overview')}
-              className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-                mobileTab === 'overview'
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setMobileTab('holdings')}
-              className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-                mobileTab === 'holdings'
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Holdings
-            </button>
-          </div>
-        </div>
-
-        <section
-          className={`mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4 ${
-            mobileTab === 'holdings' ? 'hidden lg:grid' : ''
-          }`}
-        >
-          <Card className="relative overflow-hidden border border-border/80 bg-gradient-to-br from-card via-card to-sky-950/15 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
-            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-sky-500/10 blur-2xl" />
-            <CardHeader className="px-4 pb-1 pt-4">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-300/80">
-                Portfolio Value
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1.5 px-4 pb-4 pt-0">
-              <div className="text-2xl font-semibold tracking-tight text-foreground">
-                {formatMoney(currentPortfolioValue, baseCurrency, 0, 0)}
-              </div>
-              <div className="inline-flex w-fit items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-0.5 text-[11px] text-muted-foreground">
-                Net invested: {formatMoney(investedCapital - withdrawnCapital, baseCurrency, 0, 0)}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden border border-border/80 bg-gradient-to-br from-card via-card to-emerald-950/15 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
-            <div
-              className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl ${
-                totalReturn >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10'
-              }`}
-            />
-            <CardHeader className="px-4 pb-1 pt-4">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300/80">
-                Total Return
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1.5 px-4 pb-4 pt-0">
-              <div
-                className={`text-2xl font-semibold tracking-tight ${
-                  totalReturn >= 0 ? 'text-green-500' : 'text-red-500'
-                }`}
-              >
-                {formatMoney(totalReturn, baseCurrency, 0, 0)}
-              </div>
-              <div
-                className={`inline-flex w-fit items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-0.5 text-[11px] font-medium ${
-                  totalReturnPct !== null && totalReturnPct >= 0 ? 'text-green-500' : 'text-red-500'
-                }`}
-              >
-                {formatPercent(totalReturnPct)}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Price {formatMoney(priceReturn, baseCurrency, 0, 0)} • Dividends{' '}
-                {formatMoney(totalDividendIncomeNet, baseCurrency, 0, 0)}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden border border-border/80 bg-gradient-to-br from-card via-card to-amber-950/15 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
-            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-amber-500/10 blur-2xl" />
-            <CardHeader className="px-4 pb-1 pt-4">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-300/80">
-                Dividend Income
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1.5 px-4 pb-4 pt-0">
-              <div className="text-2xl font-semibold tracking-tight text-foreground">
-                {dividendLoading ? '...' : formatMoney(totalDividendIncomeNet, baseCurrency, 2, 2)}
-              </div>
-              <div className="inline-flex w-fit items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-0.5 text-[11px] text-muted-foreground">
-                {formatMoney(dividendIncomePerMonth, baseCurrency, 2, 2)} / month
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Gross {formatMoney(totalDividendIncomeGross, baseCurrency, 2, 2)} • {dividendPaymentsCount} payments
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden border border-border/80 bg-gradient-to-br from-card via-card to-teal-950/15 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
-            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-teal-500/10 blur-2xl" />
-            <CardHeader className="px-4 pb-1 pt-4">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-300/80">
-                Yield
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1.5 px-4 pb-4 pt-0">
-              <div className={`text-2xl font-semibold tracking-tight ${metricTone(annualYield)}`}>
-                {formatPercent(annualYield)}
-              </div>
-              <div className="inline-flex w-fit items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-0.5 text-[11px] text-muted-foreground">
-                TTM net dividends / current value
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Yield on cost: {formatPercent(yieldOnCost)}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <Card
-            className={`border border-border lg:col-span-3 ${
-              mobileTab === 'holdings' ? 'hidden lg:block' : ''
-            }`}
-          >
-            <CardHeader className="pb-4">
+      <main className="w-full space-y-6 py-1 sm:py-2">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+          <Card className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background xl:col-span-7">
+            <CardHeader className="border-b border-border pb-4 pt-5">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold">Performance</CardTitle>
-                <div className="flex gap-1 rounded-lg p-1 text-xs sm:text-sm">
+                <div>
+                  <CardTitle className="text-lg font-semibold">Performance</CardTitle>
+                  <p className="mt-1 text-[11px] text-muted-foreground sm:text-xs">
+                    Drag on chart to inspect a custom range
+                  </p>
+                </div>
+                <div className="inline-flex gap-1 rounded-lg border border-border bg-background p-1 text-xs sm:text-sm">
                   <button
                     onClick={() => {
                       setActiveChart('value');
                     }}
-                    className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
                       activeChart === 'value'
-                        ? 'bg-black text-white dark:bg-white dark:text-black'
-                      : 'text-muted-foreground hover:text-foreground'
+                        ? 'bg-foreground text-background'
+                        : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
                     }`}
                   >
                     Value
@@ -1803,10 +2407,10 @@ export default function PortfolioTracker() {
                       setActiveChart('dividends');
                       setPerformanceDragRange(null);
                     }}
-                    className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
                       activeChart === 'dividends'
-                        ? 'bg-black text-white dark:bg-white dark:text-black'
-                      : 'text-muted-foreground hover:text-foreground'
+                        ? 'bg-foreground text-background'
+                        : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
                     }`}
                   >
                     Dividends
@@ -1830,31 +2434,85 @@ export default function PortfolioTracker() {
                   </select>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-1 text-xs">
-                  {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((period) => (
+                    {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((period) => (
+                      <button
+                        key={period}
+                        onClick={() => {
+                          setActiveTimeframe(period);
+                          setPerformanceDragRange(null);
+                        }}
+                        className={`rounded-md border px-2 py-1 transition-colors ${
+                          activeTimeframe === period
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'border-border bg-background text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+                        }`}
+                      >
+                        {period}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="inline-flex rounded-md border border-border bg-background p-1 text-[11px]">
                     <button
-                      key={period}
-                      onClick={() => {
-                        setActiveTimeframe(period);
-                        setPerformanceDragRange(null);
-                      }}
+                      type="button"
+                      onClick={() => setValueChartStyle('area')}
                       className={`rounded px-2 py-1 transition-colors ${
-                        activeTimeframe === period
-                          ? 'bg-muted text-foreground'
-                          : 'text-muted-foreground hover:text-foreground'
+                        valueChartStyle === 'area'
+                          ? 'bg-foreground text-background'
+                          : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
                       }`}
                     >
-                      {period}
+                      Area
                     </button>
-                  ))}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => setValueChartStyle('line')}
+                      className={`rounded px-2 py-1 transition-colors ${
+                        valueChartStyle === 'line'
+                          ? 'bg-foreground text-background'
+                          : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+                      }`}
+                    >
+                      Line
+                    </button>
+                  </div>
                 </div>
               )}
             </CardHeader>
 
-            <CardContent>
-              <div className="relative h-56 w-full sm:h-72 md:h-80">
+            <CardContent className="flex flex-1 flex-col pt-4">
+              {showMobileDragSummary ? (
+                <div className="mb-2.5 rounded-md border border-border bg-background px-2.5 py-2 text-[10px] text-foreground">
+                  <div className="grid grid-cols-3 items-center gap-1.5 text-center">
+                    <div>
+                      <div className="text-muted-foreground">
+                        {formatShortDate(selectedRangeStartPoint!.date)}
+                      </div>
+                      <div className="font-semibold">
+                        {formatMoney(selectedRangeStartPoint!.value, baseCurrency, 2, 2)}
+                      </div>
+                    </div>
+                    <div className="rounded border border-border bg-background py-1">
+                      <div className={`font-semibold leading-tight ${metricTone(selectedRangePct)}`}>
+                        {formatPercent(selectedRangePct)}
+                      </div>
+                      <div className={`font-semibold leading-tight ${metricTone(selectedRangePnl)}`}>
+                        {formatSignedMoney(selectedRangePnl, baseCurrency)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">
+                        {formatShortDate(selectedRangeEndPoint!.date)}
+                      </div>
+                      <div className="font-semibold">
+                        {formatMoney(selectedRangeEndPoint!.value, baseCurrency, 2, 2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              <div className="relative min-h-[18rem] w-full flex-1 overflow-hidden rounded-xl bg-background p-0 sm:min-h-[22rem]">
                 <ChartContainer
                   config={
                     activeChart === 'dividends'
@@ -1865,7 +2523,7 @@ export default function PortfolioTracker() {
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     {activeChart === 'dividends' ? (
-                      <BarChartComponent data={filteredDividendHistory} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
+                      <BarChartComponent data={filteredDividendHistory} margin={{ top: 4, right: 6, left: 4, bottom: 4 }}>
                         <XAxis
                           dataKey="date"
                           tickFormatter={(date: string | number) =>
@@ -1877,7 +2535,7 @@ export default function PortfolioTracker() {
                             if (!active || !payload || !payload.length) return null;
                             const item: any = payload[0].payload;
                             return (
-                              <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg">
+                              <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground">
                                 <div>{new Date(item.date).toLocaleDateString()}</div>
                                 <div className="font-semibold">{formatMoney(item.amount, baseCurrency)}</div>
                               </div>
@@ -1887,9 +2545,9 @@ export default function PortfolioTracker() {
                         <Bar dataKey="amount" fill="#f97316" radius={[3, 3, 0, 0]} />
                       </BarChartComponent>
                     ) : (
-                      <AreaChart
+                      <ComposedChart
                         data={timeframePortfolioHistory}
-                        margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
+                        margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
                         onMouseDown={handleChartDragStart}
                         onMouseMove={handleChartDragMove}
                         onMouseUp={handleChartDragEnd}
@@ -1897,36 +2555,30 @@ export default function PortfolioTracker() {
                       >
                         <XAxis dataKey="date" hide />
                         <YAxis hide domain={[chartDomainMin, chartDomainMax]} />
-                        <defs>
-                          <linearGradient id="portfolioValueGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#d4d4d8" stopOpacity={0.28} />
-                            <stop offset="95%" stopColor="#d4d4d8" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
                         {activeSelectionRange && (
                           <ReferenceArea
                             x1={activeSelectionRange.start}
                             x2={activeSelectionRange.end}
                             strokeOpacity={0}
-                            fill="#14b8a6"
-                            fillOpacity={dragOverlayRange ? 0.18 : 0.12}
+                            fill="#71717a"
+                            fillOpacity={dragOverlayRange ? 0.14 : 0.08}
                           />
                         )}
                         {activeSelectionRange && (
                           <>
                             <ReferenceLine
                               x={activeSelectionRange.start}
-                              stroke="#2dd4bf"
+                              stroke="#a1a1aa"
                               strokeDasharray="2 2"
                               strokeWidth={1}
-                              strokeOpacity={0.9}
+                              strokeOpacity={0.8}
                             />
                             <ReferenceLine
                               x={activeSelectionRange.end}
-                              stroke="#2dd4bf"
+                              stroke="#a1a1aa"
                               strokeDasharray="2 2"
                               strokeWidth={1}
-                              strokeOpacity={0.9}
+                              strokeOpacity={0.8}
                             />
                           </>
                         )}
@@ -1954,19 +2606,22 @@ export default function PortfolioTracker() {
                           content={({ active, payload }) => {
                             if (!active || !payload || !payload.length) return null;
                             const item: any = payload[0].payload;
+                            if (isMobile && activeSelectionRange && selectedRangeStartPoint && selectedRangeEndPoint) {
+                              return null;
+                            }
                             if (activeSelectionRange && selectedRangeStartPoint && selectedRangeEndPoint) {
                               return (
-                                <div className="w-[min(90vw,370px)] rounded-md border border-teal-300/20 bg-zinc-900/88 px-2.5 py-1.5 text-[10px] text-zinc-100 shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-sm sm:text-[11px]">
+                                <div className="w-[min(90vw,370px)] rounded-md border border-border bg-background px-2.5 py-1.5 text-[10px] text-foreground sm:text-[11px]">
                                   <div className="grid grid-cols-3 items-center gap-1.5 text-center">
                                     <div>
-                                      <div className="text-zinc-400">
+                                      <div className="text-muted-foreground">
                                         {formatShortDate(selectedRangeStartPoint.date)}
                                       </div>
                                       <div className="font-semibold">
                                         {formatMoney(selectedRangeStartPoint.value, baseCurrency, 2, 2)}
                                       </div>
                                     </div>
-                                    <div className="rounded border border-white/10 bg-white/[0.03] py-1">
+                                    <div className="rounded border border-border bg-background py-1">
                                       <div className={`font-semibold leading-tight ${metricTone(selectedRangePct)}`}>
                                         {formatPercent(selectedRangePct)}
                                       </div>
@@ -1987,23 +2642,34 @@ export default function PortfolioTracker() {
                               );
                             }
                             return (
-                              <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg">
+                              <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground">
                                 <div>{new Date(item.date).toLocaleDateString()}</div>
                                 <div className="font-semibold">{formatMoney(item.value, baseCurrency)}</div>
                               </div>
                             );
                           }}
                         />
-                        <Area
-                          type="monotone"
-                          dataKey="value"
-                          stroke="#d4d4d8"
-                          strokeWidth={1.5}
-                          fillOpacity={1}
-                          fill="url(#portfolioValueGradient)"
-                          isAnimationActive={false}
-                        />
-                      </AreaChart>
+                        {valueChartStyle === 'area' ? (
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#d4d4d8"
+                            strokeWidth={1.5}
+                            fillOpacity={1}
+                            fill="rgba(212, 212, 216, 0.14)"
+                            isAnimationActive={false}
+                          />
+                        ) : (
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#e5e7eb"
+                            strokeWidth={2}
+                            dot={false}
+                            isAnimationActive={false}
+                          />
+                        )}
+                      </ComposedChart>
                     )}
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -2011,20 +2677,35 @@ export default function PortfolioTracker() {
             </CardContent>
           </Card>
 
-          <Card
-            className={`overflow-hidden border border-border/70 bg-card/90 shadow-[0_12px_30px_rgba(0,0,0,0.18)] backdrop-blur-sm lg:col-span-2 ${
-              mobileTab === 'overview' ? 'hidden lg:block' : ''
-            }`}
-          >
-            <CardHeader className="border-b border-border/60 bg-gradient-to-b from-white/[0.03] to-transparent pb-4 pt-5">
+          <Card className="overflow-hidden rounded-xl border border-border bg-background xl:col-span-5">
+            <CardHeader className="border-b border-border bg-transparent pb-4 pt-5">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-semibold tracking-tight text-foreground">Holdings</CardTitle>
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background/45 p-1">
+                <div>
+                  <CardTitle className="text-lg font-semibold text-foreground">
+                    {holdingsPanelTab === 'holdings'
+                      ? 'Holdings'
+                      : holdingsPanelTab === 'transactions'
+                        ? 'Recent Transactions'
+                        : holdingsPanelTab === 'allocation'
+                          ? 'Insights'
+                          : 'KPIs & Analytics'}
+                  </CardTitle>
+                  {holdingsPanelTab !== 'holdings' ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground sm:text-xs">
+                      {holdingsPanelTab === 'transactions'
+                        ? `${recentTransactions.length} recent transactions`
+                        : holdingsPanelTab === 'allocation'
+                          ? 'Sector, region, and asset class allocation'
+                          : 'KPIs and analytics snapshot'}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background p-1">
                   <Button
                     onClick={() => setShowAddForm(true)}
                     size="sm"
                     variant="outline"
-                    className="h-8 w-8 rounded-full border-border/65 bg-background/70 p-0 text-foreground shadow-none transition-colors hover:bg-muted/60"
+                    className="h-8 w-8 rounded-full border-border bg-background p-0 text-foreground shadow-none transition-colors hover:bg-muted/20"
                     aria-label="Add transaction"
                     title="Add transaction"
                   >
@@ -2035,7 +2716,7 @@ export default function PortfolioTracker() {
                     disabled={loading || trackedSymbols.length === 0}
                     variant="outline"
                     size="sm"
-                    className="h-8 w-8 rounded-full border-border/65 bg-background/70 p-0 text-foreground shadow-none transition-colors hover:bg-muted/60 disabled:opacity-40"
+                    className="h-8 w-8 rounded-full border-border bg-background p-0 text-foreground shadow-none transition-colors hover:bg-muted/20 disabled:opacity-40"
                     aria-label="Reload holdings"
                     title="Reload holdings"
                   >
@@ -2048,19 +2729,64 @@ export default function PortfolioTracker() {
 
             <CardContent className="flex min-h-0 flex-col gap-4 px-4 pb-4 pt-4 text-xs sm:text-sm">
               {error && (
-                <div className="rounded-xl border border-rose-300/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                <div className="rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
                   {error}
                 </div>
               )}
 
-              <div className="inline-flex w-full items-center gap-1 rounded-full border border-border/65 bg-background/45 p-1 sm:w-fit">
+              {holdingsPanelTab === 'holdings' && (
+                <div className="space-y-2 rounded-xl border border-border bg-muted/10 p-2.5">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_10rem]">
+                    <input
+                      type="text"
+                      value={holdingSearch}
+                      onChange={(event) => setHoldingSearch(event.target.value.toUpperCase())}
+                      placeholder="Filter symbol..."
+                      className="h-9 rounded-lg border border-border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-foreground/25"
+                    />
+                    <select
+                      value={holdingsSort}
+                      onChange={(event) => setHoldingsSort(event.target.value as HoldingsSort)}
+                      className="h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/25"
+                    >
+                      <option value="weight">Sort: Weight</option>
+                      <option value="pnl">Sort: P/L</option>
+                      <option value="value">Sort: Value</option>
+                      <option value="symbol">Sort: Symbol</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { key: 'all', label: 'All' },
+                      { key: 'gainers', label: 'Gainers' },
+                      { key: 'losers', label: 'Losers' },
+                      { key: 'highWeight', label: 'High Weight' },
+                    ] as const).map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setHoldingsFilter(item.key)}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          holdingsFilter === item.key
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'border-border bg-background text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex w-full flex-wrap items-center gap-1 rounded-lg border border-border bg-background p-1 sm:w-fit sm:flex-nowrap">
                 <button
                   type="button"
                   onClick={() => setHoldingsPanelTab('holdings')}
-                  className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                  className={`rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${
                     holdingsPanelTab === 'holdings'
                       ? 'bg-foreground text-background'
-                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
                   }`}
                 >
                   Holdings
@@ -2068,59 +2794,129 @@ export default function PortfolioTracker() {
                 <button
                   type="button"
                   onClick={() => setHoldingsPanelTab('transactions')}
-                  className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                  className={`rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${
                     holdingsPanelTab === 'transactions'
                       ? 'bg-foreground text-background'
-                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
                   }`}
                 >
                   Recent Transactions
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setHoldingsPanelTab('insights')}
+                  className={`rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                    holdingsPanelTab === 'insights'
+                      ? 'bg-foreground text-background'
+                      : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+                  }`}
+                >
+                  KPIs & Analytics
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHoldingsPanelTab('allocation')}
+                  className={`rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                    holdingsPanelTab === 'allocation'
+                      ? 'bg-foreground text-background'
+                      : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+                  }`}
+                >
+                  Insights
+                </button>
               </div>
 
               {holdingsPanelTab === 'holdings' ? (
-                holdingSnapshots.length > 0 ? (
-                  <div className="max-h-[min(58vh,32rem)] overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                      {holdingSnapshots.map((holding) => (
-                        <div
-                          key={holding.symbol}
-                          onClick={() => openHoldingDetails(holding.symbol)}
-                          className={`h-full cursor-pointer rounded-xl border px-3 py-2.5 transition-all ${
-                            selectedSymbol === holding.symbol
-                              ? 'border-white/40 bg-white/[0.06] shadow-[0_8px_20px_rgba(0,0,0,0.18)]'
-                              : 'border-border/60 bg-background/35 hover:border-border/80 hover:bg-background/55'
-                          }`}
-                        >
-                          <div className="mb-1.5 flex items-center justify-between gap-2">
-                            <div className="text-base font-medium tracking-tight text-foreground">{holding.symbol}</div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleDeleteHolding(holding.symbol);
-                                }}
-                                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/70 hover:text-rose-300"
-                                aria-label={`Delete ${holding.symbol}`}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
+                visibleHoldingSnapshots.length > 0 ? (
+                  <div className="max-h-[min(62vh,35rem)] overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
+                    <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+                      {visibleHoldingSnapshots.map((holding) => {
+                        const signal = resolveHoldingSignal(holding);
+                        return (
+                          <div
+                            key={holding.symbol}
+                            onClick={() => openHoldingDetails(holding.symbol)}
+                            className={`h-full cursor-pointer rounded-xl border px-3.5 py-3 transition-all ${
+                              selectedSymbol === holding.symbol
+                                ? 'border-foreground/35 bg-muted/20'
+                                : 'border-border bg-background'
+                            }`}
+                          >
+                            <div className="mb-1.5 flex items-center justify-between gap-2">
+                              <div className="text-base font-medium tracking-tight text-foreground">
+                                {holding.symbol}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleDeleteHolding(holding.symbol);
+                                  }}
+                                  className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/20 hover:text-rose-400"
+                                  aria-label={`Delete ${holding.symbol}`}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Position Value
+                                </p>
+                                <span className="text-xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
+                                  {formatMoney(holding.currentValue, baseCurrency, 0, 0)}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[11px] text-muted-foreground">
+                                  Unrealized P/L
+                                </p>
+                                <p className={`text-sm font-semibold ${metricTone(holding.unrealizedPnl)}`}>
+                                  {formatSignedMoney(holding.unrealizedPnl, baseCurrency)}
+                                </p>
+                                <span
+                                  className={`rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium ${
+                                    holding.unrealizedPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                  }`}
+                                >
+                                  {formatPercent(holding.unrealizedPct, 1)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-xl border border-border bg-background px-2.5 py-2 text-[11px]">
+                              <div>
+                                <p className="text-muted-foreground">Weight</p>
+                                <p className="font-semibold text-foreground">
+                                  {formatPercent(holding.weightPct, 2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Contribution</p>
+                                <p className={`font-semibold ${metricTone(holding.totalContribution)}`}>
+                                  {formatSignedMoney(holding.totalContribution, baseCurrency)}
+                                </p>
+                              </div>
+                              <div className="flex items-center justify-end">
+                                <span
+                                  className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${holdingSignalPillClass(
+                                    signal,
+                                  )}`}
+                                >
+                                  {holdingSignalLabel(signal)}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-2xl font-semibold tracking-tight text-foreground">
-                              {formatMoney(holding.currentValue, baseCurrency, 0, 0)}
-                            </span>
-                            <span
-                              className={`rounded-full border border-border/60 bg-background/55 px-2.5 py-0.5 text-base font-medium ${
-                                holding.unrealizedPnl >= 0 ? 'text-emerald-300' : 'text-rose-300'
-                              }`}
-                            >
-                              {formatPercent(holding.unrealizedPct, 1)}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : holdingSnapshots.length > 0 ? (
+                  <div className="flex h-28 items-center justify-center sm:h-40">
+                    <div className="text-center text-muted-foreground">
+                      <div className="mb-1">No matching holdings</div>
+                      <div className="text-xs">Adjust filter or search query</div>
                     </div>
                   </div>
                 ) : (
@@ -2131,241 +2927,596 @@ export default function PortfolioTracker() {
                     </div>
                   </div>
                 )
-              ) : recentTransactions.length > 0 ? (
-                <div className="max-h-[min(58vh,32rem)] space-y-2.5 overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
-                  {recentTransactions.map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="rounded-xl border border-border/60 bg-background/35 px-3 py-2.5 text-[11px]"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <span
-                            className={`mr-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                              tx.side === 'BUY'
-                                ? 'bg-emerald-500/15 text-emerald-300'
-                                : 'bg-rose-500/15 text-rose-300'
-                            }`}
+              ) : holdingsPanelTab === 'transactions' ? (
+                recentTransactions.length > 0 ? (
+                  <div className="max-h-[min(62vh,35rem)] space-y-2.5 overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
+                    {recentTransactions.map((tx) => (
+                      <div
+                        key={tx.id}
+                        className="rounded-xl border border-border bg-background px-3 py-2.5 text-[11px]"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span
+                              className={`mr-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                tx.side === 'BUY'
+                                  ? 'bg-emerald-500/15 text-emerald-400'
+                                  : 'bg-rose-500/15 text-rose-400'
+                              }`}
+                            >
+                              {tx.side}
+                            </span>
+                            {tx.symbol} • {tx.shares} @ {formatMoney(tx.price, tx.currency, 2, 2)}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteTransaction(tx.id)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/20 hover:text-rose-400"
+                            aria-label="Delete transaction"
                           >
-                            {tx.side}
-                          </span>
-                          {tx.symbol} • {tx.shares} @ {formatMoney(tx.price, tx.currency, 2, 2)}
+                            <Trash2 className="h-3 w-3" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleDeleteTransaction(tx.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/70 hover:text-rose-300"
-                          aria-label="Delete transaction"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                        <div className="mt-0.5 text-muted-foreground">
+                          {new Date(`${tx.date}T00:00:00`).toLocaleDateString()} • fees{' '}
+                          {formatMoney(tx.fees, tx.currency, 2, 2)} • taxes{' '}
+                          {formatMoney(tx.taxes, tx.currency, 2, 2)}
+                        </div>
                       </div>
-                      <div className="mt-0.5 text-muted-foreground">
-                        {new Date(`${tx.date}T00:00:00`).toLocaleDateString()} • fees{' '}
-                        {formatMoney(tx.fees, tx.currency, 2, 2)} • taxes{' '}
-                        {formatMoney(tx.taxes, tx.currency, 2, 2)}
-                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex h-28 items-center justify-center sm:h-40">
+                    <div className="text-center text-muted-foreground">
+                      <div className="mb-1">No recent transactions</div>
+                      <div className="text-xs">Add transactions to see activity here</div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )
               ) : (
-                <div className="flex h-28 items-center justify-center sm:h-40">
-                  <div className="text-center text-muted-foreground">
-                    <div className="mb-1">No recent transactions</div>
-                    <div className="text-xs">Add transactions to see activity here</div>
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <div className="space-y-4">
+                    {holdingsPanelTab === 'allocation' ? (
+                      <section className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-medium text-foreground">Allocation Analysis</h4>
+                          <span className="text-[11px] text-muted-foreground">By current portfolio value</span>
+                        </div>
+                        <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:grid xl:grid-cols-3 xl:overflow-visible xl:pb-0">
+                          {[
+                            { title: 'Sector', data: sectorBreakdownData },
+                            { title: 'Region', data: regionBreakdownData },
+                            { title: 'Asset Class', data: assetClassBreakdownData },
+                          ].map((chart, chartIndex) => (
+                            <div
+                              key={chart.title}
+                              className="min-w-[16rem] shrink-0 rounded-lg border border-border bg-background px-2.5 py-2 xl:min-w-0"
+                            >
+                              <h5 className="text-xs font-semibold text-foreground">{chart.title}</h5>
+                              <div className="mt-1 h-36">
+                                {chart.data.length > 0 ? (
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                      <Tooltip
+                                        content={({ active, payload }) => {
+                                          if (!active || !payload?.length) return null;
+                                          const point = payload[0]?.payload as AllocationBreakdownDatum | undefined;
+                                          if (!point) return null;
+                                          return (
+                                            <div className="rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] text-foreground">
+                                              <div className="font-medium">{point.name}</div>
+                                              <div className="mt-0.5 flex items-center justify-between gap-4">
+                                                <span className="text-muted-foreground">Weight</span>
+                                                <span>{point.weightPct.toFixed(1)}%</span>
+                                              </div>
+                                              <div className="flex items-center justify-between gap-4">
+                                                <span className="text-muted-foreground">Value</span>
+                                                <span>{formatMoney(point.value, baseCurrency, 0, 0)}</span>
+                                              </div>
+                                            </div>
+                                          );
+                                        }}
+                                      />
+                                      <Pie
+                                        data={chart.data}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        innerRadius={35}
+                                        outerRadius={56}
+                                        paddingAngle={2}
+                                        stroke="none"
+                                        isAnimationActive={false}
+                                      >
+                                        {chart.data.map((slice, sliceIndex) => (
+                                          <Cell
+                                            key={`${chart.title}-${slice.name}`}
+                                            fill={getAllocationColor(chart.title, slice.name, chartIndex + sliceIndex)}
+                                          />
+                                        ))}
+                                      </Pie>
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                ) : (
+                                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                                    No allocation data yet
+                                  </div>
+                                )}
+                              </div>
+                              {chart.data.length > 0 && (
+                                <div className="mt-1.5 space-y-1 text-[11px]">
+                                  {chart.data.slice(0, 4).map((slice, sliceIndex) => (
+                                    <div
+                                      key={`${chart.title}-legend-${slice.name}`}
+                                      className="flex items-center justify-between gap-2"
+                                    >
+                                      <div className="flex min-w-0 items-center gap-1.5">
+                                        <span
+                                          className="h-2 w-2 shrink-0 rounded-full"
+                                          style={{
+                                            backgroundColor: getAllocationColor(
+                                              chart.title,
+                                              slice.name,
+                                              chartIndex + sliceIndex,
+                                            ),
+                                          }}
+                                        />
+                                        <span className="truncate text-muted-foreground">{slice.name}</span>
+                                      </div>
+                                      <span className="font-semibold text-foreground">
+                                        {slice.weightPct.toFixed(1)}%
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {pendingInsightsMetadataSymbols.length > 0 && (
+                          <p className="text-[11px] text-muted-foreground">
+                            Classifying {pendingInsightsMetadataSymbols.length} holding
+                            {pendingInsightsMetadataSymbols.length === 1 ? '' : 's'} for richer sector, region,
+                            and asset class analytics.
+                          </p>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                          <section className="rounded-lg border border-border bg-background px-3 py-2.5">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <h5 className="text-xs font-semibold text-foreground">Concentration Risk</h5>
+                              <span className={`text-xs font-semibold ${concentrationMetrics.levelTone}`}>
+                                {concentrationMetrics.level}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[11px]">
+                              <div className="rounded-md border border-border bg-muted/10 px-2 py-1.5">
+                                <p className="text-muted-foreground">Top 1</p>
+                                <p className="font-semibold text-foreground">
+                                  {formatPercent(concentrationMetrics.top1, 1)}
+                                </p>
+                              </div>
+                              <div className="rounded-md border border-border bg-muted/10 px-2 py-1.5">
+                                <p className="text-muted-foreground">Top 3</p>
+                                <p className="font-semibold text-foreground">
+                                  {formatPercent(concentrationMetrics.top3, 1)}
+                                </p>
+                              </div>
+                              <div className="rounded-md border border-border bg-muted/10 px-2 py-1.5">
+                                <p className="text-muted-foreground">Top 5</p>
+                                <p className="font-semibold text-foreground">
+                                  {formatPercent(concentrationMetrics.top5, 1)}
+                                </p>
+                              </div>
+                              <div className="rounded-md border border-border bg-muted/10 px-2 py-1.5">
+                                <p className="text-muted-foreground">HHI</p>
+                                <p className="font-semibold text-foreground">
+                                  {Number.isFinite(concentrationMetrics.hhi)
+                                    ? concentrationMetrics.hhi.toFixed(0)
+                                    : '-'}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="mt-2 text-[11px] text-muted-foreground">
+                              {concentrationMetrics.top1 >= 25
+                                ? 'Single-name risk elevated: largest position exceeds 25% of portfolio.'
+                                : concentrationMetrics.top1 >= 18
+                                  ? 'Concentration moderate: monitor single-name exposure and rebalance drift.'
+                                  : 'Concentration is balanced across holdings based on current weights.'}
+                            </p>
+                          </section>
+
+                          <section className="rounded-lg border border-border bg-background px-3 py-2.5">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <h5 className="text-xs font-semibold text-foreground">Diversification Score</h5>
+                              <span className="text-xs font-semibold text-foreground">
+                                {diversificationInsight.score === null
+                                  ? '-'
+                                  : `${diversificationInsight.score.toFixed(0)}/100`}
+                              </span>
+                            </div>
+                            <div className="mb-2 grid grid-cols-2 gap-2 text-[11px]">
+                              <div className="rounded-md border border-border bg-muted/10 px-2 py-1.5">
+                                <p className="text-muted-foreground">Avg Correlation</p>
+                                <p className="font-semibold text-foreground">
+                                  {diversificationInsight.averageCorrelation === null
+                                    ? '-'
+                                    : diversificationInsight.averageCorrelation.toFixed(2)}
+                                </p>
+                              </div>
+                              <div className="rounded-md border border-border bg-muted/10 px-2 py-1.5">
+                                <p className="text-muted-foreground">Pair Samples</p>
+                                <p className="font-semibold text-foreground">
+                                  {diversificationInsight.pairCount > 0
+                                    ? `${diversificationInsight.pairCount} pairs`
+                                    : '-'}
+                                </p>
+                              </div>
+                            </div>
+                            {diversificationInsight.matrix.length >= 2 ? (
+                              <div className="overflow-x-auto">
+                                <table className="w-full border-separate border-spacing-1 text-[10px]">
+                                  <thead>
+                                    <tr>
+                                      <th className="px-1 py-0.5 text-left text-muted-foreground">Corr</th>
+                                      {diversificationInsight.matrix.map((row) => (
+                                        <th
+                                          key={`div-head-${row.symbol}`}
+                                          className="px-1 py-0.5 text-center text-muted-foreground"
+                                        >
+                                          {row.symbol}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {diversificationInsight.matrix.map((row) => (
+                                      <tr key={`div-row-${row.symbol}`}>
+                                        <td className="px-1 py-0.5 font-semibold text-foreground">
+                                          {row.symbol}
+                                        </td>
+                                        {row.cells.map((cell) => {
+                                          const alpha =
+                                            cell.corr === null ? 0 : clamp(Math.abs(cell.corr), 0, 1) * 0.35;
+                                          const background =
+                                            cell.corr === null
+                                              ? 'transparent'
+                                              : cell.corr >= 0
+                                                ? `rgba(244,63,94,${alpha})`
+                                                : `rgba(16,185,129,${alpha})`;
+                                          return (
+                                            <td
+                                              key={`div-cell-${row.symbol}-${cell.symbol}`}
+                                              className="rounded px-1 py-0.5 text-center text-foreground"
+                                              style={{ background }}
+                                            >
+                                              {cell.corr === null ? '-' : cell.corr.toFixed(2)}
+                                            </td>
+                                          );
+                                        })}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground">
+                                Not enough overlapping return history for correlation matrix.
+                              </p>
+                            )}
+                          </section>
+                        </div>
+
+                        <section className="rounded-lg border border-border bg-background px-3 py-2.5">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <h5 className="text-xs font-semibold text-foreground">Allocation Drift</h5>
+                            <span className="text-[11px] text-muted-foreground">Current vs equal-weight baseline</span>
+                          </div>
+                          <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+                            {[
+                              { title: 'Sector', rows: sectorDriftData },
+                              { title: 'Region', rows: regionDriftData },
+                              { title: 'Asset Class', rows: assetClassDriftData },
+                            ].map((group) => (
+                              <div
+                                key={`drift-${group.title}`}
+                                className="rounded-md border border-border bg-muted/10 px-2 py-1.5"
+                              >
+                                <p className="mb-1.5 text-[11px] font-semibold text-foreground">{group.title}</p>
+                                {group.rows.length > 0 ? (
+                                  <div className="space-y-1 text-[11px]">
+                                    {group.rows.slice(0, 4).map((row) => (
+                                      <div
+                                        key={`drift-${group.title}-${row.name}`}
+                                        className="flex items-center justify-between gap-2"
+                                      >
+                                        <div className="min-w-0">
+                                          <p className="truncate text-muted-foreground">{row.name}</p>
+                                          <p className="text-[10px] text-muted-foreground/80">
+                                            {row.currentPct.toFixed(1)}% vs {row.targetPct.toFixed(1)}%
+                                          </p>
+                                        </div>
+                                        <div className="text-right">
+                                          <p
+                                            className={`font-semibold ${
+                                            Math.abs(row.driftPct) >= 10
+                                              ? 'text-rose-400'
+                                              : Math.abs(row.driftPct) >= 6
+                                                ? 'text-amber-300'
+                                                : 'text-foreground'
+                                            }`}
+                                          >
+                                            {row.driftPct > 0 ? '+' : ''}
+                                            {row.driftPct.toFixed(1)}%
+                                          </p>
+                                          <p className="text-[10px] text-muted-foreground">
+                                            {row.driftPct >= 6 ? 'Trim' : row.driftPct <= -6 ? 'Add' : 'Hold'}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-[11px] text-muted-foreground">No allocation buckets yet.</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+
+                        <section className="rounded-lg border border-border bg-background px-3 py-2.5">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <h5 className="text-xs font-semibold text-foreground">Drawdown Attribution</h5>
+                            <span className="text-[11px] text-muted-foreground">{activeTimeframe} window</span>
+                          </div>
+                          {drawdownInsight.drawdownPct !== null &&
+                          drawdownInsight.peakDate &&
+                          drawdownInsight.troughDate ? (
+                            <>
+                              <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px]">
+                                <span className="rounded-md border border-border bg-muted/10 px-2 py-1 text-muted-foreground">
+                                  Peak: {formatShortDate(drawdownInsight.peakDate)}
+                                </span>
+                                <span className="rounded-md border border-border bg-muted/10 px-2 py-1 text-muted-foreground">
+                                  Trough: {formatShortDate(drawdownInsight.troughDate)}
+                                </span>
+                                <span className="rounded-md border border-border bg-muted/10 px-2 py-1 font-semibold text-rose-400">
+                                  {formatPercent(drawdownInsight.drawdownPct, 2)}
+                                </span>
+                              </div>
+                              {drawdownInsight.attribution.length > 0 ? (
+                                <div className="space-y-1 text-[11px]">
+                                  {drawdownInsight.attribution.map((entry) => (
+                                    <div
+                                      key={`drawdown-${entry.symbol}`}
+                                      className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/10 px-2 py-1.5"
+                                    >
+                                      <span className="font-medium text-foreground">{entry.symbol}</span>
+                                      <div className="text-right">
+                                        <div className={`font-semibold ${metricTone(entry.delta)}`}>
+                                          {formatSignedMoney(entry.delta, baseCurrency)}
+                                        </div>
+                                        <div className="text-[10px] text-muted-foreground">
+                                          {formatPercent(entry.contributionPct, 2)} of peak value
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground">
+                                  No symbol-level attribution available for this drawdown window.
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground">
+                              No drawdown window detected for the selected timeframe.
+                            </p>
+                          )}
+                        </section>
+                      </section>
+                    ) : (
+                      <section className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-medium text-foreground">Range Trend</h4>
+                          <span className="text-[11px] text-muted-foreground">
+                            Base 100 ({activeTimeframe})
+                          </span>
+                        </div>
+                        <div className="h-40 overflow-hidden rounded-lg border border-border bg-background sm:h-44">
+                          {insightsComparisonChartData.length >= 2 ? (
+                            <ChartContainer
+                              config={{
+                                portfolio: { label: 'Portfolio', color: '#e5e7eb' },
+                                benchmark: { label: 'SPY', color: '#71717a' },
+                              }}
+                              className="h-full w-full"
+                            >
+                              <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart
+                                  data={insightsComparisonChartData}
+                                  margin={{ top: 8, right: 8, left: 8, bottom: 6 }}
+                                >
+                                  <XAxis
+                                    dataKey="date"
+                                    minTickGap={28}
+                                    tickMargin={6}
+                                    tickFormatter={(date: string) =>
+                                      new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+                                        month: 'short',
+                                        day: 'numeric',
+                                      })
+                                    }
+                                    axisLine={false}
+                                    tickLine={false}
+                                  />
+                                  <YAxis hide domain={[chartDomainMin, chartDomainMax]} />
+                                  <ReferenceLine y={100} stroke="#52525b" strokeDasharray="3 3" />
+                                  <Tooltip
+                                    content={({ active, payload }) => {
+                                      if (!active || !payload?.length) return null;
+                                      const item: any = payload[0]?.payload;
+                                      return (
+                                        <div className="rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] text-foreground">
+                                          <div className="mb-0.5">{formatShortDate(item.date)}</div>
+                                          <div className="flex items-center justify-between gap-4">
+                                            <span className="text-muted-foreground">Portfolio</span>
+                                            <span className={`font-semibold ${metricTone(item.portfolio - 100)}`}>
+                                              {formatPercent(item.portfolio - 100, 1)}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center justify-between gap-4">
+                                            <span className="text-muted-foreground">SPY</span>
+                                            <span className={`font-semibold ${metricTone(item.benchmark - 100)}`}>
+                                              {formatPercent(item.benchmark - 100, 1)}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    }}
+                                  />
+                                  <Area
+                                    type="monotone"
+                                    dataKey="benchmark"
+                                    stroke="#71717a"
+                                    strokeWidth={1.4}
+                                    fill="rgba(113,113,122,0.08)"
+                                    fillOpacity={1}
+                                    isAnimationActive={false}
+                                  />
+                                  <Area
+                                    type="monotone"
+                                    dataKey="portfolio"
+                                    stroke="#e5e7eb"
+                                    strokeWidth={1.7}
+                                    fill="rgba(229,231,235,0.08)"
+                                    fillOpacity={1}
+                                    isAnimationActive={false}
+                                  />
+                                </AreaChart>
+                              </ResponsiveContainer>
+                            </ChartContainer>
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                              Not enough data for comparison chart
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    )}
+
+                    {holdingsPanelTab === 'insights' && (
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <section className="space-y-2">
+                        <h4 className="text-sm font-medium text-foreground">KPIs</h4>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Portfolio Value</span>
+                            <span className="font-semibold text-foreground">
+                              {formatMoney(currentPortfolioValue, baseCurrency, 0, 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Net Invested</span>
+                            <span className="font-semibold text-foreground">
+                              {formatMoney(investedCapital - withdrawnCapital, baseCurrency, 0, 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Total Return</span>
+                            <span className={`font-semibold ${metricTone(totalReturn)}`}>
+                              {formatMoney(totalReturn, baseCurrency, 0, 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Total Return %</span>
+                            <span className={`font-semibold ${metricTone(totalReturnPct)}`}>
+                              {formatPercent(totalReturnPct)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Dividend Income</span>
+                            <span className="font-semibold text-foreground">
+                              {dividendLoading
+                                ? '...'
+                                : formatMoney(totalDividendIncomeNet, baseCurrency, 2, 2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Yield</span>
+                            <span className={`font-semibold ${metricTone(annualYield)}`}>
+                              {formatPercent(annualYield)}
+                            </span>
+                          </div>
+                        </div>
+                      </section>
+
+                      <section className="space-y-2 border-t border-border pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                        <h4 className="text-sm font-medium text-foreground">Analytics</h4>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Realized P/L</span>
+                            <span className={`font-semibold ${metricTone(totalRealizedPnl)}`}>
+                              {formatMoney(totalRealizedPnl, baseCurrency, 0, 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Unrealized P/L</span>
+                            <span className={`font-semibold ${metricTone(totalUnrealizedPnl)}`}>
+                              {formatMoney(totalUnrealizedPnl, baseCurrency, 0, 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">TWR</span>
+                            <span className={`font-semibold ${metricTone(timeWeightedReturnPct)}`}>
+                              {formatPercent(timeWeightedReturnPct)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">XIRR</span>
+                            <span className={`font-semibold ${metricTone(moneyWeightedReturnPct)}`}>
+                              {formatPercent(moneyWeightedReturnPct)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Max Drawdown</span>
+                            <span className="font-semibold text-rose-400">
+                              {formatPercent(maxDrawdownPct)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Largest Holding</span>
+                            <span className="font-semibold text-foreground">
+                              {formatPercent(largestHoldingWeight)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Portfolio ({activeTimeframe})</span>
+                            <span className={`font-semibold ${metricTone(totalReturnPctForRange)}`}>
+                              {formatPercent(totalReturnPctForRange)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">SPY ({activeTimeframe})</span>
+                            <span className={`font-semibold ${metricTone(benchmarkReturnPctForRange)}`}>
+                              {formatPercent(benchmarkReturnPctForRange)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Excess</span>
+                            <span className={`font-semibold ${metricTone(excessVsBenchmark)}`}>
+                              {formatPercent(excessVsBenchmark)}
+                            </span>
+                          </div>
+                        </div>
+                      </section>
+                    </div>
+                    )}
                   </div>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
-
-        <section
-          className={`mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3 ${
-            mobileTab === 'holdings' ? 'hidden lg:grid' : ''
-          }`}
-        >
-          <Card className="overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card to-card/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-            <CardHeader className="px-3 pb-2 pt-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setMobileAnalyticsOpen((prev) => ({ ...prev, returns: !prev.returns }))
-                }
-                className="flex w-full items-center justify-between rounded-xl border border-border/70 bg-gradient-to-r from-muted/45 via-muted/25 to-transparent px-3.5 py-2.5 transition-colors hover:border-border hover:from-muted/65 hover:via-muted/35 hover:to-muted/10"
-                aria-label="Toggle Return Analytics"
-              >
-                <div className="text-left">
-                  <div className="text-[15px] font-semibold tracking-tight text-foreground">
-                    Return Analytics
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`rounded-full border border-border/70 bg-background/60 px-2.5 py-0.5 text-xs font-semibold ${metricTone(timeWeightedReturnPct)}`}
-                  >
-                    {returnsSummaryLabel}
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 text-muted-foreground transition-transform ${
-                      mobileAnalyticsOpen.returns ? 'rotate-180' : ''
-                    }`}
-                  />
-                </div>
-              </button>
-            </CardHeader>
-            <CardContent
-              className={`space-y-1.5 px-3 pb-3 pt-1 text-xs ${mobileAnalyticsOpen.returns ? 'block' : 'hidden'}`}
-            >
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">TWR</span>
-                <span className={`text-sm font-semibold ${metricTone(timeWeightedReturnPct)}`}>
-                  {formatPercent(timeWeightedReturnPct)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">XIRR</span>
-                <span className={`text-sm font-semibold ${metricTone(moneyWeightedReturnPct)}`}>
-                  {formatPercent(moneyWeightedReturnPct)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">Realized P/L</span>
-                <span className={`text-sm font-semibold ${metricTone(totalRealizedPnl)}`}>
-                  {formatMoney(totalRealizedPnl, baseCurrency, 0, 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">Unrealized P/L</span>
-                <span className={`text-sm font-semibold ${metricTone(totalUnrealizedPnl)}`}>
-                  {formatMoney(totalUnrealizedPnl, baseCurrency, 0, 0)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card to-card/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-            <CardHeader className="px-3 pb-2 pt-3">
-              <button
-                type="button"
-                onClick={() => setMobileAnalyticsOpen((prev) => ({ ...prev, risk: !prev.risk }))}
-                className="flex w-full items-center justify-between rounded-xl border border-border/70 bg-gradient-to-r from-muted/45 via-muted/25 to-transparent px-3.5 py-2.5 transition-colors hover:border-border hover:from-muted/65 hover:via-muted/35 hover:to-muted/10"
-                aria-label="Toggle Risk and Concentration"
-              >
-                <div className="text-left">
-                  <div className="text-[15px] font-semibold tracking-tight text-foreground">
-                    Risk & Concentration
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full border border-border/70 bg-background/60 px-2.5 py-0.5 text-xs font-semibold text-rose-400">
-                    {riskSummaryLabel}
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 text-muted-foreground transition-transform ${
-                      mobileAnalyticsOpen.risk ? 'rotate-180' : ''
-                    }`}
-                  />
-                </div>
-              </button>
-            </CardHeader>
-            <CardContent
-              className={`space-y-1.5 px-3 pb-3 pt-1 text-xs ${mobileAnalyticsOpen.risk ? 'block' : 'hidden'}`}
-            >
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">Max Drawdown</span>
-                <span className="text-sm font-semibold text-rose-400">{formatPercent(maxDrawdownPct)}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">Largest Holding</span>
-                <span className="text-sm font-semibold">{formatPercent(largestHoldingWeight)}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">Open Cost Basis</span>
-                <span className="text-sm font-semibold">
-                  {formatMoney(totalOpenCostBasis, baseCurrency, 0, 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">Holdings</span>
-                <span className="text-sm font-semibold">
-                  {holdingSnapshots.filter((h) => h.quantity > 0).length}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card to-card/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-            <CardHeader className="px-3 pb-2 pt-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setMobileAnalyticsOpen((prev) => ({
-                    ...prev,
-                    benchmark: !prev.benchmark,
-                  }))
-                }
-                className="flex w-full items-center justify-between rounded-xl border border-border/70 bg-gradient-to-r from-muted/45 via-muted/25 to-transparent px-3.5 py-2.5 transition-colors hover:border-border hover:from-muted/65 hover:via-muted/35 hover:to-muted/10"
-                aria-label="Toggle Benchmark"
-              >
-                <div className="text-left">
-                  <div className="text-[15px] font-semibold tracking-tight text-foreground">
-                    Benchmark (SPY)
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`rounded-full border border-border/70 bg-background/60 px-2.5 py-0.5 text-xs font-semibold ${metricTone(excessVsBenchmark)}`}
-                  >
-                    {benchmarkSummaryLabel}
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 text-muted-foreground transition-transform ${
-                      mobileAnalyticsOpen.benchmark ? 'rotate-180' : ''
-                    }`}
-                  />
-                </div>
-              </button>
-            </CardHeader>
-            <CardContent
-              className={`space-y-1.5 px-3 pb-3 pt-1 text-xs ${
-                mobileAnalyticsOpen.benchmark ? 'block' : 'hidden'
-              }`}
-            >
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  Portfolio ({activeTimeframe})
-                </span>
-                <span className={`text-sm font-semibold ${metricTone(totalReturnPctForRange)}`}>
-                  {formatPercent(totalReturnPctForRange)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  P/L ({activeTimeframe})
-                </span>
-                <span className={`text-sm font-semibold ${metricTone(totalReturnValueForRange)}`}>
-                  {totalReturnValueForRange === null
-                    ? '-'
-                    : formatMoney(totalReturnValueForRange, baseCurrency, 0, 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  SPY ({activeTimeframe})
-                </span>
-                <span className={`text-sm font-semibold ${metricTone(benchmarkReturnPctForRange)}`}>
-                  {formatPercent(benchmarkReturnPctForRange)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/[0.18] px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">Excess</span>
-                <span className={`text-sm font-semibold ${metricTone(excessVsBenchmark)}`}>
-                  {formatPercent(excessVsBenchmark)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
       </main>
 
       <HoldingDetailsModal
@@ -2386,19 +3537,19 @@ export default function PortfolioTracker() {
       />
 
       {showAddForm && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/45 p-2 sm:items-center sm:justify-center sm:p-4 dark:bg-black/60">
-          <Card className="w-full max-w-md overflow-hidden rounded-2xl border border-border/80 shadow-2xl sm:rounded-2xl">
-            <CardHeader className="border-b border-border/70 bg-card/80 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="fixed inset-0 z-50 flex items-end bg-black/55 p-2 sm:items-center sm:justify-center sm:p-4">
+          <Card className="w-full max-w-md overflow-hidden rounded-xl border border-border bg-background">
+            <CardHeader className="border-b border-border bg-background px-4 py-3 sm:px-6 sm:py-4">
               <CardTitle className="text-base font-semibold sm:text-lg">Add Transaction</CardTitle>
             </CardHeader>
-            <CardContent className="max-h-[calc(100dvh-6.5rem)] space-y-3 overflow-y-auto px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-xs sm:max-h-[72vh] sm:space-y-4 sm:px-6 sm:py-4 sm:text-sm">
+            <CardContent className="max-h-[calc(100dvh-6.5rem)] space-y-3 overflow-y-auto px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-sm sm:max-h-[72vh] sm:space-y-4 sm:px-6 sm:py-4">
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setTransactionSide('BUY')}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     transactionSide === 'BUY'
-                      ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border bg-background/50 text-muted-foreground'
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border bg-background text-muted-foreground'
                   }`}
                 >
                   Buy
@@ -2407,8 +3558,8 @@ export default function PortfolioTracker() {
                   onClick={() => setTransactionSide('SELL')}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     transactionSide === 'SELL'
-                      ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border bg-background/50 text-muted-foreground'
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border bg-background text-muted-foreground'
                   }`}
                 >
                   Sell
@@ -2420,8 +3571,8 @@ export default function PortfolioTracker() {
                   onClick={() => setAddInputMode('manual')}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     addInputMode === 'manual'
-                      ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border bg-background/50 text-muted-foreground'
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border bg-background text-muted-foreground'
                   }`}
                 >
                   Manual Input
@@ -2430,8 +3581,8 @@ export default function PortfolioTracker() {
                   onClick={() => setAddInputMode('automatic')}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     addInputMode === 'automatic'
-                      ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border bg-background/50 text-muted-foreground'
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border bg-background text-muted-foreground'
                   }`}
                 >
                   Automatic Input
@@ -2446,8 +3597,7 @@ export default function PortfolioTracker() {
                     placeholder="AAPL"
                     value={search}
                     onChange={(event) => setSearch(event.target.value.toUpperCase())}
-                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base uppercase focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
-                    style={{ textTransform: 'uppercase' }}
+                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                   />
                 </div>
                 <div>
@@ -2533,12 +3683,12 @@ export default function PortfolioTracker() {
               )}
 
               {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                <div className="rounded-lg border border-rose-400/35 bg-rose-500/10 p-3 text-sm text-rose-200">
                   {error}
                 </div>
               )}
 
-              <div className="-mx-4 sticky bottom-0 mt-2 border-t border-border/70 bg-background/95 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] backdrop-blur sm:static sm:mx-0 sm:mt-3 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0">
+              <div className="-mx-4 sticky bottom-0 mt-2 border-t border-border bg-background px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] sm:static sm:mx-0 sm:mt-3 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0">
                 <div className="flex flex-col gap-2 text-xs sm:flex-row sm:gap-3 sm:text-sm">
                   <Button onClick={() => setShowAddForm(false)} variant="outline" className="h-11 flex-1 sm:h-10">
                     Cancel
@@ -2553,14 +3703,6 @@ export default function PortfolioTracker() {
         </div>
       )}
 
-      <style>{`
-        :root {
-          --chart-positive-color: #000;
-        }
-        html.dark {
-          --chart-positive-color: #fff;
-        }
-      `}</style>
     </div>
   );
 }

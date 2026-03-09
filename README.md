@@ -22,18 +22,25 @@ Lokal: http://localhost:3000
 
 ## Environment Variables
 
-Kopiere `.env.example` nach `.env.local` und setze mindestens:
+Kopiere `.env.example` nach `.env.local`.
 
-- `FMP_API_KEY` (required, primärer Provider)
-- `TWELVE_DATA_API_KEY` (optional, Fallback)
-- `MASSIVE_API_KEY` (optional, zweiter Fallback)
+Primärer Provider für Markt-/Aktien-Daten ist Yahoo Finance (serverseitiger Proxy, kein Key nötig).
+Zusätzliche Keys sind nur für Fallbacks bzw. Spezial-Feeds nötig:
+
+- `FMP_API_KEY` (optional, Fallback für DCF/Metriken/Kompatibilität)
+- `TWELVE_DATA_API_KEY` (optional, weiterer Fallback)
+- `MASSIVE_API_KEY` (optional, dritter Fallback)
 - `RAPIDAPI_KEY` (optional, für `/api/fear-greed`)
 
 Fallback-Reihenfolge in betroffenen Endpunkten:
 
-- `dcf`: FMP -> Twelve Data -> Massive
-- `metrics`: FMP -> Twelve Data -> Massive
-- `market-cap`: FMP -> Twelve Data -> Massive
+- `dcf`: Yahoo -> FMP -> Twelve Data -> Massive
+- `metrics`: Yahoo -> FMP -> Twelve Data -> Massive
+- `market-cap`: Yahoo -> FMP -> Twelve Data -> Massive
+- `fcf`: Yahoo -> FMP
+- `analyst-consensus`: Yahoo -> FMP
+- `insider-trades`: Yahoo -> Nasdaq
+- `portfolio-market`: Yahoo -> FMP
 
 ## Produktionsbuild
 

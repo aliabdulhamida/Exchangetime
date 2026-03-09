@@ -1,14 +1,26 @@
 'use client';
 
 import {
-  Search,
   AlertTriangle,
-  AlertCircle,
-  CircleCheck,
-  CircleDot,
+  ArrowDownRight,
+  ArrowUpRight,
+  Calendar,
+  Dot,
+  Search,
+  Users,
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
-import { AreaChart, Area, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { useMemo, useRef, useState } from 'react';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ReferenceLine,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -18,6 +30,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import AnalystValuation from './AnalystValuation';
 import NewsModal from './NewsModal';
+
+type ChartRange = '1M' | '3M' | '6M' | '1Y' | 'YTD' | '52W';
+type MobilePanelTab = 'analysis' | 'insider';
 
 interface StockData {
   symbol: string;
@@ -40,760 +55,1730 @@ interface StockData {
   freeCashFlow?: number;
 }
 
+interface InsiderTrade {
+  company: string;
+  symbol: string;
+  insider: string;
+  position: string;
+  transaction: string;
+  shares: number;
+  price: number;
+  value: number;
+  date: string;
+}
+
+type Metrics = {
+  peRatio?: number;
+  pbRatio?: number;
+  pegRatio?: number;
+  roe?: number;
+  debtToEquity?: number;
+  profitMargin?: number;
+  revenueGrowth?: number;
+  earningsGrowth?: number;
+  epsGrowth?: number;
+  roic?: number;
+  currentRatio?: number;
+  freeCashFlow?: number;
+  companyName?: string;
+};
+
+type FullChartPoint = {
+  price: number;
+  date: Date;
+};
+
+type ChartPoint = {
+  name: string;
+  price: number;
+  date?: Date;
+};
+
+type QuoteSnapshot = {
+  meta: Record<string, any>;
+  price: number | null;
+  previousClose: number | null;
+};
+
+type ChartCacheEntry = {
+  fetchedAt: number;
+  points: FullChartPoint[];
+  quote: QuoteSnapshot;
+};
+
+type FundamentalsCacheEntry = {
+  fetchedAt: number;
+  metrics: Metrics;
+  dcf: number | null;
+};
+
+type InsiderCacheEntry = {
+  fetchedAt: number;
+  company: string;
+  trades: InsiderTrade[];
+};
+
+type MetricKind = 'ratio' | 'percent' | 'billions';
+type MetricField =
+  | 'pe'
+  | 'peg'
+  | 'pb'
+  | 'roe'
+  | 'netMargin'
+  | 'roic'
+  | 'revenueGrowth'
+  | 'earningsGrowth'
+  | 'epsGrowth'
+  | 'debtEquity'
+  | 'currentRatio'
+  | 'freeCashFlow';
+
+type MetricRow = {
+  label: string;
+  field: MetricField;
+  kind: MetricKind;
+};
+
+type MetricSection = {
+  title: string;
+  rows: readonly MetricRow[];
+};
+type SignalTone = 'positive' | 'neutral' | 'negative' | 'none';
+
 const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
+const CHART_CACHE_TTL_MS = 5 * 60 * 1000;
+const FUNDAMENTALS_CACHE_TTL_MS = 10 * 60 * 1000;
+const INSIDER_CACHE_TTL_MS = 10 * 60 * 1000;
+const CHART_RANGES: readonly ChartRange[] = ['1M', '3M', '6M', '1Y'];
+
+const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
+const sellRegex = /sell|sale|dispose|disposition/i;
+
+const METRIC_SECTIONS: readonly MetricSection[] = [
+  {
+    title: 'Valuation',
+    rows: [
+      { label: 'P/E Ratio', field: 'pe', kind: 'ratio' },
+      { label: 'PEG Ratio', field: 'peg', kind: 'ratio' },
+      { label: 'P/B Ratio', field: 'pb', kind: 'ratio' },
+    ],
+  },
+  {
+    title: 'Profitability',
+    rows: [
+      { label: 'ROE', field: 'roe', kind: 'percent' },
+      { label: 'Net Margin', field: 'netMargin', kind: 'percent' },
+      { label: 'ROIC', field: 'roic', kind: 'percent' },
+    ],
+  },
+  {
+    title: 'Growth',
+    rows: [
+      { label: 'Revenue', field: 'revenueGrowth', kind: 'percent' },
+      { label: 'Earnings', field: 'earningsGrowth', kind: 'percent' },
+      { label: 'EPS', field: 'epsGrowth', kind: 'percent' },
+    ],
+  },
+  {
+    title: 'Financial Health',
+    rows: [
+      { label: 'Debt/Equity', field: 'debtEquity', kind: 'ratio' },
+      { label: 'Current Ratio', field: 'currentRatio', kind: 'ratio' },
+      { label: 'FCF', field: 'freeCashFlow', kind: 'billions' },
+    ],
+  },
+];
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value.replace(/[$,]/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function hasMetricsSignal(metrics: Metrics | null | undefined): boolean {
+  if (!metrics || typeof metrics !== 'object') return false;
+  const keys: (keyof Metrics)[] = [
+    'peRatio',
+    'pbRatio',
+    'pegRatio',
+    'roe',
+    'profitMargin',
+    'roic',
+    'revenueGrowth',
+    'earningsGrowth',
+    'epsGrowth',
+    'debtToEquity',
+    'currentRatio',
+    'freeCashFlow',
+  ];
+  return keys.some((key) => typeof metrics[key] === 'number' && Number.isFinite(metrics[key] as number));
+}
+
+function formatRatio(value?: number, digits = 2): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+  return value.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  });
+}
+
+function formatPercent(value?: number, digits = 2): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+  return `${value.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  })}%`;
+}
+
+function formatBillions(value?: number, digits = 2): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  })}B`;
+}
+
+function formatCompactCurrency(value: number, digits = 2): string {
+  if (!Number.isFinite(value)) return '-';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  return `$${value.toFixed(digits)}`;
+}
+
+function formatCompactNumber(value: number | null | undefined, digits = 2): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000_000) return `${(value / 1_000_000_000_000).toFixed(digits)}T`;
+  if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(digits)}B`;
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(digits)}M`;
+  if (abs >= 1_000) return `${(value / 1_000).toFixed(digits)}K`;
+  return value.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  });
+}
+
+function formatCurrency(value: number | null | undefined, digits = 2): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
+}
+
+function formatSignedCompactCurrency(value: number | null | undefined, digits = 2): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+  const sign = value >= 0 ? '+' : '-';
+  return `${sign}$${formatCompactNumber(Math.abs(value), digits)}`;
+}
+
+function formatMetricValue(value: number | undefined, kind: MetricKind): string {
+  if (kind === 'percent') return formatPercent(value);
+  if (kind === 'billions') return formatBillions(value);
+  return formatRatio(value);
+}
+
+function signalToneClasses(tone: SignalTone): {
+  dot: string;
+  value: string;
+  pill: string;
+} {
+  if (tone === 'positive') {
+    return {
+      dot: 'bg-emerald-400',
+      value: 'text-emerald-300',
+      pill: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+    };
+  }
+  if (tone === 'negative') {
+    return {
+      dot: 'bg-rose-400',
+      value: 'text-rose-300',
+      pill: 'border-rose-500/30 bg-rose-500/10 text-rose-300',
+    };
+  }
+  if (tone === 'neutral') {
+    return {
+      dot: 'bg-amber-300',
+      value: 'text-amber-200',
+      pill: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+    };
+  }
+  return {
+    dot: 'bg-zinc-500',
+    value: 'text-foreground',
+    pill: 'border-border bg-background text-muted-foreground',
+  };
+}
+
+function metricSignalTone(field: MetricField, value: number | undefined): SignalTone {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'none';
+
+  switch (field) {
+    case 'pe':
+      if (value <= 25) return 'positive';
+      if (value <= 40) return 'neutral';
+      return 'negative';
+    case 'peg':
+      if (value <= 1.5) return 'positive';
+      if (value <= 2.5) return 'neutral';
+      return 'negative';
+    case 'pb':
+      if (value <= 4) return 'positive';
+      if (value <= 8) return 'neutral';
+      return 'negative';
+    case 'roe':
+      if (value >= 15) return 'positive';
+      if (value >= 8) return 'neutral';
+      return 'negative';
+    case 'netMargin':
+      if (value >= 15) return 'positive';
+      if (value >= 8) return 'neutral';
+      return 'negative';
+    case 'roic':
+      if (value >= 12) return 'positive';
+      if (value >= 6) return 'neutral';
+      return 'negative';
+    case 'revenueGrowth':
+    case 'earningsGrowth':
+    case 'epsGrowth':
+      if (value >= 10) return 'positive';
+      if (value >= 0) return 'neutral';
+      return 'negative';
+    case 'debtEquity':
+      if (value < 1) return 'positive';
+      if (value <= 2) return 'neutral';
+      return 'negative';
+    case 'currentRatio':
+      if (value >= 1.5 && value <= 3) return 'positive';
+      if (value >= 1 && value < 1.5) return 'neutral';
+      return 'negative';
+    case 'freeCashFlow':
+      return value > 0 ? 'positive' : 'negative';
+    default:
+      return 'none';
+  }
+}
+
+function calcPercentChange(points: FullChartPoint[]): number | null {
+  if (!points || points.length < 2) return null;
+  const first = points[0].price;
+  const last = points[points.length - 1].price;
+  if (!Number.isFinite(first) || !Number.isFinite(last) || first === 0) return null;
+  return ((last - first) / first) * 100;
+}
+
+function getRangeDays(range: ChartRange): number {
+  switch (range) {
+    case '1M':
+      return 31;
+    case '3M':
+      return 93;
+    case '6M':
+      return 186;
+    case '1Y':
+      return 365;
+    case 'YTD': {
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      return Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+    }
+    case '52W':
+      return 365;
+    default:
+      return 31;
+  }
+}
+
+function formatChartLabel(date: Date, range: ChartRange): string {
+  if (['1M', '3M', '6M'].includes(range)) {
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+}
+
+function filterChartPointsByRange(points: FullChartPoint[], range: ChartRange): FullChartPoint[] {
+  if (!points.length) return [];
+  if (range === 'YTD') {
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    return points.filter((point) => point.date >= startOfYear && point.date <= now);
+  }
+  if (range === '52W') {
+    return points.slice(-Math.min(points.length, 365));
+  }
+  const days = getRangeDays(range);
+  return points.slice(-Math.min(points.length, days));
+}
+
+function formatShortDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+}
+
+function formatFullDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+}
+
+function getTransactionKind(transaction: string): 'buy' | 'sell' | 'other' {
+  if (buyRegex.test(transaction)) return 'buy';
+  if (sellRegex.test(transaction)) return 'sell';
+  return 'other';
+}
+
+function getTradeValue(trade: InsiderTrade | undefined): number {
+  if (!trade) return 0;
+  const value =
+    typeof trade.value === 'number' && Number.isFinite(trade.value)
+      ? trade.value
+      : trade.shares * trade.price;
+  return Math.abs(value || 0);
+}
+
+function getSignedTradeValue(trade: InsiderTrade | undefined): number {
+  if (!trade) return 0;
+  const value = getTradeValue(trade);
+  if (buyRegex.test(trade.transaction)) return value;
+  if (sellRegex.test(trade.transaction)) return -value;
+  return 0;
+}
+
+function normalizeInsiderTrade(raw: any, fallbackSymbol: string, fallbackCompany: string): InsiderTrade {
+  const symbol =
+    typeof raw?.symbol === 'string' && raw.symbol.trim() ? raw.symbol.trim().toUpperCase() : fallbackSymbol;
+  const company =
+    typeof raw?.company === 'string' && raw.company.trim() ? raw.company.trim() : fallbackCompany;
+
+  return {
+    symbol,
+    company,
+    insider: typeof raw?.insider === 'string' ? raw.insider : '',
+    position: typeof raw?.position === 'string' ? raw.position : '',
+    transaction: typeof raw?.transaction === 'string' ? raw.transaction : '',
+    shares: toFiniteNumber(raw?.shares) ?? 0,
+    price: toFiniteNumber(raw?.price) ?? 0,
+    value: toFiniteNumber(raw?.value) ?? 0,
+    date: typeof raw?.date === 'string' ? raw.date : '',
+  };
+}
 
 export default function StockAnalysis() {
   const [loading, setLoading] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
-  // --- Hilfsfunktionen für zusätzliche Metriken ---
-  type Metrics = {
-    peRatio?: number;
-    pbRatio?: number;
-    pegRatio?: number;
-    eps?: number;
-    revenue?: number;
-    beta?: number;
-    roe?: number;
-    debtToEquity?: number;
-    profitMargin?: number;
-    revenueGrowth?: number;
-    earningsGrowth?: number;
-    epsGrowth?: number;
-    roic?: number;
-    currentRatio?: number;
-    freeCashFlow?: number;
-    forwardPE?: number;
-    dividendYield?: number;
-    companyName?: string;
-  };
-  async function fetchAdditionalMetrics(symbol: string): Promise<Metrics> {
-    try {
-      const response = await fetch(`/api/metrics?symbol=${symbol}`);
-      if (!response.ok) {
-        return {};
-      }
-      return await response.json();
-    } catch (error) {
-      return {};
-    }
-  }
+  const [mobilePanelTab, setMobilePanelTab] = useState<MobilePanelTab>('analysis');
   const [searchSymbol, setSearchSymbol] = useState('');
+  const [activeSymbol, setActiveSymbol] = useState('');
   const [selectedStock, setSelectedStock] = useState<StockData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [dcfValue, setDcfValue] = useState<number | null>(null);
-  // chartData: für aktuellen Range, fullChartData: für YTD/52W
-  const [chartData, setChartData] = useState<{ name: string; price: number }[]>([]);
-  const [fullChartData, setFullChartData] = useState<{ name: string; price: number; date: Date }[]>(
-    [],
-  );
-  const [chartRange, setChartRange] = useState<'1M' | '3M' | '6M' | '1Y' | 'YTD' | '52W'>('1M');
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [insiderError, setInsiderError] = useState<string | null>(null);
+  const [insiderEmptyState, setInsiderEmptyState] = useState<string | null>(null);
+  const [chartData, setChartData] = useState<ChartPoint[]>([]);
+  const [fullChartData, setFullChartData] = useState<FullChartPoint[]>([]);
+  const [chartRange, setChartRange] = useState<ChartRange>('1M');
+  const [activeSectionTitle, setActiveSectionTitle] = useState(METRIC_SECTIONS[0].title);
+  const [insiderCompanyName, setInsiderCompanyName] = useState('');
+  const [insiderTrades, setInsiderTrades] = useState<InsiderTrade[]>([]);
+  const [selectedTradeIndexes, setSelectedTradeIndexes] = useState<number[]>([]);
 
-  // Chart-Farbe je nach Entwicklung
-  const chartIsPositive =
-    chartData.length > 1 && chartData[chartData.length - 1].price >= chartData[0].price;
-  const chartColor = chartIsPositive ? '#E5E5E5' : '#A3A3A3';
+  const chartCacheRef = useRef<Record<string, ChartCacheEntry>>({});
+  const fundamentalsCacheRef = useRef<Record<string, FundamentalsCacheEntry>>({});
+  const insiderCacheRef = useRef<Record<string, InsiderCacheEntry>>({});
+  const requestSequenceRef = useRef(0);
+  const chartRangeSequenceRef = useRef(0);
 
-  function formatRatio(value?: number, digits = 2) {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
-    return value.toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: digits,
-    });
-  }
-
-  function formatPercent(value?: number, digits = 2) {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
-    return `${value.toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: digits,
-    })}%`;
-  }
-
-  function formatBillions(value?: number, digits = 2) {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
-    return `$${value.toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: digits,
-    })}B`;
-  }
-
-  // Hilfsfunktion für Prozentveränderung
-  function calcPercentChange(data: { price: number }[]): number | null {
-    if (!data || data.length < 2) return null;
-    const first = data[0].price;
-    const last = data[data.length - 1].price;
-    if (!Number.isFinite(first) || !Number.isFinite(last) || first === 0) return null;
-    return ((last - first) / first) * 100;
-  }
-
-  // YTD und 52W Daten immer aus dem vollen Datensatz berechnen
   const ytdData = useMemo(() => {
     if (!selectedStock) return [];
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
-    return fullChartData.filter((d) => d.date >= startOfYear && d.date <= now);
+    return fullChartData.filter((point) => point.date >= startOfYear && point.date <= now);
   }, [fullChartData, selectedStock]);
 
   const week52Data = useMemo(() => {
-    if (!selectedStock) return [];
-    if (fullChartData.length < 2) return [];
-    // Letzte 365 Tage
+    if (!selectedStock || fullChartData.length < 2) return [];
     return fullChartData.slice(-Math.min(fullChartData.length, 365));
   }, [fullChartData, selectedStock]);
 
   const ytdChange = useMemo(() => calcPercentChange(ytdData), [ytdData]);
   const week52Change = useMemo(() => calcPercentChange(week52Data), [week52Data]);
+  const activeMetricSection = useMemo(
+    () => METRIC_SECTIONS.find((section) => section.title === activeSectionTitle) ?? METRIC_SECTIONS[0],
+    [activeSectionTitle],
+  );
 
-  // Hilfsfunktion für Zeiträume
-  function getRangeDays(range: '1M' | '3M' | '6M' | '1Y' | 'YTD' | '52W') {
-    switch (range) {
-      case '1M':
-        return 31;
-      case '3M':
-        return 93;
-      case '6M':
-        return 186;
-      case '1Y':
-        return 365;
-      case 'YTD': {
-        const now = new Date();
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        const diff = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-        return diff;
+  const chartIsPositive =
+    chartData.length > 1 && chartData[chartData.length - 1].price >= chartData[0].price;
+  const chartColor = chartIsPositive ? '#e5e5e5' : '#a3a3a3';
+  const chartSummary = useMemo(() => {
+    if (!chartData.length) return null;
+    const prices = chartData
+      .map((point) => point.price)
+      .filter((price) => typeof price === 'number' && Number.isFinite(price));
+    if (!prices.length) return null;
+    const low = Math.min(...prices);
+    const high = Math.max(...prices);
+    const last = prices[prices.length - 1];
+    return { low, high, last };
+  }, [chartData]);
+  const buyCount = useMemo(
+    () => insiderTrades.filter((trade) => buyRegex.test(trade.transaction)).length,
+    [insiderTrades],
+  );
+  const sellCount = useMemo(
+    () => insiderTrades.filter((trade) => sellRegex.test(trade.transaction)).length,
+    [insiderTrades],
+  );
+  const buyVolume = useMemo(
+    () =>
+      insiderTrades
+        .filter((trade) => buyRegex.test(trade.transaction))
+        .reduce((sum, trade) => sum + getTradeValue(trade), 0),
+    [insiderTrades],
+  );
+  const sellVolume = useMemo(
+    () =>
+      insiderTrades
+        .filter((trade) => sellRegex.test(trade.transaction))
+        .reduce((sum, trade) => sum + getTradeValue(trade), 0),
+    [insiderTrades],
+  );
+  const netVolume = useMemo(() => buyVolume - sellVolume, [buyVolume, sellVolume]);
+  const uniqueInsiderCount = useMemo(
+    () => new Set(insiderTrades.map((trade) => trade.insider).filter(Boolean)).size,
+    [insiderTrades],
+  );
+  const latestInsiderTradeDate = insiderTrades.length ? insiderTrades[0].date : null;
+  const selectedTradesNet = useMemo(
+    () =>
+      selectedTradeIndexes
+        .map((index) => getSignedTradeValue(insiderTrades[index]))
+        .reduce((sum, tradeValue) => sum + tradeValue, 0),
+    [selectedTradeIndexes, insiderTrades],
+  );
+
+  const insiderChartData = useMemo(() => {
+    const grouped: Record<string, { date: string; buy: number; sell: number; net: number }> = {};
+    insiderTrades.forEach((trade) => {
+      const key = trade.date;
+      if (!grouped[key]) {
+        grouped[key] = { date: key, buy: 0, sell: 0, net: 0 };
       }
-      case '52W':
-        return 365;
-      default:
-        return 31;
+      if (buyRegex.test(trade.transaction)) grouped[key].buy += getTradeValue(trade);
+      if (sellRegex.test(trade.transaction)) grouped[key].sell += getTradeValue(trade);
+    });
+    return Object.values(grouped)
+      .map((entry) => ({ ...entry, net: entry.buy - entry.sell, sellSigned: -entry.sell }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [insiderTrades]);
+
+  const insiderChartAbsMax = useMemo(() => {
+    if (!insiderChartData.length) return 0;
+    return Math.max(...insiderChartData.map((point) => Math.max(point.buy, point.sell)));
+  }, [insiderChartData]);
+
+  const insiderChartStats = useMemo(() => {
+    if (!insiderChartData.length) return null;
+    const peakBuy = Math.max(...insiderChartData.map((point) => point.buy));
+    const peakSell = Math.max(...insiderChartData.map((point) => point.sell));
+    const avgNet =
+      insiderChartData.reduce((sum, point) => sum + point.net, 0) / insiderChartData.length;
+    return { peakBuy, peakSell, avgNet };
+  }, [insiderChartData]);
+
+  async function fetchAdditionalMetrics(symbol: string): Promise<Metrics> {
+    try {
+      const response = await fetch(`/api/metrics?symbol=${symbol}`);
+      if (!response.ok) return {};
+      return await response.json();
+    } catch {
+      return {};
     }
   }
 
-  // Holt immer alle verfügbaren Daten für YTD/52W, filtert für Chart-Range
-  async function fetchChartData(symbol: string, range: '1M' | '3M' | '6M' | '1Y' | 'YTD' | '52W') {
-    const endDate = Math.floor(Date.now() / 1000);
-    // Hole immer 5 Jahre für vollen Verlauf (maximal für YTD/52W)
-    const startDateFull = endDate - 5 * 365 * 24 * 60 * 60;
-    const yahooResFull = await fetch(
-      `/api/quote?symbol=${encodeURIComponent(symbol)}&chart=1&period1=${startDateFull}&period2=${endDate}&interval=1d&includePrePost=false`,
-    );
-    if (!yahooResFull.ok) {
-      setChartData([]);
-      setFullChartData([]);
-      return;
+  async function fetchDcfValue(symbol: string): Promise<number | null> {
+    try {
+      const response = await fetch(`/api/dcf?symbol=${encodeURIComponent(symbol)}`);
+      if (!response.ok) return null;
+      const payload = await response.json();
+      const dcfCandidate = payload?.dcf ?? payload?.[0]?.dcf;
+      return typeof dcfCandidate === 'number' && Number.isFinite(dcfCandidate) ? dcfCandidate : null;
+    } catch {
+      return null;
     }
-    const yahooJsonFull = await yahooResFull.json();
-    const timestampsFull = yahooJsonFull?.chart?.result?.[0]?.timestamp;
-    const closesFull = yahooJsonFull?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-    let fullArr: { name: string; price: number; date: Date }[] = [];
+  }
+
+  async function fetchFundamentals(symbol: string): Promise<{ metrics: Metrics; dcf: number | null }> {
+    const cached = fundamentalsCacheRef.current[symbol];
+    const now = Date.now();
+
     if (
-      timestampsFull &&
-      closesFull &&
-      Array.isArray(timestampsFull) &&
-      Array.isArray(closesFull)
+      cached &&
+      now - cached.fetchedAt < FUNDAMENTALS_CACHE_TTL_MS &&
+      (hasMetricsSignal(cached.metrics) || cached.dcf !== null)
     ) {
-      fullArr = timestampsFull
-        .map((ts: number, idx: number) => {
-          const date = new Date(ts * 1000);
-          let label: string;
-          if (['1M', '3M', '6M'].includes(range)) {
-            // z.B. 25. Jul
-            label = date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
-          } else {
-            // z.B. Jul 25
-            label = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-          }
-          return { name: label, price: closesFull[idx], date };
-        })
-        .filter((d) => typeof d.price === 'number' && !isNaN(d.price));
+      return { metrics: cached.metrics, dcf: cached.dcf };
     }
-    setFullChartData(fullArr);
 
-    // Jetzt für den Chart-Range filtern
-    let chartArr: { name: string; price: number }[] = [];
-    if (fullArr.length > 0) {
-      let filtered = fullArr;
-      if (range === 'YTD') {
-        const now = new Date();
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        filtered = fullArr.filter((d) => d.date >= startOfYear && d.date <= now);
-      } else if (range === '52W') {
-        filtered = fullArr.slice(-Math.min(fullArr.length, 365));
-      } else {
-        const days = getRangeDays(range);
-        filtered = fullArr.slice(-Math.min(fullArr.length, days));
-      }
-      chartArr = filtered.map((d) => ({ name: d.name, price: d.price, date: d.date }));
+    const [metrics, dcf] = await Promise.all([fetchAdditionalMetrics(symbol), fetchDcfValue(symbol)]);
+
+    if (hasMetricsSignal(metrics) || dcf !== null) {
+      fundamentalsCacheRef.current[symbol] = {
+        fetchedAt: now,
+        metrics,
+        dcf,
+      };
+    } else {
+      delete fundamentalsCacheRef.current[symbol];
     }
-    setChartData(chartArr);
+
+    return { metrics, dcf };
   }
 
-  const handleSearch = async () => {
+  function applyChartRange(points: FullChartPoint[], range: ChartRange) {
+    setFullChartData(points);
+    const filtered = filterChartPointsByRange(points, range);
+    const normalized = filtered.map((point) => ({
+      name: formatChartLabel(point.date, range),
+      price: point.price,
+      date: point.date,
+    }));
+    setChartData(normalized);
+  }
+
+  async function fetchChartSnapshot(
+    symbol: string,
+  ): Promise<{ points: FullChartPoint[]; quote: QuoteSnapshot } | null> {
+    const cached = chartCacheRef.current[symbol];
+    const now = Date.now();
+
+    if (cached && now - cached.fetchedAt < CHART_CACHE_TTL_MS && cached.points.length > 0) {
+      return { points: cached.points, quote: cached.quote };
+    }
+
+    const period2 = Math.floor(Date.now() / 1000);
+    const period1 = period2 - 5 * 365 * 24 * 60 * 60;
+    const response = await fetch(
+      `/api/quote?symbol=${encodeURIComponent(symbol)}&chart=1&period1=${period1}&period2=${period2}&interval=1d&includePrePost=false`,
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json();
+    const result = payload?.chart?.result?.[0];
+    const meta = result?.meta ?? {};
+    const timestamps = result?.timestamp;
+    const closes = result?.indicators?.quote?.[0]?.close;
+
+    let points: FullChartPoint[] = [];
+    if (Array.isArray(timestamps) && Array.isArray(closes)) {
+      points = timestamps
+        .map((ts: number, idx: number) => ({
+          date: new Date(ts * 1000),
+          price: closes[idx],
+        }))
+        .filter((point) => typeof point.price === 'number' && !Number.isNaN(point.price));
+    }
+
+    const latestClose = points.length ? points[points.length - 1].price : null;
+    const previousClose =
+      toFiniteNumber(meta?.previousClose) ?? (points.length > 1 ? points[points.length - 2].price : null);
+
+    const snapshot: QuoteSnapshot = {
+      meta,
+      price: toFiniteNumber(meta?.regularMarketPrice) ?? latestClose,
+      previousClose,
+    };
+
+    chartCacheRef.current[symbol] = {
+      fetchedAt: now,
+      points,
+      quote: snapshot,
+    };
+
+    return { points, quote: snapshot };
+  }
+
+  async function fetchInsiderSnapshot(
+    symbol: string,
+  ): Promise<{ company: string; trades: InsiderTrade[] }> {
+    const cached = insiderCacheRef.current[symbol];
+    const now = Date.now();
+
+    if (cached && now - cached.fetchedAt < INSIDER_CACHE_TTL_MS) {
+      return { company: cached.company, trades: cached.trades };
+    }
+
+    const response = await fetch(`/api/insider-trades?symbol=${encodeURIComponent(symbol)}`);
+    if (!response.ok) {
+      throw new Error(`Error fetching insider data: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const company =
+      typeof payload?.company === 'string' && payload.company.trim() ? payload.company.trim() : symbol;
+    const rows: any[] = Array.isArray(payload?.trades) ? payload.trades : [];
+    const trades = rows
+      .map((row: any) => normalizeInsiderTrade(row, symbol, company))
+      .filter((trade: InsiderTrade) => trade.date && trade.insider)
+      .sort(
+        (a: InsiderTrade, b: InsiderTrade) =>
+          new Date(b.date).getTime() - new Date(a.date).getTime(),
+      );
+
+    insiderCacheRef.current[symbol] = {
+      fetchedAt: now,
+      company,
+      trades,
+    };
+
+    return { company, trades };
+  }
+
+  async function handleSearch() {
     const symbol = searchSymbol.trim().toUpperCase();
     if (!symbol) return;
+
     if (!SYMBOL_PATTERN.test(symbol)) {
-      setError('Please enter a valid ticker symbol.');
+      setValidationError('Please enter a valid ticker symbol.');
       setSelectedStock(null);
       setChartData([]);
-      setDcfValue(null);
+      setFullChartData([]);
+      setInsiderTrades([]);
+      setInsiderCompanyName('');
+      setSelectedTradeIndexes([]);
+      setInsiderEmptyState(null);
+      setAnalysisError(null);
+      setInsiderError(null);
       return;
     }
 
-    setError(null);
+    const requestId = ++requestSequenceRef.current;
+    chartRangeSequenceRef.current += 1;
+
+    setActiveSymbol(symbol);
+    setValidationError(null);
+    setAnalysisError(null);
+    setInsiderError(null);
+    setInsiderEmptyState(null);
+    setSelectedTradeIndexes([]);
+    setSelectedStock(null);
+    setChartData([]);
+    setFullChartData([]);
+    setInsiderTrades([]);
+    setInsiderCompanyName('');
     setLoading(true);
+
     try {
-      await fetchChartData(symbol, chartRange);
-      const yahooRes = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
-      if (!yahooRes.ok) {
-        setError(`Error fetching data: ${yahooRes.status}`);
-        setSelectedStock(null);
-        setDcfValue(null);
-        setChartData([]);
-        setLoading(false);
-        return;
-      }
-      const yahooJson = await yahooRes.json();
-      const meta = yahooJson?.meta || {};
-      const price = yahooJson?.price;
-      const previousClose = yahooJson?.previousClose;
-      const hasValidPrice = typeof price === 'number' && Number.isFinite(price);
-      const hasPreviousClose = typeof previousClose === 'number' && Number.isFinite(previousClose);
-      const change = hasValidPrice && hasPreviousClose ? price - previousClose : 0;
-      const changePercent =
-        hasValidPrice && hasPreviousClose && previousClose !== 0
-          ? (change / previousClose) * 100
-          : 0;
+      const [chartResult, fundamentalsResult, insiderResult] = await Promise.allSettled([
+        fetchChartSnapshot(symbol),
+        fetchFundamentals(symbol),
+        fetchInsiderSnapshot(symbol),
+      ]);
 
-      // Hole zusätzliche Metriken (Finviz + Yahoo Fallback)
-      const metrics = await fetchAdditionalMetrics(symbol);
+      if (requestId !== requestSequenceRef.current) return;
 
-      // DCF von financialmodellingprep.com
-      let dcf = null;
-      try {
-        const dcfRes = await fetch(`/api/dcf?symbol=${encodeURIComponent(symbol)}`);
-        if (dcfRes.ok) {
-          const dcfJson = await dcfRes.json();
-          dcf = dcfJson?.dcf || dcfJson[0]?.dcf || null;
-          setDcfValue(dcf);
+      const chartSnapshot = chartResult.status === 'fulfilled' ? chartResult.value : null;
+      const fundamentals =
+        fundamentalsResult.status === 'fulfilled' ? fundamentalsResult.value : { metrics: {}, dcf: null };
+
+      if (chartSnapshot?.quote) {
+        applyChartRange(chartSnapshot.points, chartRange);
+
+        const meta = chartSnapshot.quote.meta || {};
+        const price = chartSnapshot.quote.price;
+        const previousClose = chartSnapshot.quote.previousClose;
+        const hasValidPrice = typeof price === 'number' && Number.isFinite(price);
+        const hasPreviousClose =
+          typeof previousClose === 'number' && Number.isFinite(previousClose);
+        const change = hasValidPrice && hasPreviousClose ? price - previousClose : 0;
+        const changePercent =
+          hasValidPrice && hasPreviousClose && previousClose !== 0
+            ? (change / previousClose) * 100
+            : 0;
+
+        if (hasValidPrice) {
+          setSelectedStock({
+            symbol,
+            name: fundamentals.metrics?.companyName || meta?.longName || meta?.shortName || symbol,
+            price,
+            change,
+            changePercent,
+            dcf: fundamentals.dcf ?? undefined,
+            pe: fundamentals.metrics?.peRatio,
+            peg: fundamentals.metrics?.pegRatio,
+            pb: fundamentals.metrics?.pbRatio,
+            roe: fundamentals.metrics?.roe,
+            netMargin: fundamentals.metrics?.profitMargin,
+            roic: fundamentals.metrics?.roic,
+            revenueGrowth: fundamentals.metrics?.revenueGrowth,
+            earningsGrowth: fundamentals.metrics?.earningsGrowth,
+            epsGrowth: fundamentals.metrics?.epsGrowth,
+            debtEquity: fundamentals.metrics?.debtToEquity,
+            currentRatio: fundamentals.metrics?.currentRatio,
+            freeCashFlow: fundamentals.metrics?.freeCashFlow,
+          });
+          setAnalysisError(null);
         } else {
-          setDcfValue(null);
+          setSelectedStock(null);
+          setChartData([]);
+          setFullChartData([]);
+          setAnalysisError('Stock quote unavailable for this ticker.');
         }
-      } catch (dcfErr) {
-        setDcfValue(null);
-      }
-
-      if (meta && hasValidPrice) {
-        setSelectedStock({
-          symbol: symbol,
-          name: metrics?.companyName || meta?.longName || meta?.shortName || symbol,
-          price: price,
-          change: change,
-          changePercent: changePercent,
-          dcf: dcf,
-          pe: metrics?.peRatio,
-          peg: metrics?.pegRatio,
-          pb: metrics?.pbRatio,
-          roe: metrics?.roe,
-          netMargin: metrics?.profitMargin,
-          roic: metrics?.roic,
-          revenueGrowth: metrics?.revenueGrowth,
-          earningsGrowth: metrics?.earningsGrowth,
-          epsGrowth: metrics?.epsGrowth,
-          debtEquity: metrics?.debtToEquity,
-          currentRatio: metrics?.currentRatio,
-          freeCashFlow: metrics?.freeCashFlow,
-        });
       } else {
-        setError('Error fetching data.');
         setSelectedStock(null);
         setChartData([]);
+        setFullChartData([]);
+        setAnalysisError('Error fetching stock analysis data.');
       }
-    } catch (err: any) {
-      setError(err?.message || 'Unbekannter Fehler beim Fetch.');
+
+      if (insiderResult.status === 'fulfilled') {
+        const payload = insiderResult.value;
+        setInsiderCompanyName(payload.company || symbol);
+        setInsiderTrades(payload.trades);
+        setInsiderError(null);
+
+        if (!payload.trades.length) {
+          setInsiderEmptyState(
+            `No recent insider filings found for ${symbol}. Try another symbol or check again later.`,
+          );
+        }
+      } else {
+        setInsiderTrades([]);
+        setInsiderCompanyName(symbol);
+        setInsiderEmptyState(null);
+        setInsiderError(
+          insiderResult.reason instanceof Error
+            ? insiderResult.reason.message
+            : 'Error fetching insider trades.',
+        );
+      }
+    } catch (err: unknown) {
+      if (requestId !== requestSequenceRef.current) return;
+
+      setAnalysisError('Unknown error while fetching stock data.');
+      setInsiderError(err instanceof Error ? err.message : 'Unknown error while fetching insider data.');
       setSelectedStock(null);
       setChartData([]);
+      setFullChartData([]);
+      setInsiderTrades([]);
+      setInsiderCompanyName(symbol);
+      setInsiderEmptyState(null);
     } finally {
-      setLoading(false);
+      if (requestId === requestSequenceRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }
+
+  function toggleSelectTrade(index: number) {
+    setSelectedTradeIndexes((prev) =>
+      prev.includes(index) ? prev.filter((tradeIndex) => tradeIndex !== index) : [...prev, index],
+    );
+  }
+
+  const shellClass = 'mx-auto w-full max-w-[72rem] space-y-2 sm:space-y-3';
+  const panelClass = 'rounded-2xl border border-border/70 bg-card/70';
+  const sectionClass = `${panelClass} p-3 sm:p-3.5`;
+  const captionClass =
+    'text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px]';
+  const metricRowClass =
+    'flex items-center justify-between border-b border-border/60 py-1 text-xs sm:text-sm last:border-b-0';
+  const tradeContainerClass = 'et-scrollbar max-h-[260px] overflow-y-auto pr-1 sm:max-h-[300px]';
+
+  const hasResultState = Boolean(
+    selectedStock ||
+      analysisError ||
+      insiderTrades.length ||
+      insiderError ||
+      insiderEmptyState ||
+      insiderCompanyName,
+  );
+  const resolvedSymbol = selectedStock?.symbol || activeSymbol;
 
   return (
-    <div className="pt-0 space-y-4">
-      <div>
-        <h2 className="mb-2 mt-0 ml-0 flex items-center gap-2 text-lg font-bold text-foreground">
+    <div className={shellClass}>
+      <div
+        className={`${panelClass} bg-gradient-to-b from-card/90 to-card/60 px-3 py-3 pr-14 sm:px-3.5 sm:py-3.5 sm:pr-16`}
+      >
+        <h2 className="text-lg font-semibold leading-none tracking-tight text-foreground sm:text-[1.4rem]">
           Stock Analysis
         </h2>
-      </div>
-
-      {/* Chart: Kursverlauf (dynamisch von Yahoo Finance) wird nach DCF angezeigt */}
-
-      <div className="flex gap-2 mb-5">
-        <Input
-          placeholder="Enter ticker (e.g. AAPL)"
-          value={searchSymbol}
-          onChange={(e) => setSearchSymbol(e.target.value.toUpperCase())}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleSearch();
-            }
+        <form
+          className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleSearch();
           }}
-          className="min-w-0 flex-1"
-        />
-        <Button onClick={handleSearch}>
-          <Search className="w-4 h-4" />
-        </Button>
+        >
+          <Input
+            placeholder="Enter ticker"
+            value={searchSymbol}
+            onChange={(event) => setSearchSymbol(event.target.value.toUpperCase())}
+            className="h-9 min-w-0 rounded-xl border-border/80 bg-background/70 text-sm placeholder:text-muted-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/20"
+          />
+          <Button
+            type="submit"
+            disabled={loading}
+            className="h-9 w-11 rounded-xl border border-border/80 bg-background/80 px-0 text-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.02)] hover:bg-secondary/70"
+          >
+            <Search className="h-4 w-4" />
+            <span className="sr-only">Search ticker</span>
+          </Button>
+        </form>
       </div>
 
-      {error && (
+      {validationError && (
         <Alert
           variant="destructive"
-          className="mb-4 flex flex-col items-center rounded-lg border border-red-400 bg-red-900/20 p-4 text-red-300"
+          className="flex items-start gap-2 rounded-2xl border border-rose-500/40 bg-rose-900/20 px-3 py-2.5 text-rose-200"
         >
-          <div className="flex flex-col items-center">
-            <AlertTriangle className="mb-2 h-8 w-8 text-red-300" />
-            <span className="text-center font-normal">{error}</span>
-          </div>
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+          <span className="text-sm">{validationError}</span>
         </Alert>
       )}
+
+      <div className={`${panelClass} p-1 md:hidden`}>
+        <div className="grid grid-cols-2 gap-1">
+          <button
+            type="button"
+            onClick={() => setMobilePanelTab('analysis')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              mobilePanelTab === 'analysis'
+                ? 'bg-foreground text-background'
+                : 'bg-background text-muted-foreground'
+            }`}
+          >
+            Analysis
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobilePanelTab('insider')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              mobilePanelTab === 'insider'
+                ? 'bg-foreground text-background'
+                : 'bg-background text-muted-foreground'
+            }`}
+          >
+            Insider
+          </button>
+        </div>
+      </div>
+
       {loading ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Skeleton className="h-6 w-32 mb-2" />
-              <Skeleton className="h-4 w-16" />
+        <div className="grid grid-cols-1 items-start gap-2.5 sm:gap-3 xl:grid-cols-2">
+          <div className={`${mobilePanelTab === 'analysis' ? 'block' : 'hidden'} space-y-2.5 md:block`}>
+            <div className={`${sectionClass} flex items-start justify-between`}>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-14" />
+                <Skeleton className="h-7 w-40" />
+                <Skeleton className="h-7 w-28" />
+              </div>
+              <div className="space-y-2 text-right">
+                <Skeleton className="ml-auto h-3 w-12" />
+                <Skeleton className="ml-auto h-8 w-24" />
+                <Skeleton className="ml-auto h-4 w-20" />
+              </div>
             </div>
-            <div className="text-right">
-              <Skeleton className="h-8 w-20 mb-2" />
-              <Skeleton className="h-4 w-24" />
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[...Array(4)].map((_, idx) => (
+                <div key={`analysis-skeleton-${idx}`} className={`${panelClass} px-3 py-2.5`}>
+                  <Skeleton className="h-3 w-10" />
+                  <Skeleton className="mt-1.5 h-4 w-16" />
+                </div>
+              ))}
+            </div>
+
+            <div className={sectionClass}>
+              <Skeleton className="h-3 w-24" />
+              <div className="mt-3 flex gap-2">
+                <Skeleton className="h-6 w-20" />
+                <Skeleton className="h-6 w-24" />
+              </div>
+              <div className="mt-3 space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+              </div>
+            </div>
+
+            <div className={sectionClass}>
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-3 h-[160px] w-full sm:h-[190px]" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className="col-span-1 space-y-2 rounded-lg border border-border bg-card p-3"
-              >
-                <Skeleton className="h-4 w-24 mb-1" />
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-full" />
+
+          <div className={`${mobilePanelTab === 'insider' ? 'block' : 'hidden'} space-y-2.5 md:block`}>
+            <div className={`${sectionClass} flex items-start justify-between`}>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-14" />
+                <Skeleton className="h-7 w-36" />
+                <Skeleton className="h-6 w-24" />
               </div>
-            ))}
-            <div className="col-span-1 rounded-lg border border-border bg-card p-3 sm:col-span-2">
-              <Skeleton className="h-4 w-32 mb-2" />
-              <Skeleton className="h-6 w-24" />
+              <div className="space-y-2 text-right">
+                <Skeleton className="ml-auto h-3 w-12" />
+                <Skeleton className="ml-auto h-8 w-24" />
+                <Skeleton className="ml-auto h-4 w-20" />
+              </div>
             </div>
-            <div className="col-span-1 mt-6 sm:col-span-2">
-              <Skeleton className="h-40 w-full mb-2" />
-              <div className="flex gap-4 mt-2 justify-between items-center">
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-6 w-32" />
-              </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[...Array(4)].map((_, idx) => (
+                <div key={`insider-skeleton-${idx}`} className={`${panelClass} px-3 py-2.5`}>
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="mt-1.5 h-4 w-14" />
+                </div>
+              ))}
+            </div>
+
+            <div className={sectionClass}>
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="mt-3 h-[150px] w-full sm:h-[170px]" />
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5">
+              {[...Array(4)].map((_, idx) => (
+                <div key={`trade-skeleton-${idx}`} className={`${panelClass} p-2.5`}>
+                  <Skeleton className="h-3.5 w-24" />
+                  <Skeleton className="mt-1.5 h-3 w-24" />
+                  <Skeleton className="mt-3 h-7 w-full" />
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      ) : selectedStock ? (
-        <div className="space-y-5">
-          <div className="rounded-xl border border-border bg-card/50 px-3 py-3 sm:px-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Company</p>
-                <div className="mt-0.5 flex items-center gap-2">
-                  <h3 className="truncate text-base font-semibold text-foreground sm:text-lg">
-                    {selectedStock.name}
-                  </h3>
-                  <button
-                    className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground transition hover:bg-secondary"
-                    onClick={() => setNewsOpen(true)}
-                    aria-label={`Show news for ${selectedStock.symbol}`}
+      ) : hasResultState ? (
+        <div className="grid grid-cols-1 items-start gap-2.5 sm:gap-3 xl:grid-cols-2">
+          <div
+            className={`${mobilePanelTab === 'analysis' ? 'block' : 'hidden'} space-y-2.5 sm:space-y-3 md:block`}
+          >
+            {analysisError && !selectedStock && (
+              <Alert
+                variant="destructive"
+                className="flex items-start gap-2 rounded-2xl border border-rose-500/40 bg-rose-900/20 px-3 py-2.5 text-rose-200"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+                <span className="text-sm">{analysisError}</span>
+              </Alert>
+            )}
+
+            {selectedStock ? (
+              <>
+                <div className={sectionClass}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className={captionClass}>Company</p>
+                      <h3 className="mt-1 truncate text-[1.2rem] font-semibold leading-tight text-foreground sm:text-[1.35rem]">
+                        {selectedStock.name}
+                      </h3>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="rounded-md border border-border bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          {selectedStock.symbol}
+                        </span>
+                        <button
+                          className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
+                          onClick={() => setNewsOpen(true)}
+                          aria-label={`Show news for ${selectedStock.symbol}`}
+                        >
+                          News
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      <p className={captionClass}>Price</p>
+                      <p className="mt-1 tabular-nums text-[1.45rem] font-semibold leading-none tracking-tight text-foreground sm:text-[1.6rem]">
+                        ${selectedStock.price.toFixed(2)}
+                      </p>
+                      <p
+                        className={`mt-1 text-[0.95rem] font-semibold leading-none tabular-nums sm:text-[1rem] ${
+                          selectedStock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {selectedStock.changePercent >= 0 ? '+' : ''}
+                        {selectedStock.changePercent.toFixed(2)}%
+                      </p>
+                    </div>
+                  </div>
+                  <NewsModal
+                    open={newsOpen}
+                    onOpenChange={setNewsOpen}
+                    ticker={selectedStock.symbol}
+                  />
+                </div>
+
+                <div className={sectionClass}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className={captionClass}>Fundamentals</p>
+                    </div>
+                    <div className="et-scrollbar -mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+                      {METRIC_SECTIONS.map((section) => (
+                        <button
+                          key={section.title}
+                          onClick={() => setActiveSectionTitle(section.title)}
+                          className={`rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                            activeMetricSection.title === section.title
+                              ? 'border-foreground bg-foreground text-background'
+                              : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {section.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-2.5">
+                    {activeMetricSection.rows.map((row) => {
+                      const toneClasses = signalToneClasses(
+                        metricSignalTone(row.field, selectedStock[row.field]),
+                      );
+                      return (
+                        <div key={`${activeMetricSection.title}-${row.field}`} className={metricRowClass}>
+                          <span className="inline-flex items-center text-xs text-foreground sm:text-sm">
+                            <span className={`mr-2 h-1.5 w-1.5 rounded-full ${toneClasses.dot}`} />
+                            {row.label}
+                          </span>
+                          <span
+                            className={`shrink-0 text-right text-xs font-semibold tabular-nums sm:text-sm ${toneClasses.value}`}
+                          >
+                            {formatMetricValue(selectedStock[row.field], row.kind)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <div className={sectionClass}>
+                    <p className={captionClass}>DCF Valuation</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-base font-semibold text-foreground sm:text-lg">
+                        {selectedStock.dcf !== undefined && selectedStock.dcf !== null
+                          ? `$${Number(selectedStock.dcf).toFixed(2)}`
+                          : 'Not available'}
+                      </span>
+                      {selectedStock.dcf !== undefined &&
+                        selectedStock.dcf !== null &&
+                        selectedStock.price !== undefined &&
+                        selectedStock.price !== null && (
+                          <span
+                            className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${
+                              Number(selectedStock.price) > Number(selectedStock.dcf)
+                                ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                            }`}
+                          >
+                            {Number(selectedStock.price) > Number(selectedStock.dcf)
+                              ? 'Overvalued'
+                              : 'Undervalued'}
+                          </span>
+                        )}
+                    </div>
+                  </div>
+
+                  <AnalystValuation symbol={selectedStock.symbol} price={selectedStock.price} />
+                </div>
+
+                <div className={sectionClass}>
+                  <div className="mb-2.5 flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                      <p className={captionClass}>Price Action</p>
+                    </div>
+                  </div>
+                  {chartSummary && (
+                    <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
+                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                        <span className="text-muted-foreground">Low</span>
+                        <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                          {formatCompactCurrency(chartSummary.low)}
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                        <span className="text-muted-foreground">High</span>
+                        <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                          {formatCompactCurrency(chartSummary.high)}
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                        <span className="text-muted-foreground">Last</span>
+                        <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                          {formatCompactCurrency(chartSummary.last)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {chartData.length > 0 ? (
+                    <ChartContainer
+                      className="h-[155px] !aspect-auto sm:h-[185px]"
+                      config={{ price: { label: 'Price', color: '#e5e5e5' } }}
+                    >
+                      <AreaChart data={chartData} margin={{ top: 8, right: 6, left: 2, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="stockPriceGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="4%" stopColor={chartColor} stopOpacity={0.66} />
+                            <stop offset="96%" stopColor={chartColor} stopOpacity={0.04} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid
+                          vertical={false}
+                          stroke="rgba(161,161,170,0.18)"
+                          strokeDasharray="3 3"
+                        />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fill: '#a1a1aa', fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                          minTickGap={18}
+                        />
+                        <YAxis
+                          tick={{ fill: '#a1a1aa', fontSize: 10 }}
+                          tickFormatter={(value: number) => formatCompactCurrency(value, 1)}
+                          axisLine={false}
+                          tickLine={false}
+                          width={44}
+                          domain={[
+                            'dataMin - (dataMax-dataMin)*0.05',
+                            'dataMax + (dataMax-dataMin)*0.05',
+                          ]}
+                          allowDataOverflow={true}
+                        />
+                        {chartSummary && (
+                          <ReferenceLine
+                            y={chartSummary.last}
+                            stroke="rgba(229,231,235,0.32)"
+                            strokeDasharray="4 4"
+                            ifOverflow="extendDomain"
+                          />
+                        )}
+                        <Tooltip
+                          cursor={{ stroke: 'rgba(161,161,170,0.35)', strokeDasharray: '4 4' }}
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            const point = payload[0].payload;
+                            const priceValue = typeof point?.price === 'number' ? point.price : null;
+                            return (
+                              <div className="rounded-lg border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground shadow-sm">
+                                <div className="font-medium text-muted-foreground">
+                                  {point?.date
+                                    ? new Date(point.date).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                      })
+                                    : label}
+                                </div>
+                                <div className="mt-0.5 tabular-nums text-xs font-semibold text-foreground">
+                                  {priceValue !== null ? `$${priceValue.toFixed(2)}` : '-'}
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="price"
+                          stroke={chartColor}
+                          fillOpacity={1}
+                          fill="url(#stockPriceGradient)"
+                          strokeWidth={2}
+                          isAnimationActive={true}
+                          animationDuration={450}
+                          dot={false}
+                          activeDot={{
+                            r: 2.5,
+                            strokeWidth: 1,
+                            stroke: chartColor,
+                            fill: '#0a0a0a',
+                          }}
+                        />
+                      </AreaChart>
+                    </ChartContainer>
+                  ) : (
+                    <div className="flex h-[155px] items-center justify-center rounded-lg border border-border/70 bg-background/30 text-sm text-muted-foreground sm:h-[185px]">
+                      No data available.
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                    <div className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+                      {CHART_RANGES.map((range) => (
+                        <button
+                          key={range}
+                          className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                            chartRange === range
+                              ? 'border-foreground bg-foreground text-background'
+                              : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                          }`}
+                          onClick={async () => {
+                            if (chartRange === range) return;
+
+                            const symbol = selectedStock.symbol;
+                            const searchSequence = requestSequenceRef.current;
+                            const rangeSequence = ++chartRangeSequenceRef.current;
+
+                            setChartRange(range);
+                            const snapshot = await fetchChartSnapshot(symbol);
+
+                            if (
+                              !snapshot ||
+                              searchSequence !== requestSequenceRef.current ||
+                              rangeSequence !== chartRangeSequenceRef.current
+                            ) {
+                              return;
+                            }
+
+                            applyChartRange(snapshot.points, range);
+                          }}
+                        >
+                          {range}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <div className="rounded-md border border-border bg-background px-1.5 py-0.5">
+                        <span className="text-muted-foreground">YTD</span>
+                        <span
+                          className={
+                            ytdChange !== null
+                              ? ytdChange >= 0
+                                ? 'ml-1 text-emerald-400'
+                                : 'ml-1 text-rose-400'
+                              : 'ml-1 text-foreground'
+                          }
+                        >
+                          {ytdChange !== null ? `${ytdChange > 0 ? '+' : ''}${ytdChange.toFixed(2)}%` : ' - '}
+                        </span>
+                      </div>
+                      <div className="rounded-md border border-border bg-background px-1.5 py-0.5">
+                        <span className="text-muted-foreground">52W</span>
+                        <span
+                          className={
+                            week52Change !== null
+                              ? week52Change >= 0
+                                ? 'ml-1 text-emerald-400'
+                                : 'ml-1 text-rose-400'
+                              : 'ml-1 text-foreground'
+                          }
+                        >
+                          {week52Change !== null
+                            ? `${week52Change > 0 ? '+' : ''}${week52Change.toFixed(2)}%`
+                            : ' - '}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </>
+            ) : (
+              !analysisError && (
+                <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/60 px-3 py-2.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 text-muted-foreground"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    News
-                  </button>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    Search a ticker to load valuation, fundamentals, and price action.
+                  </span>
                 </div>
-              </div>
-              <div className="flex items-end gap-3">
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Price</p>
-                  <p className="tabular-nums text-base font-semibold text-foreground sm:text-lg">
-                    ${selectedStock.price?.toFixed(2)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Today</p>
-                  <p
-                    className={`tabular-nums text-base font-semibold ${selectedStock.changePercent >= 0 ? 'text-green-400' : 'text-red-400'} sm:text-lg`}
-                  >
-                    {selectedStock.changePercent >= 0 ? '+' : ''}
-                    {selectedStock.changePercent?.toFixed(2)}%
-                  </p>
-                </div>
-              </div>
-            </div>
-            {/* News Modal */}
-            {selectedStock && (
-              <NewsModal
-                open={newsOpen}
-                onOpenChange={setNewsOpen}
-                ticker={selectedStock.symbol}
-              />
+              )
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3 items-stretch">
-            {/* VALUATION */}
-            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
-              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground">Valuation</h4>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">P/E Ratio</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatRatio(selectedStock.pe)}
-                  {typeof selectedStock.pe === 'number' ? (
-                    selectedStock.pe < 10 ? (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    ) : selectedStock.pe <= 25 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.pe <= 40 ? (
-                      <CircleDot className="w-4 h-4 text-gray-400" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">PEG Ratio</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatRatio(selectedStock.peg)}
-                  {typeof selectedStock.peg === 'number' ? (
-                    selectedStock.peg < 1 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.peg <= 2 ? (
-                      <CircleDot className="w-4 h-4 text-gray-400" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">P/B Ratio</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatRatio(selectedStock.pb)}
-                  {typeof selectedStock.pb === 'number' ? (
-                    selectedStock.pb < 1 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.pb <= 3 ? (
-                      <CircleDot className="w-4 h-4 text-gray-400" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
+
+          <div
+            className={`${mobilePanelTab === 'insider' ? 'block' : 'hidden'} space-y-2.5 sm:space-y-3 md:block`}
+          >
+            <div className={sectionClass}>
+              <div className="flex items-center justify-between gap-3">
+                <p className={captionClass}>Insider Activity</p>
+                {resolvedSymbol && (
+                  <span className="inline-flex rounded-md border border-border bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {resolvedSymbol}
+                  </span>
+                )}
               </div>
             </div>
-            {/* PROFITABILITY */}
-            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
-              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground">Profitability</h4>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">ROE</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatPercent(selectedStock.roe)}
-                  {typeof selectedStock.roe === 'number' ? (
-                    selectedStock.roe > 15 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.roe >= 10 ? (
-                      <CircleDot className="w-4 h-4 text-gray-400" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">Net Margin</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatPercent(selectedStock.netMargin)}
-                  {typeof selectedStock.netMargin === 'number' ? (
-                    selectedStock.netMargin > 10 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.netMargin >= 5 ? (
-                      <CircleDot className="w-4 h-4 text-gray-400" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">ROIC</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatPercent(selectedStock.roic)}
-                  {typeof selectedStock.roic === 'number' ? (
-                    selectedStock.roic > 10 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.roic >= 5 ? (
-                      <CircleDot className="w-4 h-4 text-gray-400" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-            </div>
-            {/* GROWTH */}
-            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
-              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground">Growth</h4>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">Revenue</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatPercent(selectedStock.revenueGrowth)}
-                  {typeof selectedStock.revenueGrowth === 'number' ? (
-                    selectedStock.revenueGrowth > 0 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.revenueGrowth === 0 ? (
-                      <CircleDot className="w-4 h-4 text-gray-300" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">Earnings</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatPercent(selectedStock.earningsGrowth)}
-                  {typeof selectedStock.earningsGrowth === 'number' ? (
-                    selectedStock.earningsGrowth > 0 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.earningsGrowth === 0 ? (
-                      <CircleDot className="w-4 h-4 text-gray-300" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">EPS</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatPercent(selectedStock.epsGrowth)}
-                  {typeof selectedStock.epsGrowth === 'number' ? (
-                    selectedStock.epsGrowth > 0 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.epsGrowth === 0 ? (
-                      <CircleDot className="w-4 h-4 text-gray-300" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-            </div>
-            {/* FINANCIAL HEALTH */}
-            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
-              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground">
-                Financial Health
-              </h4>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">Debt/Equity</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatRatio(selectedStock.debtEquity)}
-                  {typeof selectedStock.debtEquity === 'number' ? (
-                    selectedStock.debtEquity < 1 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.debtEquity <= 2 ? (
-                      <CircleDot className="w-4 h-4 text-yellow-400" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">Current Ratio</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatRatio(selectedStock.currentRatio)}
-                  {typeof selectedStock.currentRatio === 'number' ? (
-                    selectedStock.currentRatio >= 1.5 && selectedStock.currentRatio <= 3 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.currentRatio < 1 ? (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    ) : (
-                      <CircleDot className="w-4 h-4 text-yellow-400" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="text-xs sm:text-sm">FCF</span>
-                <span className="font-bold text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap tabular-nums text-right shrink-0">
-                  {formatBillions(selectedStock.freeCashFlow)}
-                  {typeof selectedStock.freeCashFlow === 'number' ? (
-                    selectedStock.freeCashFlow > 0 ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
-                    ) : selectedStock.freeCashFlow === 0 ? (
-                      <CircleDot className="w-4 h-4 text-gray-300" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )
-                  ) : null}
-                </span>
-              </div>
-            </div>
-            {/* DCF Valuation */}
-            <div className="col-span-1 h-full rounded-xl border border-border/80 bg-card/70 p-4 shadow-sm">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">DCF Valuation</p>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-semibold text-foreground">
-                  {selectedStock.dcf !== undefined && selectedStock.dcf !== null
-                    ? `$${Number(selectedStock.dcf).toFixed(2)}`
-                    : 'Not available'}
-                </span>
-                {selectedStock.dcf !== undefined &&
-                  selectedStock.dcf !== null &&
-                  selectedStock.price !== undefined &&
-                  selectedStock.price !== null && (
-                    <span
-                      className={`text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 ${Number(selectedStock.price) > Number(selectedStock.dcf) ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'}`}
+
+            {insiderError && (
+              <Alert
+                variant="destructive"
+                className="flex items-start gap-2 rounded-2xl border border-rose-500/40 bg-rose-900/20 px-3 py-2.5 text-rose-200"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+                <span className="text-sm">{insiderError}</span>
+              </Alert>
+            )}
+
+            {!insiderError && insiderTrades.length > 0 && (
+              <>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div className={`${panelClass} col-span-2 flex items-center gap-2 px-2.5 py-2 sm:col-span-1`}>
+                    <div
+                      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                        netVolume >= 0
+                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                          : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                      }`}
                     >
-                      {Number(selectedStock.price) > Number(selectedStock.dcf) ? (
-                        <AlertCircle className="w-3 h-3 text-red-500" />
+                      {netVolume >= 0 ? (
+                        <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
                       ) : (
-                        <CircleCheck className="w-3 h-3 text-green-500" />
+                        <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
                       )}
-                    </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Net Flow</p>
+                      <p
+                        className={`mt-0.5 truncate text-xs font-semibold tabular-nums sm:text-sm ${
+                          netVolume >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                        }`}
+                      >
+                        {formatSignedCompactCurrency(netVolume)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`${panelClass} flex items-center gap-2 px-2.5 py-2`}>
+                    <div className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+                      <Users className="h-3 w-3" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        Active Insiders
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
+                        {uniqueInsiderCount}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`${panelClass} flex items-center gap-2 px-2.5 py-2`}>
+                    <div className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+                      <Calendar className="h-3 w-3" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        Latest Filing
+                      </p>
+                      <p className="mt-0.5 truncate text-xs font-semibold tabular-nums text-foreground sm:text-sm">
+                        {latestInsiderTradeDate ? formatFullDate(latestInsiderTradeDate) : '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className={`${panelClass} px-2.5 py-2`}>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Buy Trades</p>
+                    <p className="mt-1 text-xs font-semibold tabular-nums text-emerald-300 sm:text-sm">
+                      {buyCount}
+                    </p>
+                  </div>
+                  <div className={`${panelClass} px-2.5 py-2`}>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Sell Trades</p>
+                    <p className="mt-1 text-xs font-semibold tabular-nums text-rose-300 sm:text-sm">
+                      {sellCount}
+                    </p>
+                  </div>
+                  <div className={`${panelClass} px-2.5 py-2`}>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Buy Volume</p>
+                    <p className="mt-1 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
+                      ${formatCompactNumber(buyVolume)}
+                    </p>
+                  </div>
+                  <div className={`${panelClass} px-2.5 py-2`}>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Sell Volume</p>
+                    <p className="mt-1 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
+                      ${formatCompactNumber(sellVolume)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className={sectionClass}>
+                  {insiderChartStats && (
+                    <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
+                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                        <span className="text-muted-foreground">Peak Buy</span>
+                        <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                          ${formatCompactNumber(insiderChartStats.peakBuy, 2)}
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                        <span className="text-muted-foreground">Peak Sell</span>
+                        <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                          ${formatCompactNumber(insiderChartStats.peakSell, 2)}
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                        <span className="text-muted-foreground">Avg Net</span>
+                        <div
+                          className={`mt-0.5 font-semibold tabular-nums ${
+                            insiderChartStats.avgNet >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                          }`}
+                        >
+                          {formatSignedCompactCurrency(insiderChartStats.avgNet, 2)}
+                        </div>
+                      </div>
+                    </div>
                   )}
-              </div>
-            </div>
-            {/* Analyst Valuation (Finviz scrape) */}
-            <AnalystValuation symbol={selectedStock?.symbol} price={selectedStock?.price} />
-            {/* Chart: Kursverlauf (dynamisch von Yahoo Finance) */}
-            <div className="col-span-2 mt-4 rounded-xl border border-border/80 bg-card/60 p-3 sm:p-4">
-              <ChartContainer config={{ price: { label: 'Price', color: '#e5e5e5' } }}>
-                <ResponsiveContainer width="100%" height={300}>
-                  {chartData.length > 0 ? (
-                    <AreaChart
-                      data={chartData}
-                      margin={{ top: 10, right: 30, left: 30, bottom: 0 }}
-                    >
+
+                  <ChartContainer
+                    className="h-[145px] !aspect-auto sm:h-[170px]"
+                    config={{
+                      buy: { label: 'Buy Volume', color: '#34d399' },
+                      sellSigned: { label: 'Sell Volume', color: '#fb7185' },
+                    }}
+                  >
+                    <BarChart data={insiderChartData} margin={{ top: 8, right: 8, left: -2, bottom: 0 }}>
                       <defs>
-                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={chartColor} stopOpacity={0.8} />
-                          <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+                        <linearGradient id="insiderBuyGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#34d399" stopOpacity={0.92} />
+                          <stop offset="95%" stopColor="#34d399" stopOpacity={0.5} />
+                        </linearGradient>
+                        <linearGradient id="insiderSellGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#fb7185" stopOpacity={0.92} />
+                          <stop offset="95%" stopColor="#fb7185" stopOpacity={0.5} />
                         </linearGradient>
                       </defs>
-                      {/* YAxis added for auto-scaling, but hidden visually */}
-                      <YAxis
-                        hide={true}
-                        domain={[
-                          'dataMin - (dataMax-dataMin)*0.05',
-                          'dataMax + (dataMax-dataMin)*0.05',
-                        ]}
-                        allowDataOverflow={true}
+                      <CartesianGrid
+                        vertical={false}
+                        stroke="rgba(161,161,170,0.18)"
+                        strokeDasharray="3 3"
                       />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: '#a1a1aa', fontSize: 10 }}
+                        tickFormatter={(value: string) => formatShortDate(value)}
+                        axisLine={false}
+                        tickLine={false}
+                        minTickGap={20}
+                      />
+                      <YAxis
+                        tick={{ fill: '#a1a1aa', fontSize: 10 }}
+                        tickFormatter={(value: number) =>
+                          `${value < 0 ? '-' : ''}$${formatCompactNumber(Math.abs(value), 1)}`
+                        }
+                        axisLine={false}
+                        tickLine={false}
+                        width={44}
+                        domain={
+                          insiderChartAbsMax > 0
+                            ? [-insiderChartAbsMax * 1.15, insiderChartAbsMax * 1.15]
+                            : ['auto', 'auto']
+                        }
+                      />
+                      <ReferenceLine y={0} stroke="rgba(161,161,170,0.35)" strokeDasharray="3 3" />
                       <Tooltip
+                        cursor={{ fill: 'rgba(255,255,255,0.04)' }}
                         content={({ active, payload, label }) => {
-                          if (!active || !payload || !payload.length) return null;
-                          const item = payload[0].payload;
-                          function formatPrice(num: number) {
-                            if (typeof num !== 'number') return '-';
-                            return num
-                              .toFixed(2)
-                              .replace('.', ',')
-                              .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                          }
+                          if (!active || !payload?.length) return null;
+                          const point = payload[0]?.payload as
+                            | { date: string; buy: number; sell: number; net: number }
+                            | undefined;
+                          if (!point) return null;
                           return (
-                            <div className="flex min-w-[110px] max-w-[180px] flex-col gap-1 rounded-lg border border-border bg-black px-2 py-1 text-[11px] text-white shadow-lg">
-                              <div className="font-semibold mb-0.5">
-                                {item && item.date
-                                  ? new Date(item.date).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })
-                                  : label}
+                            <div className="rounded-lg border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground shadow-sm">
+                              <div className="font-medium text-muted-foreground">
+                                {formatFullDate(String(label || point.date))}
                               </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="font-mono text-[12px]">
-                                  ${formatPrice(item?.price)}
-                                </span>
+                              <div className="mt-1 text-emerald-300">Buy: ${formatCompactNumber(point.buy)}</div>
+                              <div className="text-rose-300">Sell: ${formatCompactNumber(point.sell)}</div>
+                              <div className={point.net >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
+                                Net: {formatSignedCompactCurrency(point.net)}
                               </div>
                             </div>
                           );
                         }}
                       />
-                      <Area
-                        type="monotone"
-                        dataKey="price"
-                        stroke={chartColor}
-                        fillOpacity={1}
-                        fill="url(#colorPrice)"
-                        name="Price"
+                      <Bar dataKey="buy" fill="url(#insiderBuyGradient)" radius={[3, 3, 0, 0]} maxBarSize={14} />
+                      <Bar
+                        dataKey="sellSigned"
+                        fill="url(#insiderSellGradient)"
+                        radius={[3, 3, 0, 0]}
+                        maxBarSize={14}
                       />
-                    </AreaChart>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      No data available.
+                    </BarChart>
+                  </ChartContainer>
+                </div>
+
+                {selectedTradeIndexes.length > 0 && (
+                  <div className="flex items-center justify-center">
+                    <div className="rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs font-medium text-foreground sm:text-sm">
+                      Selected total: {selectedTradesNet >= 0 ? '+' : '-'}$
+                      {formatCompactNumber(Math.abs(selectedTradesNet))}
                     </div>
-                  )}
-                </ResponsiveContainer>
-              </ChartContainer>
-              <div className="mt-2">
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    {(['1M', '3M', '6M', '1Y'] as const).map((r) => (
-                      <button
-                        key={r}
-                        className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${chartRange === r ? 'border-foreground bg-foreground text-background' : 'border-transparent bg-transparent text-muted-foreground hover:border-border hover:text-foreground'}`}
-                        onClick={async () => {
-                          setChartRange(r);
-                          if (selectedStock) await fetchChartData(selectedStock.symbol, r);
-                        }}
-                      >
-                        {r}
-                      </button>
-                    ))}
                   </div>
-                  <div className="ml-auto flex items-center gap-3 text-xs">
-                    <div>
-                      <span>YTD:</span>
-                      <span
-                        className={
-                          ytdChange !== null
-                            ? ytdChange >= 0
-                              ? 'text-green-600 dark:text-green-400 ml-1'
-                              : 'text-red-600 dark:text-red-400 ml-1'
-                            : 'ml-1'
-                        }
-                      >
-                        {ytdChange !== null ? `${ytdChange > 0 ? '+' : ''}${ytdChange.toFixed(2)}%` : '–'}
-                      </span>
-                    </div>
-                    <div>
-                      <span>52W:</span>
-                      <span
-                        className={
-                          week52Change !== null
-                            ? week52Change >= 0
-                              ? 'text-green-600 dark:text-green-400 ml-1'
-                              : 'text-red-600 dark:text-red-400 ml-1'
-                            : 'ml-1'
-                        }
-                      >
-                        {week52Change !== null
-                          ? `${week52Change > 0 ? '+' : ''}${week52Change.toFixed(2)}%`
-                          : '–'}
-                      </span>
-                    </div>
+                )}
+
+                <div className="text-center text-[11px] text-muted-foreground">
+                  Select transactions to aggregate signed value.
+                </div>
+
+                <div className={tradeContainerClass}>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                    {insiderTrades.map((trade, index) => {
+                      const selected = selectedTradeIndexes.includes(index);
+                      const transactionKind = getTransactionKind(trade.transaction);
+                      const transactionClass =
+                        transactionKind === 'buy'
+                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                          : transactionKind === 'sell'
+                            ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                            : 'border-border bg-background text-muted-foreground';
+                      const transactionLabel =
+                        transactionKind === 'buy'
+                          ? 'Buy'
+                          : transactionKind === 'sell'
+                            ? 'Sell'
+                            : trade.transaction;
+                      const tradeValue = getTradeValue(trade);
+                      const signedTradeValueLabel =
+                        transactionKind === 'buy'
+                          ? `+$${formatCompactNumber(tradeValue)}`
+                          : transactionKind === 'sell'
+                            ? `-$${formatCompactNumber(tradeValue)}`
+                            : `$${formatCompactNumber(tradeValue)}`;
+
+                      return (
+                        <button
+                          key={`${trade.symbol}-${trade.date}-${trade.insider}-${index}`}
+                          type="button"
+                          onClick={() => toggleSelectTrade(index)}
+                          className={`${panelClass} w-full p-2.5 text-left transition-colors sm:p-3 ${
+                            selected ? 'border-foreground bg-card' : 'hover:bg-card/90'
+                          }`}
+                          aria-pressed={selected}
+                          aria-label={`Toggle insider transaction ${index + 1}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold text-foreground sm:text-sm">
+                                {trade.insider}
+                              </p>
+                              <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                {trade.position}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <span
+                                className={`text-[10px] font-semibold tabular-nums ${
+                                  transactionKind === 'buy'
+                                    ? 'text-emerald-300'
+                                    : transactionKind === 'sell'
+                                      ? 'text-rose-300'
+                                      : 'text-foreground'
+                                }`}
+                              >
+                                {signedTradeValueLabel}
+                              </span>
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${transactionClass}`}
+                              >
+                                {transactionKind === 'buy' ? (
+                                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                                ) : transactionKind === 'sell' ? (
+                                  <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
+                                ) : (
+                                  <Dot className="h-3 w-3" aria-hidden="true" />
+                                )}
+                                {transactionLabel}
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="mt-1.5 text-[10px] text-muted-foreground">{formatFullDate(trade.date)}</p>
+
+                          <div className="mt-2 grid grid-cols-3 gap-1.5">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                Price
+                              </p>
+                              <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                                {formatCurrency(trade.price)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                Shares
+                              </p>
+                              <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                                {formatCompactNumber(trade.shares)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                Value
+                              </p>
+                              <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                                ${formatCompactNumber(tradeValue)}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
+              </>
+            )}
+
+            {!insiderError && insiderTrades.length === 0 && !!insiderEmptyState && (
+              <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-200">
+                {insiderEmptyState}
               </div>
-            </div>
+            )}
+
+            {!insiderError && insiderTrades.length === 0 && !insiderEmptyState && (
+              <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/60 px-3 py-2.5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 text-muted-foreground"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                <span className="text-xs font-normal text-muted-foreground">
+                  Insider trading data is delayed and should be used for informational purposes only.
+                </span>
+              </div>
+            )}
           </div>
         </div>
       ) : (
-        <div className="mt-4 px-3 py-2 rounded-lg bg-secondary/60 flex items-center gap-2 border border-border">
+        <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/60 px-3 py-2.5">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="w-4 h-4 text-muted-foreground"
+            className="h-4 w-4 text-muted-foreground"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -805,9 +1790,8 @@ export default function StockAnalysis() {
             <line x1="12" y1="16" x2="12" y2="12" />
             <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
-          <span className="text-xs text-muted-foreground font-normal">
-            Stock analysis data is for informational purposes only and does not constitute
-            investment advice.
+          <span className="text-xs font-normal text-muted-foreground">
+            Search a ticker to load stock analysis and insider activity in one view.
           </span>
         </div>
       )}

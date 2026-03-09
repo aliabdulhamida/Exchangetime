@@ -119,36 +119,13 @@ export default function HolidayCalendar() {
     return holidaysByDate.get(selected) || [];
   }, [holidaysByDate, selected]);
 
-  const filteredMarketsCount = useMemo(() => {
-    const marketSet = new Set<string>();
-    filteredByMarketAndQuery.forEach((holiday) => {
-      holiday.markets.forEach((market) => marketSet.add(market));
-    });
-    return marketSet.size;
-  }, [filteredByMarketAndQuery]);
-
   return (
-    <div className="et-scrollbar flex h-full min-h-0 flex-col overflow-y-auto px-1 pb-1 sm:px-2 sm:pb-2">
+    <div className="et-holiday-calendar et-scrollbar flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto px-1 pb-1 sm:px-2 sm:pb-2">
       <h2 className="mb-3 pr-16 text-base font-semibold text-foreground sm:mb-4 sm:pr-20">
         Holiday Calendar
       </h2>
 
-      <div className="mb-3 grid grid-cols-3 gap-2 sm:gap-3">
-        <div className="rounded-md border border-border/70 bg-card/50 px-3 py-2">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Holidays</div>
-          <div className="mt-1 text-lg font-semibold text-foreground">{filteredByMarketAndQuery.length}</div>
-        </div>
-        <div className="rounded-md border border-border/70 bg-card/50 px-3 py-2">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Markets</div>
-          <div className="mt-1 text-lg font-semibold text-foreground">{filteredMarketsCount}</div>
-        </div>
-        <div className="rounded-md border border-border/70 bg-card/50 px-3 py-2">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Selected Day</div>
-          <div className="mt-1 text-lg font-semibold text-foreground">{selectedDateHolidays.length}</div>
-        </div>
-      </div>
-
-      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_10rem]">
+      <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_10rem]">
         <label className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -172,7 +149,7 @@ export default function HolidayCalendar() {
         </select>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:min-h-0 sm:flex-1 sm:grid-rows-[auto_minmax(0,1fr)]">
+      <div className="grid min-h-0 grid-cols-1 gap-3 sm:flex-1 sm:grid-rows-[auto_minmax(0,1fr)]">
         <div className="rounded-lg border border-border/70 bg-background/50 p-2 sm:p-3">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Calendar</span>
@@ -187,11 +164,14 @@ export default function HolidayCalendar() {
               Today
             </button>
           </div>
-          <div className="w-full overflow-x-auto pb-1">
-            <div className="mx-auto w-fit">
+          <div className="w-full overflow-hidden pb-1">
+            <div className="mx-auto w-full">
               <Calendar
                 activeStartDate={activeStartDate}
                 value={selected ? parseLocalISODate(selected) : undefined}
+                next2Label={null}
+                prev2Label={null}
+                showNeighboringMonth={false}
                 onActiveStartDateChange={({ activeStartDate: nextStartDate }) => {
                   if (nextStartDate) setActiveStartDate(nextStartDate);
                 }}
@@ -209,7 +189,7 @@ export default function HolidayCalendar() {
           </div>
         </div>
 
-        <div className="flex min-h-[180px] flex-1 flex-col rounded-lg border border-border/70 bg-background/50 p-3 sm:min-h-0">
+        <div className="flex min-h-0 flex-col rounded-lg border border-border/70 bg-background/50 p-3">
           <div className="mb-2">
             <div className="text-xs text-muted-foreground">Selected date</div>
             <div className="text-sm font-semibold text-foreground">
@@ -217,13 +197,13 @@ export default function HolidayCalendar() {
             </div>
           </div>
 
-          <div className="et-scrollbar min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="et-scrollbar mt-1 min-h-0 flex-1 overflow-y-auto pr-1">
             {selectedDateHolidays.length > 0 ? (
               <div className="space-y-2">
                 {selectedDateHolidays.map((holiday) => (
                   <div key={holiday.id} className="rounded-md border border-border/70 bg-card/40 px-3 py-2">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-medium text-foreground">{holiday.name}</div>
+                      <div className="break-words text-sm font-medium text-foreground">{holiday.name}</div>
                       <span
                         className={`rounded border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] ${
                           holiday.type === 'early'
@@ -234,7 +214,7 @@ export default function HolidayCalendar() {
                         {holiday.type === 'early' ? 'Early Close' : 'Closed'}
                       </span>
                     </div>
-                    <div className="mt-1 text-xs text-muted-foreground">{holiday.markets.join(', ')}</div>
+                    <div className="mt-1 break-words text-xs text-muted-foreground">{holiday.markets.join(', ')}</div>
                     {holiday.earlyCloseTime && (
                       <div className="mt-1 text-xs text-amber-300">Closes at {holiday.earlyCloseTime}</div>
                     )}
