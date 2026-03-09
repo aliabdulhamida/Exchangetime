@@ -1594,15 +1594,15 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
           <motion.section
             key={`mobile-panel-${mobilePanel}`}
             id="mobile-nav-panel"
-            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-md lg:hidden"
+            className="et-mobile-panel-shell fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl lg:hidden"
             aria-label={mobilePanel === 'modules' ? 'Module navigation' : 'Help and legal links'}
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.985 }}
             transition={mobilePanelTransition}
           >
-            <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-              <p className="text-sm font-semibold text-foreground">
+            <div className="et-mobile-panel-header">
+              <p className="et-mobile-panel-title">
                 {mobilePanel === 'modules' ? 'Quick Modules' : 'Help & Legal'}
               </p>
               <button
@@ -1616,10 +1616,10 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             </div>
             <div className="et-scrollbar max-h-[56vh] overflow-y-auto p-3">
               {mobilePanel === 'modules' ? (
-                <div className="space-y-4">
+                <div className="et-quick-modules space-y-4">
                   <button
                     type="button"
-                    className="et-sidebar-link et-sidebar-link-inactive flex w-full items-center justify-center rounded-lg border border-dashed border-border/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em]"
+                    className="et-quick-modules-cta"
                     onClick={() => {
                       if (typeof window !== 'undefined') {
                         window.dispatchEvent(new CustomEvent('showOnlyModule', { detail: 'ALL' }));
@@ -1627,14 +1627,14 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                       handleNavigation();
                     }}
                   >
-                    Show All Modules
+                    <span className="et-quick-modules-cta-title">Show All Modules</span>
                   </button>
                   {mobileModuleGroups.map((group) => (
-                    <div key={group.title} className="space-y-2">
-                      <h3 className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    <div key={group.title} className="et-quick-modules-group">
+                      <h3 className="et-quick-modules-group-title">
                         {group.title}
                       </h3>
-                      <div className="space-y-1.5">
+                      <div className="et-quick-modules-group-body">
                         {group.items.map((item) => {
                           const isVisible = visibleModules.includes(item.module);
                           const Icon = item.icon;
@@ -1643,11 +1643,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                             <button
                               key={item.module}
                               type="button"
-                              className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
-                                isVisible
-                                  ? 'border-border bg-secondary/90 text-foreground'
-                                  : 'border-border/70 bg-card/50 text-muted-foreground hover:text-foreground'
-                              }`}
+                              className={`et-quick-module-item ${isVisible ? 'et-quick-module-item-active' : ''}`}
                               onClick={() => {
                                 if (!isVisible) {
                                   showModule(item.module);
@@ -1656,10 +1652,12 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                                 handleNavigation();
                               }}
                             >
-                              <Icon className="h-4 w-4 flex-shrink-0" />
-                              <span className="flex-1">{item.label}</span>
+                              <span className="et-quick-module-item-icon" aria-hidden="true">
+                                <Icon className="h-4 w-4 flex-shrink-0" />
+                              </span>
+                              <span className="et-quick-module-item-label">{item.label}</span>
                               {isVisible && (
-                                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                                <span className="et-quick-module-item-status">
                                   On
                                 </span>
                               )}
