@@ -1784,7 +1784,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             align="center"
             side="top"
             sideOffset={10}
-            contentClassName="et-dropdown-panel z-[75] min-w-[250px] max-w-[92vw] p-0"
+            contentClassName="et-dropdown-panel z-[75] min-w-[300px] max-w-[94vw] p-0"
             trigger={({ open }) => (
               <button
                 type="button"

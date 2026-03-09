@@ -5,52 +5,97 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Dialog, DialogTrigger, DialogContent, DialogHeader } from '@/components/ui/dialog';
 
+const INTERNAL_API_URL = '/api/fear-greed';
+const PUBLIC_FALLBACK_API_URL = 'https://api.alternative.me/fng/?limit=1&format=json';
+const REQUEST_TIMEOUT_MS = 12000;
+
+type FetchError = Error & { status?: number };
+
+function parseFearGreedScore(payload: unknown): number | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const data = payload as {
+    fgi?: { now?: { value?: unknown } };
+    data?: Array<{ value?: unknown }>;
+    value?: unknown;
+  };
+
+  const rawCandidates = [data.fgi?.now?.value, data.data?.[0]?.value, data.value];
+
+  for (const candidate of rawCandidates) {
+    const numericValue =
+      typeof candidate === 'number' ? candidate : Number.parseFloat(String(candidate ?? ''));
+    if (Number.isFinite(numericValue)) {
+      return Math.max(0, Math.min(100, numericValue));
+    }
+  }
+
+  return null;
+}
+
+async function fetchJsonWithTimeout(url: string, init?: RequestInit): Promise<unknown> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal, cache: 'no-store' });
+    if (!response.ok) {
+      const error = new Error(`API error: ${response.status}`) as FetchError;
+      error.status = response.status;
+      throw error;
+    }
+    return response.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export default function FearGreedIndex() {
   const [index, setIndex] = useState<number | null>(null);
   const [trend, setTrend] = useState<'up' | 'down' | 'neutral'>('neutral');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const prevIndexRef = useRef<number | null>(null);
-  const providerUnavailableRef = useRef(false);
-  const PROVIDER_UNAVAILABLE_SESSION_KEY = 'fear_greed_provider_unavailable';
+  const skipInternalApiRef = useRef(false);
+  const SKIP_INTERNAL_API_SESSION_KEY = 'fear_greed_skip_internal_api';
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && sessionStorage.getItem(PROVIDER_UNAVAILABLE_SESSION_KEY) === '1') {
-      providerUnavailableRef.current = true;
-      setLoading(false);
-      setError('Provider not configured.');
-      return;
+    if (typeof window !== 'undefined' && sessionStorage.getItem(SKIP_INTERNAL_API_SESSION_KEY) === '1') {
+      skipInternalApiRef.current = true;
     }
 
     const fetchFearGreedIndex = async () => {
-      if (providerUnavailableRef.current) {
-        setLoading(false);
-        return;
-      }
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/fear-greed', { method: 'GET' });
-        if (!response.ok) {
-          if (response.status === 429) {
-            setError('Too many requests. Please try again later.');
-          } else if (response.status === 503) {
-            setError('Provider not configured.');
-            providerUnavailableRef.current = true;
-            if (typeof window !== 'undefined') {
-              sessionStorage.setItem(PROVIDER_UNAVAILABLE_SESSION_KEY, '1');
+        let score: number | null = null;
+
+        if (!skipInternalApiRef.current) {
+          try {
+            const data = await fetchJsonWithTimeout(INTERNAL_API_URL, { method: 'GET' });
+            score = parseFearGreedScore(data);
+          } catch (err) {
+            const fetchError = err as FetchError;
+            if (fetchError.status === 404 || fetchError.status === 405 || fetchError.status === 503) {
+              skipInternalApiRef.current = true;
+              if (typeof window !== 'undefined') {
+                sessionStorage.setItem(SKIP_INTERNAL_API_SESSION_KEY, '1');
+              }
             }
-          } else {
-            setError(`API error: ${response.status}`);
           }
-          setLoading(false);
-          return;
         }
-        const data = await response.json();
-        const score: number = data.fgi.now.value;
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem(PROVIDER_UNAVAILABLE_SESSION_KEY);
+
+        if (score === null) {
+          const fallbackData = await fetchJsonWithTimeout(PUBLIC_FALLBACK_API_URL, {
+            method: 'GET',
+          });
+          score = parseFearGreedScore(fallbackData);
         }
+
+        if (score === null) {
+          throw new Error('Fear & Greed value missing in API response');
+        }
+
         // Compute trend based on previous value kept in a ref
         const prev = prevIndexRef.current;
         if (prev !== null) {
@@ -60,9 +105,15 @@ export default function FearGreedIndex() {
         }
         setIndex(score);
         prevIndexRef.current = score;
-        setLoading(false);
       } catch (err) {
-        setError('Error fetching data');
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          setError('Fear & Greed request timed out');
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Error fetching data');
+        }
+      } finally {
         setLoading(false);
       }
     };
@@ -80,8 +131,10 @@ export default function FearGreedIndex() {
     return `rgb(${r},${g},${b})`;
   };
 
-  const getIndexLabel = (value: number | null) => {
-    if (value === null) return { label: 'Loading...', color: '#9ca3af' };
+  const getIndexLabel = (value: number | null, hasError: boolean, isLoading: boolean) => {
+    if (hasError) return { label: 'Unavailable', color: '#9ca3af' };
+    if (isLoading && value === null) return { label: 'Loading...', color: '#9ca3af' };
+    if (value === null) return { label: 'Unavailable', color: '#9ca3af' };
     if (value <= 25) return { label: 'Extreme Fear', color: getGradientColor(0) };
     if (value <= 45) return { label: 'Fear', color: getGradientColor(25) };
     if (value <= 55) return { label: 'Neutral', color: getGradientColor(50) };
@@ -89,7 +142,7 @@ export default function FearGreedIndex() {
     return { label: 'Extreme Greed', color: getGradientColor(100) };
   };
 
-  const indexInfo = getIndexLabel(index);
+  const indexInfo = getIndexLabel(index, Boolean(error), loading);
 
   // Animierter Kreis für Fear & Greed Wert
   const circleValue = index !== null ? Math.max(0, Math.min(100, index)) : 0;

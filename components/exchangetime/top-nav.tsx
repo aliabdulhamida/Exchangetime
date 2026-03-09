@@ -45,7 +45,10 @@ export default function TopNav() {
 
   return (
     <>
-      <nav className="flex h-full items-center justify-between gap-3 px-3 sm:px-5 lg:pl-[17rem]">
+      <nav className="relative flex h-full items-center justify-between gap-3 px-3 sm:px-5 lg:pl-[17rem]">
+        <span className="pointer-events-none absolute left-1/2 max-w-[9.5rem] -translate-x-1/2 truncate text-center text-sm font-semibold tracking-tight text-foreground lg:hidden">
+          Exchange Time
+        </span>
         <div className="et-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -68,7 +71,7 @@ export default function TopNav() {
             align="start"
             side="bottom"
             sideOffset={8}
-            contentClassName="et-dropdown-panel min-w-[250px] max-w-[95vw] p-0"
+            contentClassName="et-dropdown-panel min-w-[300px] max-w-[94vw] p-0"
             trigger={({ open }) => (
               <button
                 type="button"
