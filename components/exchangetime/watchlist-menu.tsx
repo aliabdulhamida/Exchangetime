@@ -25,6 +25,7 @@ type WatchlistEntry = { ticker: string };
 type WatchlistRecord = { id: string; title: string; items: WatchlistEntry[] };
 
 const DEFAULT_WATCHLIST: WatchlistEntry[] = [{ ticker: 'AAPL' }, { ticker: 'MSFT' }, { ticker: 'TSLA' }];
+const EMPTY_WATCHLIST: WatchlistEntry[] = [];
 const WATCHLISTS_STORAGE_KEY = 'et_watchlists';
 const ACTIVE_WATCHLIST_STORAGE_KEY = 'et_active_watchlist_id';
 const LEGACY_WATCHLIST_STORAGE_KEY = 'et_watchlist';
@@ -231,7 +232,7 @@ export default function WatchlistMenu({
   const open = controlledOpen ?? internalOpen;
   const activeWatchlist =
     watchlists.find((watchlistItem) => watchlistItem.id === activeWatchlistId) ?? watchlists[0];
-  const watchlist = activeWatchlist?.items ?? [];
+  const watchlist = activeWatchlist?.items ?? EMPTY_WATCHLIST;
   const activeWatchlistTitle = activeWatchlist?.title ?? 'Watchlist';
 
   const fetchPrices = useCallback(async () => {
