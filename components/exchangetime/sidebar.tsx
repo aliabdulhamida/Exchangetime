@@ -51,7 +51,8 @@ import {
   Calculator,
   Folder,
   HelpCircle,
-  ChevronsUpDown,
+  ChevronDown,
+  ChevronUp,
   LineChart,
   Globe,
   X,
@@ -144,6 +145,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   const [mobilePanel, setMobilePanel] = useState<'modules' | 'help' | null>(null);
   const [isRadioOpen, setIsRadioOpen] = useState(false);
   const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
+  const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
   const [helpLegalOpen, setHelpLegalOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const prefersReducedMotion = useReducedMotion();
@@ -214,6 +216,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
     setMobilePanel(null);
     setIsRadioOpen(false);
     setIsWatchlistOpen(false);
+    setIsViewMenuOpen(false);
   }
 
   function switchMobileView(view: 'dashboard' | 'blog') {
@@ -1696,7 +1699,17 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
           className="et-mobile-nav-pill pointer-events-auto grid w-full max-w-[32rem] grid-cols-5 items-center gap-1 rounded-full px-2 py-1.5"
           aria-label="Mobile floating navigation"
         >
-          <DropdownMenu>
+          <DropdownMenu
+            open={isViewMenuOpen}
+            onOpenChange={(open) => {
+              setIsViewMenuOpen(open);
+              if (open) {
+                setIsRadioOpen(false);
+                setMobilePanel(null);
+                setIsWatchlistOpen(false);
+              }
+            }}
+          >
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
@@ -1721,7 +1734,11 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   <span>{activeView === 'blog' ? 'Blog' : 'Home'}</span>
                 </span>
                 <span className="sr-only">Choose Home or Blog</span>
-                <ChevronsUpDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/70" />
+                {isViewMenuOpen ? (
+                  <ChevronUp className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/70" />
+                ) : (
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/70" />
+                )}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
