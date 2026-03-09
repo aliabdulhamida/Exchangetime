@@ -11,6 +11,19 @@ interface TuneInRadioButtonProps {
   onOpenChange?: (open: boolean) => void;
 }
 
+const RADIO_EMBED_HEIGHT = 100;
+const TUNEIN_STATIONS = [
+  { id: 's110052', title: 'CNBC' },
+  { id: 's165740', title: 'Bloomberg Radio' },
+  { id: 's2583', title: 'Sky News' },
+  { id: 's20431', title: 'FOX News Radio' },
+  { id: 's310584', title: 'NBC News NOW' },
+] as const;
+const TUNEIN_EMBEDS = TUNEIN_STATIONS.map((station) => ({
+  ...station,
+  src: `https://tunein.com/embed/player/${station.id}/?background=dark`,
+}));
+
 function RadioIcon({ size = 16, className }: { size?: number; className?: string }) {
   return (
     <svg
@@ -30,32 +43,22 @@ function RadioIcon({ size = 16, className }: { size?: number; className?: string
 function RadioEmbeds({ visible }: { visible: boolean }) {
   return (
     <>
-      <iframe
-        src="https://tunein.com/embed/player/s110052/"
-        style={{
-          width: '100%',
-          height: 100,
-          border: 'none',
-          display: visible ? 'block' : 'none',
-        }}
-        scrolling="no"
-        frameBorder="no"
-        title="Radio Player 2"
-        allow="autoplay"
-      />
-      <iframe
-        src="https://tunein.com/embed/player/s165740/"
-        style={{
-          width: '100%',
-          height: 100,
-          border: 'none',
-          display: visible ? 'block' : 'none',
-        }}
-        scrolling="no"
-        frameBorder="no"
-        title="Radio Player"
-        allow="autoplay"
-      />
+      {TUNEIN_EMBEDS.map((station) => (
+        <iframe
+          key={station.id}
+          src={station.src}
+          style={{
+            width: '100%',
+            height: RADIO_EMBED_HEIGHT,
+            border: 'none',
+            display: visible ? 'block' : 'none',
+          }}
+          scrolling="no"
+          frameBorder="no"
+          title={station.title}
+          allow="autoplay"
+        />
+      ))}
     </>
   );
 }
@@ -110,7 +113,7 @@ export default function TuneInRadioButton({
   );
 
   const modalWidth = 320;
-  const modalHeight = 225;
+  const modalHeight = TUNEIN_EMBEDS.length * RADIO_EMBED_HEIGHT + 24;
   const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
   const winHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
   const isMobileViewport = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
@@ -407,24 +410,18 @@ export default function TuneInRadioButton({
             overflow: 'hidden',
           }}
         >
-          <iframe
-            src="https://tunein.com/embed/player/s110052/"
-            style={{ width: 0, height: 0, border: 'none' }}
-            scrolling="no"
-            frameBorder="no"
-            title="Radio Player 2 (Hidden)"
-            allow="autoplay"
-            tabIndex={-1}
-          />
-          <iframe
-            src="https://tunein.com/embed/player/s165740/"
-            style={{ width: 0, height: 0, border: 'none' }}
-            scrolling="no"
-            frameBorder="no"
-            title="Radio Player (Hidden)"
-            allow="autoplay"
-            tabIndex={-1}
-          />
+          {TUNEIN_EMBEDS.map((station) => (
+            <iframe
+              key={`${station.id}-hidden`}
+              src={station.src}
+              style={{ width: 0, height: 0, border: 'none' }}
+              scrolling="no"
+              frameBorder="no"
+              title={`${station.title} (Hidden)`}
+              allow="autoplay"
+              tabIndex={-1}
+            />
+          ))}
         </div>
       </div>
     </>
