@@ -1,7 +1,6 @@
 import {
   fetchYahooQuoteSnapshot,
   normalizeYahooSymbol,
-  toFiniteNumber,
   toNullableString,
 } from '../../lib/server/yahoo-finance';
 
