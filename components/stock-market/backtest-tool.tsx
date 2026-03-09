@@ -609,17 +609,10 @@ export default function BacktestTool() {
                   />
                   <Tooltip
                     cursor={{ stroke: 'rgba(161,161,170,0.35)', strokeDasharray: '4 4' }}
-                    content={({
-                      active,
-                      payload,
-                      label,
-                    }: {
-                      active?: boolean;
-                      payload?: Array<{ payload: PortfolioPoint }>;
-                      label?: string;
-                    }) => {
+                    content={({ active, payload, label }) => {
                       if (!active || !payload?.length) return null;
-                      const point = payload[0].payload;
+                      const point = payload[0]?.payload as PortfolioPoint | undefined;
+                      if (!point) return null;
                       return (
                         <div className="rounded-lg border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground shadow-sm">
                           <div className="font-medium text-muted-foreground">
@@ -713,17 +706,10 @@ export default function BacktestTool() {
                   />
                   <Tooltip
                     cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                    content={({
-                      active,
-                      payload,
-                      label,
-                    }: {
-                      active?: boolean;
-                      payload?: Array<{ payload: DividendHistoryPoint }>;
-                      label?: string;
-                    }) => {
+                    content={({ active, payload, label }) => {
                       if (!active || !payload?.length) return null;
-                      const point = payload[0].payload;
+                      const point = payload[0]?.payload as DividendHistoryPoint | undefined;
+                      if (!point) return null;
                       return (
                         <div className="rounded-lg border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground shadow-sm">
                           <div className="font-medium text-muted-foreground">
