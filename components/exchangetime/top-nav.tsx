@@ -20,6 +20,7 @@ const triggerClass =
   'et-nav-pill inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold sm:px-3';
 
 export default function TopNav() {
+  const [showFloatingRadio, setShowFloatingRadio] = useState(false);
   const [watchlist, setWatchlist] = useState<{ ticker: string }[]>(() => {
     if (typeof window === 'undefined') {
       return [{ ticker: 'AAPL' }, { ticker: 'MSFT' }, { ticker: 'TSLA' }];
@@ -135,6 +136,27 @@ export default function TopNav() {
       clearInterval(interval);
     };
   }, [watchlist.length, fetchPrices]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    const syncVisibility = () => setShowFloatingRadio(desktopQuery.matches);
+
+    syncVisibility();
+    if (typeof desktopQuery.addEventListener === 'function') {
+      desktopQuery.addEventListener('change', syncVisibility);
+    } else {
+      desktopQuery.addListener(syncVisibility);
+    }
+
+    return () => {
+      if (typeof desktopQuery.removeEventListener === 'function') {
+        desktopQuery.removeEventListener('change', syncVisibility);
+      } else {
+        desktopQuery.removeListener(syncVisibility);
+      }
+    };
+  }, []);
 
   const handleAddStock = () => {
     if (!newTicker.trim()) return;
@@ -330,7 +352,7 @@ export default function TopNav() {
           </div>
         </div>
       </nav>
-      <TuneInRadioButton />
+      {showFloatingRadio && <TuneInRadioButton mode="floating" />}
     </>
   );
 }

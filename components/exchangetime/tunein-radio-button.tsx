@@ -1,8 +1,77 @@
+import { motion, useReducedMotion, type Transition } from 'framer-motion';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
-export default function TuneInRadioButton() {
-  // Place this after all state declarations and before return
-  const [open, setOpen] = useState(false);
+interface TuneInRadioButtonProps {
+  mode?: 'floating' | 'pill';
+  open?: boolean;
+  className?: string;
+  contentClassName?: string;
+  onBeforeOpen?: () => void;
+  onOpenChange?: (open: boolean) => void;
+}
+
+function RadioIcon({ size = 16, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      fill="currentColor"
+      viewBox="0 0 16 16"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0" />
+    </svg>
+  );
+}
+
+function RadioEmbeds({ visible }: { visible: boolean }) {
+  return (
+    <>
+      <iframe
+        src="https://tunein.com/embed/player/s110052/"
+        style={{
+          width: '100%',
+          height: 100,
+          border: 'none',
+          display: visible ? 'block' : 'none',
+        }}
+        scrolling="no"
+        frameBorder="no"
+        title="Radio Player 2"
+        allow="autoplay"
+      />
+      <iframe
+        src="https://tunein.com/embed/player/s165740/"
+        style={{
+          width: '100%',
+          height: 100,
+          border: 'none',
+          display: visible ? 'block' : 'none',
+        }}
+        scrolling="no"
+        frameBorder="no"
+        title="Radio Player"
+        allow="autoplay"
+      />
+    </>
+  );
+}
+
+export default function TuneInRadioButton({
+  mode = 'floating',
+  open: controlledOpen,
+  className,
+  contentClassName,
+  onBeforeOpen,
+  onOpenChange,
+}: TuneInRadioButtonProps) {
+  const isPill = mode === 'pill';
+  const [internalOpen, setInternalOpen] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const wasDragging = useRef(false);
   const [position, setPosition] = useState(() => {
     if (typeof window === 'undefined') {
@@ -15,8 +84,31 @@ export default function TuneInRadioButton() {
   });
   const [dragging, setDragging] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const prefersReducedMotion = useReducedMotion();
+  const open = controlledOpen ?? internalOpen;
+  const mobileSheetTransition: Transition = prefersReducedMotion
+    ? { duration: 0 }
+    : { type: 'spring', stiffness: 360, damping: 32, mass: 0.84 };
+  const mobileBackdropTransition: Transition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.2, ease: [0.32, 0.72, 0, 1] };
 
-  // Calculate modal position to stay within browser borders (inside render)
+  const setOpenState = useCallback(
+    (nextOpen: boolean | ((prev: boolean) => boolean)) => {
+      const resolvedOpen =
+        typeof nextOpen === 'function'
+          ? (nextOpen as (prev: boolean) => boolean)(open)
+          : nextOpen;
+
+      if (controlledOpen === undefined) {
+        setInternalOpen(resolvedOpen);
+      }
+
+      onOpenChange?.(resolvedOpen);
+    },
+    [controlledOpen, onOpenChange, open],
+  );
+
   const modalWidth = 320;
   const modalHeight = 225;
   const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
@@ -24,44 +116,47 @@ export default function TuneInRadioButton() {
   const isMobileViewport = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
   const buttonSize = isMobileViewport ? 42 : 48;
   const iconSize = isMobileViewport ? 20 : 24;
-  // Modal should never overlap the button
+
   const buttonWidth = buttonSize;
   const buttonHeight = buttonSize;
   let modalLeft = position.x;
-  let modalTop = position.y + buttonHeight + 12; // Default: below button
+  let modalTop = position.y + buttonHeight + 12;
 
-  // Try below, if not enough space, try above
   if (modalTop + modalHeight > winHeight) {
-    // Try above
     if (position.y - modalHeight - 12 > 0) {
       modalTop = position.y - modalHeight - 12;
+    } else if (position.x + buttonWidth + modalWidth + 12 < winWidth) {
+      modalLeft = position.x + buttonWidth + 12;
+      modalTop = position.y;
+    } else if (position.x - modalWidth - 12 > 0) {
+      modalLeft = position.x - modalWidth - 12;
+      modalTop = position.y;
     } else {
-      // Try right
-      if (position.x + buttonWidth + modalWidth + 12 < winWidth) {
-        modalLeft = position.x + buttonWidth + 12;
-        modalTop = position.y;
-      } else if (position.x - modalWidth - 12 > 0) {
-        // Try left
-        modalLeft = position.x - modalWidth - 12;
-        modalTop = position.y;
-      } else {
-        // Default to below, but clamp to viewport
-        modalTop = winHeight - modalHeight - 16;
-      }
+      modalTop = winHeight - modalHeight - 16;
     }
   }
-  // Clamp modalLeft
+
   if (modalLeft + modalWidth > winWidth) modalLeft = winWidth - modalWidth - 16;
   if (modalLeft < 0) modalLeft = 16;
 
-  // Update position on drag
-  // Close modal on outside click
+  const modalId = isPill ? 'tunein-radio-modal-pill' : 'tunein-radio-modal-floating';
+
   useEffect(() => {
-    if (!open || dragging) return;
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      setHasOpened(true);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || dragging || isPill) return;
     function handleClick(e: MouseEvent | TouchEvent) {
-      const modal = document.getElementById('tunein-radio-modal');
+      const modal = document.getElementById(modalId);
       if (modal && !modal.contains(e.target as Node)) {
-        setOpen(false);
+        setOpenState(false);
       }
     }
     document.addEventListener('mousedown', handleClick);
@@ -70,7 +165,7 @@ export default function TuneInRadioButton() {
       document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('touchstart', handleClick);
     };
-  }, [open, dragging]);
+  }, [open, dragging, isPill, modalId, setOpenState]);
 
   const getClampedPosition = useCallback(
     (clientX: number, clientY: number) => {
@@ -108,21 +203,24 @@ export default function TuneInRadioButton() {
   );
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isPill) return;
     setDragging(true);
     wasDragging.current = false;
     setOffset({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
+
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (dragging) {
+      if (dragging && !isPill) {
         setPosition(getClampedPosition(e.clientX, e.clientY));
         wasDragging.current = true;
       }
     },
-    [dragging, getClampedPosition],
+    [dragging, isPill, getClampedPosition],
   );
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isPill) return;
     const touch = e.touches[0];
     if (!touch) return;
     setDragging(true);
@@ -132,14 +230,14 @@ export default function TuneInRadioButton() {
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
-      if (!dragging) return;
+      if (!dragging || isPill) return;
       const touch = e.touches[0];
       if (!touch) return;
       e.preventDefault();
       setPosition(getClampedPosition(touch.clientX, touch.clientY));
       wasDragging.current = true;
     },
-    [dragging, getClampedPosition],
+    [dragging, isPill, getClampedPosition],
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -149,7 +247,9 @@ export default function TuneInRadioButton() {
   const handleMouseUp = () => {
     setDragging(false);
   };
+
   useEffect(() => {
+    if (isPill) return;
     if (dragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
@@ -170,11 +270,83 @@ export default function TuneInRadioButton() {
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [dragging, handleMouseMove, handleTouchMove, handleTouchEnd]);
+  }, [isPill, dragging, handleMouseMove, handleTouchMove, handleTouchEnd]);
+
+  if (isPill) {
+    return (
+      <>
+        <button
+          type="button"
+          className={`${className ?? ''} ${open ? 'et-mobile-nav-item-active' : ''}`}
+          aria-label="Open radio player"
+          aria-expanded={open}
+          aria-controls={modalId}
+          onClick={() => {
+            if (!open) onBeforeOpen?.();
+            setOpenState((prev) => !prev);
+          }}
+        >
+          {open && <span className="et-mobile-nav-indicator" aria-hidden="true" />}
+          <span className={contentClassName ?? ''}>
+            <RadioIcon size={18} />
+            <span>Radio</span>
+          </span>
+        </button>
+
+        {isMounted &&
+          (open || hasOpened) &&
+          createPortal(
+            <>
+              <motion.button
+                type="button"
+                className="fixed inset-0 z-[62] bg-slate-950/40 lg:hidden"
+                onClick={() => setOpenState(false)}
+                aria-label="Close radio player"
+                style={{ pointerEvents: open ? 'auto' : 'none' }}
+                initial={false}
+                animate={{ opacity: open ? 1 : 0 }}
+                transition={mobileBackdropTransition}
+              />
+              <motion.section
+                id={modalId}
+                className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-md lg:hidden"
+                aria-hidden={!open}
+                aria-label="Radio player"
+                style={{ pointerEvents: open ? 'auto' : 'none' }}
+                initial={false}
+                animate={{
+                  opacity: open ? 1 : 0,
+                  y: open ? 0 : 18,
+                  scale: open ? 1 : 0.985,
+                }}
+                transition={mobileSheetTransition}
+              >
+                <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+                  <p className="text-sm font-semibold text-foreground">Radio</p>
+                  <button
+                    type="button"
+                    onClick={() => setOpenState(false)}
+                    className="et-module-action h-7 w-7"
+                    aria-label="Close radio panel"
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </div>
+                <div className="et-scrollbar max-h-[56vh] overflow-y-auto p-3">
+                  <div className="overflow-hidden rounded-lg border border-border/70 bg-card/70">
+                    <RadioEmbeds visible />
+                  </div>
+                </div>
+              </motion.section>
+            </>,
+            document.body,
+          )}
+      </>
+    );
+  }
 
   return (
     <>
-      {/* Movable radio button */}
       <div
         style={{
           position: 'fixed',
@@ -188,31 +360,22 @@ export default function TuneInRadioButton() {
         onTouchStart={handleTouchStart}
       >
         <button
-          className="rounded-full shadow-xl bg-white dark:bg-[#18181b] border-2 border-gray-300 dark:border-[#23232a] flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none"
+          className="rounded-full border-2 border-gray-300 bg-white shadow-xl transition-all duration-200 hover:scale-105 focus:outline-none active:scale-95 dark:border-[#23232a] dark:bg-[#18181b]"
           style={{ position: 'relative', zIndex: 2, width: buttonSize, height: buttonSize }}
           tabIndex={0}
-          aria-label="Radio öffnen"
+          aria-label="Open radio player"
           onClick={() => {
             if (wasDragging.current) {
               wasDragging.current = false;
               return;
             }
-            setOpen((prev) => !prev);
+            setOpenState((prev) => !prev);
           }}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width={iconSize}
-            height={iconSize}
-            fill="currentColor"
-            viewBox="0 0 16 16"
-            className="text-black dark:text-white"
-          >
-            <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0" />
-          </svg>
+          <RadioIcon size={iconSize} className="text-black dark:text-white" />
         </button>
       </div>
-      {/* Radio player is always mounted, modal UI overlays only when open */}
+
       <div>
         <div
           style={{
@@ -226,40 +389,14 @@ export default function TuneInRadioButton() {
         >
           <div className="absolute inset-0 bg-black bg-opacity-40" />
           <div
-            id="tunein-radio-modal"
-            className="relative w-[320px] max-w-[90vw] bg-white dark:bg-[#18181b] border border-gray-200 dark:border-[#23232a] rounded-lg shadow-xl p-2 z-[1110]"
+            id={modalId}
+            className="relative z-[1110] w-[320px] max-w-[90vw] rounded-lg border border-gray-200 bg-white p-2 shadow-xl dark:border-[#23232a] dark:bg-[#18181b]"
             style={{ visibility: 'visible', pointerEvents: 'auto' }}
           >
-            {/* The radio player iframes are always mounted, only visually hidden when modal is closed */}
-            <iframe
-              src="https://tunein.com/embed/player/s110052/"
-              style={{
-                width: '100%',
-                height: 100,
-                border: 'none',
-                display: open && !dragging ? 'block' : 'none',
-              }}
-              scrolling="no"
-              frameBorder="no"
-              title="Radio Player 2"
-              allow="autoplay"
-            />
-            <iframe
-              src="https://tunein.com/embed/player/s165740/"
-              style={{
-                width: '100%',
-                height: 100,
-                border: 'none',
-                display: open && !dragging ? 'block' : 'none',
-              }}
-              scrolling="no"
-              frameBorder="no"
-              title="Radio Player"
-              allow="autoplay"
-            />
+            <RadioEmbeds visible={open && !dragging} />
           </div>
         </div>
-        {/* Always mounted, hidden visually but still playing (for continuous playback) */}
+
         <div
           style={{
             position: 'absolute',
@@ -275,7 +412,7 @@ export default function TuneInRadioButton() {
             style={{ width: 0, height: 0, border: 'none' }}
             scrolling="no"
             frameBorder="no"
-            title="Radio Player 2"
+            title="Radio Player 2 (Hidden)"
             allow="autoplay"
             tabIndex={-1}
           />
@@ -284,7 +421,7 @@ export default function TuneInRadioButton() {
             style={{ width: 0, height: 0, border: 'none' }}
             scrolling="no"
             frameBorder="no"
-            title="Radio Player"
+            title="Radio Player (Hidden)"
             allow="autoplay"
             tabIndex={-1}
           />

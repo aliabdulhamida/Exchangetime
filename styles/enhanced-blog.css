@@ -334,7 +334,7 @@ article blockquote {
   display: grid;
   place-items: center;
   color: white;
-  z-index: 60;
+  z-index: 66;
   opacity: 0;
   transform: translateY(8px);
   transition:
@@ -362,6 +362,12 @@ article blockquote {
 .back-to-top__icon {
   position: relative;
   z-index: 1;
+}
+
+@media (max-width: 1023px) {
+  .back-to-top {
+    bottom: calc(env(safe-area-inset-bottom) + 5.85rem);
+  }
 }
 
 /* Dark mode adjustments */

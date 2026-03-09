@@ -45,6 +45,7 @@ function CurrencyPairIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 // Icon imports should be at the top of the file, after the custom icon function
+import { AnimatePresence, motion, useReducedMotion, type Transition } from 'framer-motion';
 import {
   BarChart2,
   Calculator,
@@ -72,6 +73,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
+import TuneInRadioButton from './tunein-radio-button';
 import {
   Dialog,
   DialogTrigger,
@@ -94,6 +96,8 @@ type MobileModuleGroup = {
     label: string;
   }>;
 };
+
+type MobileTab = 'home' | 'modules' | 'help' | 'radio' | 'blog';
 
 const mobileModuleGroups: MobileModuleGroup[] = [
   {
@@ -129,12 +133,33 @@ const mobileModuleGroups: MobileModuleGroup[] = [
 
 export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   const [mobilePanel, setMobilePanel] = useState<'modules' | 'help' | null>(null);
+  const [isRadioOpen, setIsRadioOpen] = useState(false);
   const [helpLegalOpen, setHelpLegalOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
   const pathname = usePathname();
   const [activeView, setActiveView] = useState<'dashboard' | 'blog'>(
     pathname?.startsWith('/blog') ? 'blog' : 'dashboard',
   );
+  const activeMobileTab: MobileTab =
+    mobilePanel === 'modules'
+      ? 'modules'
+      : mobilePanel === 'help'
+        ? 'help'
+        : isRadioOpen
+          ? 'radio'
+        : activeView === 'blog'
+          ? 'blog'
+          : 'home';
+  const mobileNavSpring: Transition = prefersReducedMotion
+    ? { duration: 0 }
+    : { type: 'spring', stiffness: 420, damping: 34, mass: 0.62 };
+  const mobilePanelTransition: Transition = prefersReducedMotion
+    ? { duration: 0 }
+    : { type: 'spring', stiffness: 360, damping: 32, mass: 0.82 };
+  const mobileBackdropTransition: Transition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.2, ease: [0.32, 0.72, 0, 1] };
 
   // Sicheres Abrufen des gespeicherten Zustands aus dem localStorage beim Mounten der Komponente
   useEffect(() => {
@@ -176,6 +201,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
 
   function handleNavigation() {
     setMobilePanel(null);
+    setIsRadioOpen(false);
   }
 
   function focusModule(module: string, isVisible: boolean) {
@@ -1524,116 +1550,130 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
         </div>
       </nav>
 
-      {mobilePanel && (
-        <button
-          type="button"
-          className="fixed inset-0 z-[62] bg-slate-950/40 lg:hidden"
-          onClick={handleNavigation}
-          aria-label="Close mobile navigation panel"
-        />
-      )}
+      <AnimatePresence>
+        {mobilePanel && (
+          <motion.button
+            key="mobile-panel-backdrop"
+            type="button"
+            className="fixed inset-0 z-[62] bg-slate-950/40 lg:hidden"
+            onClick={handleNavigation}
+            aria-label="Close mobile navigation panel"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={mobileBackdropTransition}
+          />
+        )}
+      </AnimatePresence>
 
-      {mobilePanel && (
-        <section
-          id="mobile-nav-panel"
-          className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-md lg:hidden"
-          aria-label={mobilePanel === 'modules' ? 'Module navigation' : 'Help and legal links'}
-        >
-          <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-            <p className="text-sm font-semibold text-foreground">
-              {mobilePanel === 'modules' ? 'Quick Modules' : 'Help & Legal'}
-            </p>
-            <button
-              type="button"
-              onClick={handleNavigation}
-              className="et-module-action h-7 w-7"
-              aria-label="Close mobile panel"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="et-scrollbar max-h-[56vh] overflow-y-auto p-3">
-            {mobilePanel === 'modules' ? (
-              <div className="space-y-4">
-                <button
-                  type="button"
-                  className="et-sidebar-link et-sidebar-link-inactive flex w-full items-center justify-center rounded-lg border border-dashed border-border/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em]"
-                  onClick={() => {
-                    if (typeof window !== 'undefined') {
-                      window.dispatchEvent(new CustomEvent('showOnlyModule', { detail: 'ALL' }));
-                    }
-                    handleNavigation();
-                  }}
-                >
-                  Show All Modules
-                </button>
-                {mobileModuleGroups.map((group) => (
-                  <div key={group.title} className="space-y-2">
-                    <h3 className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                      {group.title}
-                    </h3>
-                    <div className="space-y-1.5">
-                      {group.items.map((item) => {
-                        const isVisible = visibleModules.includes(item.module);
-                        const Icon = item.icon;
+      <AnimatePresence mode="wait">
+        {mobilePanel && (
+          <motion.section
+            key={`mobile-panel-${mobilePanel}`}
+            id="mobile-nav-panel"
+            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-md lg:hidden"
+            aria-label={mobilePanel === 'modules' ? 'Module navigation' : 'Help and legal links'}
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.985 }}
+            transition={mobilePanelTransition}
+          >
+            <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">
+                {mobilePanel === 'modules' ? 'Quick Modules' : 'Help & Legal'}
+              </p>
+              <button
+                type="button"
+                onClick={handleNavigation}
+                className="et-module-action h-7 w-7"
+                aria-label="Close mobile panel"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="et-scrollbar max-h-[56vh] overflow-y-auto p-3">
+              {mobilePanel === 'modules' ? (
+                <div className="space-y-4">
+                  <button
+                    type="button"
+                    className="et-sidebar-link et-sidebar-link-inactive flex w-full items-center justify-center rounded-lg border border-dashed border-border/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em]"
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('showOnlyModule', { detail: 'ALL' }));
+                      }
+                      handleNavigation();
+                    }}
+                  >
+                    Show All Modules
+                  </button>
+                  {mobileModuleGroups.map((group) => (
+                    <div key={group.title} className="space-y-2">
+                      <h3 className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                        {group.title}
+                      </h3>
+                      <div className="space-y-1.5">
+                        {group.items.map((item) => {
+                          const isVisible = visibleModules.includes(item.module);
+                          const Icon = item.icon;
 
-                        return (
-                          <button
-                            key={item.module}
-                            type="button"
-                            className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
-                              isVisible
-                                ? 'border-border bg-secondary/90 text-foreground'
-                                : 'border-border/70 bg-card/50 text-muted-foreground hover:text-foreground'
-                            }`}
-                            onClick={() => {
-                              if (!isVisible) {
-                                showModule(item.module);
-                              }
-                              focusModule(item.module, isVisible);
-                              handleNavigation();
-                            }}
-                          >
-                            <Icon className="h-4 w-4 flex-shrink-0" />
-                            <span className="flex-1">{item.label}</span>
-                            {isVisible && (
-                              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                                On
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
+                          return (
+                            <button
+                              key={item.module}
+                              type="button"
+                              className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                                isVisible
+                                  ? 'border-border bg-secondary/90 text-foreground'
+                                  : 'border-border/70 bg-card/50 text-muted-foreground hover:text-foreground'
+                              }`}
+                              onClick={() => {
+                                if (!isVisible) {
+                                  showModule(item.module);
+                                }
+                                focusModule(item.module, isVisible);
+                                handleNavigation();
+                              }}
+                            >
+                              <Icon className="h-4 w-4 flex-shrink-0" />
+                              <span className="flex-1">{item.label}</span>
+                              {isVisible && (
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                                  On
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <SimpleNavItem href="/settings/about" icon={Info}>
-                  About
-                </SimpleNavItem>
-                <SimpleNavItem href="/settings/mission" icon={ShieldCheck}>
-                  Our Mission
-                </SimpleNavItem>
-                <SimpleNavItem href="/settings/privacy-policy" icon={FileText}>
-                  Privacy Policy
-                </SimpleNavItem>
-                <SimpleNavItem href="/settings/terms-of-service" icon={BookOpen}>
-                  Terms of Service
-                </SimpleNavItem>
-                <SimpleNavItem href="/settings/contact" icon={Mail}>
-                  Contact
-                </SimpleNavItem>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <SimpleNavItem href="/settings/about" icon={Info}>
+                    About
+                  </SimpleNavItem>
+                  <SimpleNavItem href="/settings/mission" icon={ShieldCheck}>
+                    Our Mission
+                  </SimpleNavItem>
+                  <SimpleNavItem href="/settings/privacy-policy" icon={FileText}>
+                    Privacy Policy
+                  </SimpleNavItem>
+                  <SimpleNavItem href="/settings/terms-of-service" icon={BookOpen}>
+                    Terms of Service
+                  </SimpleNavItem>
+                  <SimpleNavItem href="/settings/contact" icon={Mail}>
+                    Contact
+                  </SimpleNavItem>
+                </div>
+              )}
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
 
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.7rem)] z-[64] flex justify-center px-3 lg:hidden">
         <nav
-          className="et-mobile-nav-pill pointer-events-auto flex w-full max-w-[26rem] items-center justify-between gap-1 rounded-full px-2 py-1.5"
+          className="et-mobile-nav-pill pointer-events-auto grid w-full max-w-[32rem] grid-cols-5 items-center gap-1 rounded-full px-2 py-1.5"
           aria-label="Mobile floating navigation"
         >
           <Link
@@ -1642,34 +1682,55 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
               handleNavigation();
               setActiveView('dashboard');
             }}
-            className={`et-mobile-nav-item ${activeView === 'dashboard' ? 'et-mobile-nav-item-active' : ''}`}
-            aria-current={activeView === 'dashboard' ? 'page' : undefined}
+            className={`et-mobile-nav-item ${activeMobileTab === 'home' ? 'et-mobile-nav-item-active' : ''}`}
+            aria-current={activeMobileTab === 'home' ? 'page' : undefined}
           >
-            <Home className="h-4 w-4" />
-            <span>Home</span>
+            {activeMobileTab === 'home' && (
+              <motion.span
+                layoutId="et-mobile-nav-active-bubble"
+                transition={mobileNavSpring}
+                className="et-mobile-nav-indicator"
+                aria-hidden="true"
+              />
+            )}
+            <span className="et-mobile-nav-item-content">
+              <Home className="h-4 w-4" />
+              <span>Home</span>
+            </span>
           </Link>
 
           <button
             type="button"
-            onClick={() => setMobilePanel((prev) => (prev === 'modules' ? null : 'modules'))}
-            className={`et-mobile-nav-item ${mobilePanel === 'modules' ? 'et-mobile-nav-item-active' : ''}`}
-            aria-expanded={mobilePanel === 'modules'}
+            onClick={() => {
+              setIsRadioOpen(false);
+              setMobilePanel((prev) => (prev === 'modules' ? null : 'modules'));
+            }}
+            className={`et-mobile-nav-item ${activeMobileTab === 'modules' ? 'et-mobile-nav-item-active' : ''}`}
+            aria-expanded={activeMobileTab === 'modules'}
             aria-controls="mobile-nav-panel"
           >
-            <PieChart className="h-4 w-4" />
-            <span>Modules</span>
+            {activeMobileTab === 'modules' && (
+              <motion.span
+                layoutId="et-mobile-nav-active-bubble"
+                transition={mobileNavSpring}
+                className="et-mobile-nav-indicator"
+                aria-hidden="true"
+              />
+            )}
+            <span className="et-mobile-nav-item-content">
+              <PieChart className="h-4 w-4" />
+              <span>Modules</span>
+            </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setMobilePanel((prev) => (prev === 'help' ? null : 'help'))}
-            className={`et-mobile-nav-item ${mobilePanel === 'help' ? 'et-mobile-nav-item-active' : ''}`}
-            aria-expanded={mobilePanel === 'help'}
-            aria-controls="mobile-nav-panel"
-          >
-            <HelpCircle className="h-4 w-4" />
-            <span>Help</span>
-          </button>
+          <TuneInRadioButton
+            mode="pill"
+            open={isRadioOpen}
+            className={`et-mobile-nav-item ${activeMobileTab === 'radio' ? 'et-mobile-nav-item-active' : ''}`}
+            contentClassName="et-mobile-nav-item-content"
+            onBeforeOpen={() => setMobilePanel(null)}
+            onOpenChange={setIsRadioOpen}
+          />
 
           <Link
             href="/blog"
@@ -1677,12 +1738,46 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
               handleNavigation();
               setActiveView('blog');
             }}
-            className={`et-mobile-nav-item ${activeView === 'blog' ? 'et-mobile-nav-item-active' : ''}`}
-            aria-current={activeView === 'blog' ? 'page' : undefined}
+            className={`et-mobile-nav-item ${activeMobileTab === 'blog' ? 'et-mobile-nav-item-active' : ''}`}
+            aria-current={activeMobileTab === 'blog' ? 'page' : undefined}
           >
-            <BookOpen className="h-4 w-4" />
-            <span>Blog</span>
+            {activeMobileTab === 'blog' && (
+              <motion.span
+                layoutId="et-mobile-nav-active-bubble"
+                transition={mobileNavSpring}
+                className="et-mobile-nav-indicator"
+                aria-hidden="true"
+              />
+            )}
+            <span className="et-mobile-nav-item-content">
+              <BookOpen className="h-4 w-4" />
+              <span>Blog</span>
+            </span>
           </Link>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsRadioOpen(false);
+              setMobilePanel((prev) => (prev === 'help' ? null : 'help'));
+            }}
+            className={`et-mobile-nav-item ${activeMobileTab === 'help' ? 'et-mobile-nav-item-active' : ''}`}
+            aria-expanded={activeMobileTab === 'help'}
+            aria-controls="mobile-nav-panel"
+          >
+            {activeMobileTab === 'help' && (
+              <motion.span
+                layoutId="et-mobile-nav-active-bubble"
+                transition={mobileNavSpring}
+                className="et-mobile-nav-indicator"
+                aria-hidden="true"
+              />
+            )}
+            <span className="et-mobile-nav-item-content">
+              <HelpCircle className="h-4 w-4" />
+              <span>Help</span>
+            </span>
+          </button>
         </nav>
       </div>
     </>
