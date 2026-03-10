@@ -12,6 +12,7 @@ const MODULES = [
   'BacktestTool',
   'PortfolioTracker',
   'CurrencyConverter',
+  'MarketScreener',
   'FearGreedIndex',
   'EarningsCalendar',
   'DividendCalendar',

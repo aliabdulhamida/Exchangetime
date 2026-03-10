@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const WIDGET_SCRIPT_SRC = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+const WIDGET_SCRIPT_SRC =
+  'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
 const LAYOUT_STORAGE_KEY = 'et_ta_layout_v3';
 const LEGACY_LAYOUT_STORAGE_KEY = 'et_ta_layout_v2';
 const FAVORITES_STORAGE_KEY = 'et_ta_favorites_v1';
@@ -34,7 +35,20 @@ const DEFAULT_INTERVAL = 'D';
 const MAX_RECENTS = 8;
 const MAX_FAVORITES = 48;
 const MAX_ALERTS = 12;
-const DEFAULT_FAVORITES = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'SPY', 'QQQ', 'VOO', 'IWM', 'DIA', 'BTCUSD', 'AMZN', 'META'];
+const DEFAULT_FAVORITES = [
+  'AAPL',
+  'NVDA',
+  'MSFT',
+  'TSLA',
+  'SPY',
+  'QQQ',
+  'VOO',
+  'IWM',
+  'DIA',
+  'BTCUSD',
+  'AMZN',
+  'META',
+];
 const DEFAULT_WATCHLIST = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'SPY', 'QQQ', 'BTCUSD'];
 const PANE_KEYS = ['left', 'right'];
 const MOBILE_CONTROL_TABS = ['preset', 'indicators', 'alerts', 'lists', 'chart'];
@@ -171,7 +185,10 @@ function sanitizeAlertParams(typeKey, rawParams) {
   return {
     ...defaults,
     ...Object.fromEntries(
-      Object.entries(raw).map(([key, value]) => [key, typeof value === 'string' ? value : String(value ?? '')]),
+      Object.entries(raw).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? value : String(value ?? ''),
+      ]),
     ),
   };
 }
@@ -207,7 +224,8 @@ function validateAlertParams(typeKey, params) {
   switch (typeKey) {
     case 'price_above':
     case 'price_below':
-      if (!isFiniteNumber(params.threshold)) return { valid: false, message: 'Set a valid target price.' };
+      if (!isFiniteNumber(params.threshold))
+        return { valid: false, message: 'Set a valid target price.' };
       return { valid: true };
     case 'ma_cross': {
       if (!isPositiveNumber(params.fastLength) || !isPositiveNumber(params.slowLength)) {
@@ -246,13 +264,7 @@ function normalizeSymbol(raw) {
 }
 
 function uniqueSymbols(values) {
-  return Array.from(
-    new Set(
-      values
-        .map((value) => normalizeSymbol(value))
-        .filter(Boolean),
-    ),
-  );
+  return Array.from(new Set(values.map((value) => normalizeSymbol(value)).filter(Boolean)));
 }
 
 function parseEtWatchlist(rawWatchlist) {
@@ -303,7 +315,11 @@ function getNextInterval(value) {
   return order[Math.min(idx + 1, order.length - 1)];
 }
 
-function makeDefaultPane(symbol = DEFAULT_SYMBOL, interval = DEFAULT_INTERVAL, presetKey = 'trend') {
+function makeDefaultPane(
+  symbol = DEFAULT_SYMBOL,
+  interval = DEFAULT_INTERVAL,
+  presetKey = 'trend',
+) {
   const preset = PRESETS[presetKey] ?? PRESETS.trend;
   const resolvedInterval = isValidInterval(interval) ? interval : preset.interval;
   const resolvedSymbol = normalizeSymbol(symbol);
@@ -343,7 +359,8 @@ function sanitizePane(raw, fallbackSymbol = DEFAULT_SYMBOL) {
     indicatorKeys: indicatorKeys.length > 0 ? indicatorKeys : PRESETS.trend.indicators,
     presetKey,
     chartStyle:
-      typeof raw?.chartStyle === 'string' && CHART_STYLE_OPTIONS.some((option) => option.value === raw.chartStyle)
+      typeof raw?.chartStyle === 'string' &&
+      CHART_STYLE_OPTIONS.some((option) => option.value === raw.chartStyle)
         ? raw.chartStyle
         : '1',
     showLegend: typeof raw?.showLegend === 'boolean' ? raw.showLegend : false,
@@ -393,7 +410,9 @@ function getInitialState() {
   }
 
   const legacy = readJSON(LEGACY_LAYOUT_STORAGE_KEY, {});
-  const legacySymbol = normalizeSymbol(legacy.symbol || window.localStorage.getItem('portfolioSelectedSymbol'));
+  const legacySymbol = normalizeSymbol(
+    legacy.symbol || window.localStorage.getItem('portfolioSelectedSymbol'),
+  );
 
   const rightPane = sanitizePane(
     {
@@ -620,7 +639,10 @@ function TradingViewWidget() {
 
   const setPaneState = useCallback((paneKey, updater) => {
     setPanes((current) => {
-      const nextPane = typeof updater === 'function' ? updater(current[paneKey]) : { ...current[paneKey], ...updater };
+      const nextPane =
+        typeof updater === 'function'
+          ? updater(current[paneKey])
+          : { ...current[paneKey], ...updater };
       return { ...current, [paneKey]: nextPane };
     });
   }, []);
@@ -628,7 +650,7 @@ function TradingViewWidget() {
   const currentPresetLabel = useCallback(
     (paneKey) => {
       const pane = panes[paneKey];
-      return pane.presetKey === 'custom' ? 'Custom' : PRESETS[pane.presetKey]?.label ?? 'Custom';
+      return pane.presetKey === 'custom' ? 'Custom' : (PRESETS[pane.presetKey]?.label ?? 'Custom');
     },
     [panes],
   );
@@ -836,27 +858,30 @@ function TradingViewWidget() {
     }));
   }, []);
 
-  const updateAlertParams = useCallback((paneKey, id, fieldKey, value) => {
-    setAlertsByPane((current) => ({
-      ...current,
-      [paneKey]: (current[paneKey] || []).map((alert) =>
-        alert.id === id
-          ? (() => {
-              if (!ALERT_TYPE_SET.has(alert.key)) return alert;
-              const params = sanitizeAlertParams(alert.key, {
-                ...(alert.params || {}),
-                [fieldKey]: value,
-              });
-              return {
-                ...alert,
-                params,
-                condition: buildAlertCondition(panes[paneKey].symbol, alert.key, params),
-              };
-            })()
-          : alert,
-      ),
-    }));
-  }, [panes]);
+  const updateAlertParams = useCallback(
+    (paneKey, id, fieldKey, value) => {
+      setAlertsByPane((current) => ({
+        ...current,
+        [paneKey]: (current[paneKey] || []).map((alert) =>
+          alert.id === id
+            ? (() => {
+                if (!ALERT_TYPE_SET.has(alert.key)) return alert;
+                const params = sanitizeAlertParams(alert.key, {
+                  ...(alert.params || {}),
+                  [fieldKey]: value,
+                });
+                return {
+                  ...alert,
+                  params,
+                  condition: buildAlertCondition(panes[paneKey].symbol, alert.key, params),
+                };
+              })()
+            : alert,
+        ),
+      }));
+    },
+    [panes],
+  );
 
   const duplicateAlert = useCallback((paneKey, id) => {
     setAlertsByPane((current) => {
@@ -890,7 +915,9 @@ function TradingViewWidget() {
     }
 
     try {
-      await navigator.clipboard.writeText(`${paneSymbol}: ${resolveAlertCondition(paneSymbol, alert)}`);
+      await navigator.clipboard.writeText(
+        `${paneSymbol}: ${resolveAlertCondition(paneSymbol, alert)}`,
+      );
       setStatusMessage('Alert copied to clipboard');
     } catch {
       setStatusMessage('Could not copy alert');
@@ -902,7 +929,18 @@ function TradingViewWidget() {
 
     const onSymbolSelected = (event) => {
       const next = normalizeSymbol(event?.detail?.symbol);
-      setPaneState('right', (pane) => ({ ...pane, symbol: next, symbolInput: next }));
+      const applyToBoth = event?.detail?.applyToBoth === true;
+
+      if (applyToBoth) {
+        setPanes((current) => ({
+          ...current,
+          left: { ...current.left, symbol: next, symbolInput: next },
+          right: { ...current.right, symbol: next, symbolInput: next },
+        }));
+      } else {
+        setPaneState('right', (pane) => ({ ...pane, symbol: next, symbolInput: next }));
+      }
+
       setRecents((current) => uniqueSymbols([next, ...current]).slice(0, MAX_RECENTS));
     };
 
@@ -1124,7 +1162,9 @@ function TradingViewWidget() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Indicator Set
             </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Toggle indicators for this chart only.</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Toggle indicators for this chart only.
+            </p>
           </div>
           <span className="inline-flex min-h-7 items-center rounded-md border border-border/70 bg-card px-2 text-[11px] font-medium text-foreground">
             {pane.indicatorKeys.length}/{INDICATOR_OPTIONS.length}
@@ -1150,7 +1190,9 @@ function TradingViewWidget() {
                 />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{option.label}</p>
-                  <p className="text-[11px] text-muted-foreground">{INDICATOR_CATEGORIES[option.key]}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {INDICATOR_CATEGORIES[option.key]}
+                  </p>
                 </div>
                 <span
                   className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
@@ -1181,7 +1223,10 @@ function TradingViewWidget() {
       if (typeKey === 'price_above' || typeKey === 'price_below') {
         return (
           <div className="min-w-[170px] flex-1">
-            <label htmlFor={`${idPrefix}-threshold`} className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <label
+              htmlFor={`${idPrefix}-threshold`}
+              className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+            >
               Target Price
             </label>
             <input
@@ -1201,7 +1246,10 @@ function TradingViewWidget() {
         return (
           <>
             <div className="min-w-[130px]">
-              <label htmlFor={`${idPrefix}-direction`} className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <label
+                htmlFor={`${idPrefix}-direction`}
+                className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              >
                 Direction
               </label>
               <select
@@ -1215,7 +1263,10 @@ function TradingViewWidget() {
               </select>
             </div>
             <div className="min-w-[120px]">
-              <label htmlFor={`${idPrefix}-fast`} className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <label
+                htmlFor={`${idPrefix}-fast`}
+                className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              >
                 Fast EMA
               </label>
               <input
@@ -1229,7 +1280,10 @@ function TradingViewWidget() {
               />
             </div>
             <div className="min-w-[120px]">
-              <label htmlFor={`${idPrefix}-slow`} className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <label
+                htmlFor={`${idPrefix}-slow`}
+                className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              >
                 Slow EMA
               </label>
               <input
@@ -1250,7 +1304,10 @@ function TradingViewWidget() {
         return (
           <>
             <div className="min-w-[140px]">
-              <label htmlFor={`${idPrefix}-mode`} className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <label
+                htmlFor={`${idPrefix}-mode`}
+                className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              >
                 Mode
               </label>
               <select
@@ -1264,7 +1321,10 @@ function TradingViewWidget() {
               </select>
             </div>
             <div className="min-w-[130px]">
-              <label htmlFor={`${idPrefix}-level`} className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <label
+                htmlFor={`${idPrefix}-level`}
+                className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              >
                 RSI Level
               </label>
               <input
@@ -1294,17 +1354,29 @@ function TradingViewWidget() {
             </span>
             <div className="flex flex-wrap items-center gap-1.5">
               {hasDisabled ? (
-                <button type="button" onClick={() => setAllAlertsEnabled(paneKey, true)} className={getToggleClass(false, true)}>
+                <button
+                  type="button"
+                  onClick={() => setAllAlertsEnabled(paneKey, true)}
+                  className={getToggleClass(false, true)}
+                >
                   Enable all
                 </button>
               ) : null}
               {hasEnabled ? (
-                <button type="button" onClick={() => setAllAlertsEnabled(paneKey, false)} className={getToggleClass(false, true)}>
+                <button
+                  type="button"
+                  onClick={() => setAllAlertsEnabled(paneKey, false)}
+                  className={getToggleClass(false, true)}
+                >
                   Disable all
                 </button>
               ) : null}
               {paneAlerts.length > 0 ? (
-                <button type="button" onClick={() => handleClearAlerts(paneKey)} className={getToggleClass(false, true)}>
+                <button
+                  type="button"
+                  onClick={() => handleClearAlerts(paneKey)}
+                  className={getToggleClass(false, true)}
+                >
                   Clear all
                 </button>
               ) : null}
@@ -1319,7 +1391,10 @@ function TradingViewWidget() {
           >
             <div className="grid gap-2 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto]">
               <div className="relative min-w-0">
-                <label htmlFor={`${paneKey}-composer-type`} className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <label
+                  htmlFor={`${paneKey}-composer-type`}
+                  className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                >
                   Alert Type
                 </label>
                 <select
@@ -1420,7 +1495,11 @@ function TradingViewWidget() {
       <div className="rounded-lg border border-border/60 bg-background/50 p-2">
         <div className="mb-2 flex items-center justify-between rounded-md border border-border/60 bg-background/40 px-2.5 py-2">
           <span className="text-xs text-muted-foreground">Chart view options</span>
-          <button type="button" onClick={() => handleResetChartControls(paneKey)} className={getToggleClass(false, true)}>
+          <button
+            type="button"
+            onClick={() => handleResetChartControls(paneKey)}
+            className={getToggleClass(false, true)}
+          >
             Reset View
           </button>
         </div>
@@ -1444,7 +1523,9 @@ function TradingViewWidget() {
         <div className="mt-2 grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => setPaneState(paneKey, (state) => ({ ...state, showLegend: !state.showLegend }))}
+            onClick={() =>
+              setPaneState(paneKey, (state) => ({ ...state, showLegend: !state.showLegend }))
+            }
             className={getToggleClass(pane.showLegend, compact)}
             aria-pressed={pane.showLegend}
           >
@@ -1452,7 +1533,9 @@ function TradingViewWidget() {
           </button>
           <button
             type="button"
-            onClick={() => setPaneState(paneKey, (state) => ({ ...state, showVolume: !state.showVolume }))}
+            onClick={() =>
+              setPaneState(paneKey, (state) => ({ ...state, showVolume: !state.showVolume }))
+            }
             className={getToggleClass(pane.showVolume, compact)}
             aria-pressed={pane.showVolume}
           >
@@ -1460,7 +1543,12 @@ function TradingViewWidget() {
           </button>
           <button
             type="button"
-            onClick={() => setPaneState(paneKey, (state) => ({ ...state, showDateRanges: !state.showDateRanges }))}
+            onClick={() =>
+              setPaneState(paneKey, (state) => ({
+                ...state,
+                showDateRanges: !state.showDateRanges,
+              }))
+            }
             className={getToggleClass(pane.showDateRanges, compact)}
             aria-pressed={pane.showDateRanges}
           >
@@ -1468,7 +1556,9 @@ function TradingViewWidget() {
           </button>
           <button
             type="button"
-            onClick={() => setPaneState(paneKey, (state) => ({ ...state, showCalendar: !state.showCalendar }))}
+            onClick={() =>
+              setPaneState(paneKey, (state) => ({ ...state, showCalendar: !state.showCalendar }))
+            }
             className={getToggleClass(pane.showCalendar, compact)}
             aria-pressed={pane.showCalendar}
           >
@@ -1476,7 +1566,9 @@ function TradingViewWidget() {
           </button>
           <button
             type="button"
-            onClick={() => setPaneState(paneKey, (state) => ({ ...state, showDetails: !state.showDetails }))}
+            onClick={() =>
+              setPaneState(paneKey, (state) => ({ ...state, showDetails: !state.showDetails }))
+            }
             className={getToggleClass(pane.showDetails, compact)}
             aria-pressed={pane.showDetails}
           >
@@ -1485,7 +1577,10 @@ function TradingViewWidget() {
           <button
             type="button"
             onClick={() =>
-              setPaneState(paneKey, (state) => ({ ...state, useLocalTimezone: !state.useLocalTimezone }))
+              setPaneState(paneKey, (state) => ({
+                ...state,
+                useLocalTimezone: !state.useLocalTimezone,
+              }))
             }
             className={getToggleClass(pane.useLocalTimezone, compact)}
             aria-pressed={pane.useLocalTimezone}
@@ -1494,7 +1589,9 @@ function TradingViewWidget() {
           </button>
           <button
             type="button"
-            onClick={() => setPaneState(paneKey, (state) => ({ ...state, showGrid: !state.showGrid }))}
+            onClick={() =>
+              setPaneState(paneKey, (state) => ({ ...state, showGrid: !state.showGrid }))
+            }
             className={getToggleClass(pane.showGrid, compact)}
             aria-pressed={pane.showGrid}
           >
@@ -1513,7 +1610,10 @@ function TradingViewWidget() {
     return (
       <div className="rounded-xl border border-border bg-card/95 p-2 shadow-sm backdrop-blur">
         <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-2">
-          <form onSubmit={(event) => handleSymbolSubmit(paneKey, event)} className="flex min-w-0 items-center gap-2">
+          <form
+            onSubmit={(event) => handleSymbolSubmit(paneKey, event)}
+            className="flex min-w-0 items-center gap-2"
+          >
             <label htmlFor={`ta-symbol-input-${paneKey}`} className="sr-only">
               Symbol
             </label>
@@ -1553,17 +1653,23 @@ function TradingViewWidget() {
                   key={`${paneKey}-top-quick-${option.value}`}
                   type="button"
                   onClick={() =>
-                    option.value === 'all' ? handleAllRange(paneKey) : handleIntervalChange(paneKey, option.value)
+                    option.value === 'all'
+                      ? handleAllRange(paneKey)
+                      : handleIntervalChange(paneKey, option.value)
                   }
-                  className={getToggleClass(option.value === 'all' ? pane.interval === 'M' : pane.interval === option.value, true)}
-                  aria-pressed={option.value === 'all' ? pane.interval === 'M' : pane.interval === option.value}
+                  className={getToggleClass(
+                    option.value === 'all' ? pane.interval === 'M' : pane.interval === option.value,
+                    true,
+                  )}
+                  aria-pressed={
+                    option.value === 'all' ? pane.interval === 'M' : pane.interval === option.value
+                  }
                 >
                   {option.label}
                 </button>
               ))}
             </div>
           </div>
-
         </div>
 
         <div className="mt-2 rounded-lg border border-border/60 bg-background/40 p-2">
@@ -1679,7 +1785,10 @@ function TradingViewWidget() {
     <div ref={shellRef} className="flex h-full min-h-0 flex-col">
       <div className="sticky top-0 z-20 rounded-xl border border-border bg-card/95 p-2 shadow-sm backdrop-blur sm:p-2.5">
         <div className="space-y-2 lg:hidden">
-          <form onSubmit={(event) => handleSymbolSubmit('right', event)} className="flex min-w-0 items-center gap-2">
+          <form
+            onSubmit={(event) => handleSymbolSubmit('right', event)}
+            className="flex min-w-0 items-center gap-2"
+          >
             <label htmlFor="ta-symbol-input-mobile" className="sr-only">
               Symbol
             </label>
@@ -1708,11 +1817,17 @@ function TradingViewWidget() {
                   ? 'text-foreground'
                   : 'text-muted-foreground hover:border-foreground/20 hover:bg-background hover:text-foreground'
               }`}
-              aria-label={favorites.includes(panes.right.symbol) ? 'Remove from favorites' : 'Add to favorites'}
+              aria-label={
+                favorites.includes(panes.right.symbol)
+                  ? 'Remove from favorites'
+                  : 'Add to favorites'
+              }
               aria-pressed={favorites.includes(panes.right.symbol)}
               title={favorites.includes(panes.right.symbol) ? 'Remove favorite' : 'Add favorite'}
             >
-              <Star className={`h-4 w-4 ${favorites.includes(panes.right.symbol) ? 'fill-current' : ''}`} />
+              <Star
+                className={`h-4 w-4 ${favorites.includes(panes.right.symbol) ? 'fill-current' : ''}`}
+              />
             </button>
           </form>
 
@@ -1722,12 +1837,22 @@ function TradingViewWidget() {
                 <button
                   key={`mobile-quick-${option.value}`}
                   type="button"
-                  onClick={() => (option.value === 'all' ? handleAllRange('right') : handleIntervalChange('right', option.value))}
+                  onClick={() =>
+                    option.value === 'all'
+                      ? handleAllRange('right')
+                      : handleIntervalChange('right', option.value)
+                  }
                   className={getToggleClass(
-                    option.value === 'all' ? panes.right.interval === 'M' : panes.right.interval === option.value,
+                    option.value === 'all'
+                      ? panes.right.interval === 'M'
+                      : panes.right.interval === option.value,
                     true,
                   )}
-                  aria-pressed={option.value === 'all' ? panes.right.interval === 'M' : panes.right.interval === option.value}
+                  aria-pressed={
+                    option.value === 'all'
+                      ? panes.right.interval === 'M'
+                      : panes.right.interval === option.value
+                  }
                 >
                   {option.label}
                 </button>
@@ -1744,7 +1869,10 @@ function TradingViewWidget() {
             </button>
           </div>
 
-          <Sheet open={!isLgUp && mobileSheetOpen} onOpenChange={(open) => !isLgUp && setMobileSheetOpen(open)}>
+          <Sheet
+            open={!isLgUp && mobileSheetOpen}
+            onOpenChange={(open) => !isLgUp && setMobileSheetOpen(open)}
+          >
             <SheetContent
               side="bottom"
               className="max-h-[86dvh] overflow-y-auto rounded-t-2xl border-border bg-card px-3 pb-4 pt-6"
@@ -1753,8 +1881,8 @@ function TradingViewWidget() {
               <SheetHeader className="mb-2">
                 <SheetTitle className="text-base">Chart Controls</SheetTitle>
                 <SheetDescription className="text-xs">
-                  Preset {currentPresetLabel('right')} · {panes.right.indicatorKeys.length} indicators ·{' '}
-                  {(alertsByPane.right || []).length} alerts
+                  Preset {currentPresetLabel('right')} · {panes.right.indicatorKeys.length}{' '}
+                  indicators · {(alertsByPane.right || []).length} alerts
                 </SheetDescription>
               </SheetHeader>
 

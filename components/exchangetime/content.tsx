@@ -2,7 +2,16 @@
 /* eslint-disable import/order */
 import { ChevronDown, X } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AreaChart, Area, CartesianGrid, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  CartesianGrid,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
 import {
   calculateCompoundInterest,
@@ -18,6 +27,7 @@ import DividendCalendar from '../stock-market/dividend-calendar';
 import EarningsCalendar from '../stock-market/earnings-calendar';
 import ExchangeTimes from '../stock-market/exchange-times';
 import HolidayCalendar from '../stock-market/holiday-calendar';
+import MarketScreener from '../stock-market/market-screener';
 import PortfolioTracker from '../stock-market/portfolio-tracker';
 import OptionsPayoffLab from '../stock-market/sankey-budget';
 import StockAnalysis from '../stock-market/stock-analysis';
@@ -45,9 +55,7 @@ function ModuleWrapper({
   moduleKey: string;
   className?: string;
 }) {
-  const alignHeaderActions =
-    moduleKey === 'StockAnalysis' ||
-    moduleKey === 'BacktestTool';
+  const alignHeaderActions = moduleKey === 'StockAnalysis' || moduleKey === 'BacktestTool';
   const actionTopClass = alignHeaderActions ? 'top-4' : 'top-3';
   const actionRightClass = alignHeaderActions ? 'right-4' : 'right-3';
 
@@ -57,7 +65,10 @@ function ModuleWrapper({
       className={`et-module-card relative scroll-mt-20 p-3 sm:p-4 ${className ?? ''}`}
       data-module-key={moduleKey}
     >
-      <div className={`absolute ${actionRightClass} ${actionTopClass} flex gap-1.5`} style={{ zIndex: 10 }}>
+      <div
+        className={`absolute ${actionRightClass} ${actionTopClass} flex gap-1.5`}
+        style={{ zIndex: 10 }}
+      >
         {onSolo && (
           <button
             onClick={onSolo}
@@ -109,6 +120,7 @@ const DEFAULT_VISIBLE_MODULES = [
   'BacktestTool',
   'PortfolioTracker',
   'CurrencyConverter',
+  'MarketScreener',
   'CompoundInterest',
   'PersonalBudget',
   'TaxCalculator',
@@ -194,9 +206,7 @@ export default function Content(props: ContentProps) {
               <div
                 className={
                   (modules.length === 1 ? 'w-full max-w-6xl mx-auto ' : '') +
-                  `flex h-full flex-col ${
-                    modules.includes('BacktestTool') ? 'xl:col-span-2' : ''
-                  }`
+                  `flex h-full flex-col ${modules.includes('BacktestTool') ? 'xl:col-span-2' : ''}`
                 }
               >
                 <div className="flex h-full flex-col min-h-0 sm:min-h-[300px]">
@@ -215,7 +225,11 @@ export default function Content(props: ContentProps) {
             )}
             {/* Backtest Tool stays in the third column when merged Stock Analysis spans two columns */}
             {modules.includes('BacktestTool') && (
-              <div className={(modules.length === 1 ? 'w-full max-w-xl mx-auto ' : 'w-full ') + 'h-full'}>
+              <div
+                className={
+                  (modules.length === 1 ? 'w-full max-w-xl mx-auto ' : 'w-full ') + 'h-full'
+                }
+              >
                 <ModuleWrapper
                   moduleKey="BacktestTool"
                   onClose={() => hideModule('BacktestTool')}
@@ -256,9 +270,7 @@ export default function Content(props: ContentProps) {
                 className="h-full"
               >
                 <div className="flex h-full min-h-0 flex-col">
-                  <h2 className="mb-4 text-lg font-semibold text-foreground">
-                    Technical Analysis
-                  </h2>
+                  <h2 className="mb-4 text-lg font-semibold text-foreground">Technical Analysis</h2>
                   <div className="flex-1 min-h-0">
                     <TradingViewWidget />
                   </div>
@@ -268,7 +280,23 @@ export default function Content(props: ContentProps) {
           )}
         </div>
 
-        {/* Third Row - Trading Tools (Compound Interest + Currency Converter) */}
+        {/* Third Row - Market Screener */}
+        {modules.includes('MarketScreener') && (
+          <div className="grid grid-cols-1 gap-4 sm:gap-6">
+            <ModuleWrapper
+              moduleKey="MarketScreener"
+              onClose={() => hideModule('MarketScreener')}
+              onSolo={() => showOnlyModule('MarketScreener')}
+              className="h-full"
+            >
+              <div className="flex h-full flex-col">
+                <MarketScreener />
+              </div>
+            </ModuleWrapper>
+          </div>
+        )}
+
+        {/* Fourth Row - Trading Tools (Compound Interest + Currency Converter) */}
         <div
           className={`grid grid-cols-1 gap-4 sm:gap-6 ${
             splitTradingToolsLayout ? 'xl:grid-cols-3' : ''
@@ -283,9 +311,7 @@ export default function Content(props: ContentProps) {
               data-module-key="CompoundInterest"
             >
               <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-0">
-                <h2 className="text-lg font-semibold text-foreground">
-                  Compound Interest
-                </h2>
+                <h2 className="text-lg font-semibold text-foreground">Compound Interest</h2>
                 <div className="flex gap-2 items-center">
                   {/* Augen-Button und X-Button aus ModuleWrapper */}
                   <button
@@ -499,7 +525,6 @@ export default function Content(props: ContentProps) {
             </ModuleWrapper>
           </div>
         )}
-
       </>
     </div>
   );
@@ -863,7 +888,6 @@ function CompoundInterestCalculator() {
                   </button>
                 ))}
               </div>
-
             </div>
           </div>
         </div>
@@ -910,7 +934,9 @@ function CompoundInterestCalculator() {
             <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
               Interest Earned
             </p>
-            <p className={`mt-1 break-words text-base font-semibold leading-tight sm:text-lg ${gainColorClass}`}>
+            <p
+              className={`mt-1 break-words text-base font-semibold leading-tight sm:text-lg ${gainColorClass}`}
+            >
               {formatCurrency(displayTotalGain)}
             </p>
           </div>

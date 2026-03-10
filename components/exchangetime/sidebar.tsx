@@ -78,13 +78,7 @@ import { useState, useEffect } from 'react';
 
 import TuneInRadioButton from './tunein-radio-button';
 import WatchlistMenu from './watchlist-menu';
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -123,6 +117,7 @@ const mobileModuleGroups: MobileModuleGroup[] = [
       { module: 'BacktestTool', icon: TrendingUp, label: 'Backtest Tool' },
       { module: 'PortfolioTracker', icon: Briefcase, label: 'Portfolio Tracker' },
       { module: 'CurrencyConverter', icon: ArrowLeftRight, label: 'Currency Converter' },
+      { module: 'MarketScreener', icon: TrendingUp, label: 'Market Screener' },
       { module: 'TaxCalculator', icon: Calculator, label: 'Tax Calculator' },
       { module: 'DCFCalculator', icon: Calculator, label: 'DCF Calculator' },
       { module: 'EconomicIndicators', icon: LineChart, label: 'Economic Indicators' },
@@ -354,19 +349,27 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-border bg-card/40 p-4">
                 <h4 className="text-sm font-semibold text-foreground">Accuracy</h4>
-                <p className="mt-2 text-sm text-muted-foreground">Reliable data and clear signals.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Reliable data and clear signals.
+                </p>
               </div>
               <div className="rounded-xl border border-border bg-card/40 p-4">
                 <h4 className="text-sm font-semibold text-foreground">Innovation</h4>
-                <p className="mt-2 text-sm text-muted-foreground">Tools that reduce friction and noise.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Tools that reduce friction and noise.
+                </p>
               </div>
               <div className="rounded-xl border border-border bg-card/40 p-4">
                 <h4 className="text-sm font-semibold text-foreground">User Focus</h4>
-                <p className="mt-2 text-sm text-muted-foreground">Designed for practical daily workflows.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Designed for practical daily workflows.
+                </p>
               </div>
               <div className="rounded-xl border border-border bg-card/40 p-4">
                 <h4 className="text-sm font-semibold text-foreground">Accessibility</h4>
-                <p className="mt-2 text-sm text-muted-foreground">Global market context for everyone.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Global market context for everyone.
+                </p>
               </div>
             </div>
           </div>
@@ -1466,6 +1469,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                     icon={ArrowLeftRight}
                     label="Currency Converter"
                   />
+                  <ModuleButton module="MarketScreener" icon={TrendingUp} label="Market Screener" />
                   <ModuleButton module="TaxCalculator" icon={Calculator} label="Tax Calculator" />
                   <ModuleButton module="DCFCalculator" icon={Calculator} label="DCF Calculator" />
                   <ModuleButton
@@ -1637,9 +1641,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   </button>
                   {mobileModuleGroups.map((group) => (
                     <div key={group.title} className="et-quick-modules-group">
-                      <h3 className="et-quick-modules-group-title">
-                        {group.title}
-                      </h3>
+                      <h3 className="et-quick-modules-group-title">{group.title}</h3>
                       <div className="et-quick-modules-group-body">
                         {group.items.map((item) => {
                           const isVisible = visibleModules.includes(item.module);
@@ -1662,11 +1664,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                                 <Icon className="h-4 w-4 flex-shrink-0" />
                               </span>
                               <span className="et-quick-module-item-label">{item.label}</span>
-                              {isVisible && (
-                                <span className="et-quick-module-item-status">
-                                  On
-                                </span>
-                              )}
+                              {isVisible && <span className="et-quick-module-item-status">On</span>}
                             </button>
                           );
                         })}
@@ -1734,7 +1732,11 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   />
                 )}
                 <span className="et-mobile-nav-item-content">
-                  {activeView === 'blog' ? <BookOpen className="h-4 w-4" /> : <Home className="h-4 w-4" />}
+                  {activeView === 'blog' ? (
+                    <BookOpen className="h-4 w-4" />
+                  ) : (
+                    <Home className="h-4 w-4" />
+                  )}
                   <span>{activeView === 'blog' ? 'Blog' : 'Home'}</span>
                 </span>
                 <span className="sr-only">Choose Home or Blog</span>
