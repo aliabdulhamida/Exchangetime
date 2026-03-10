@@ -616,6 +616,12 @@ function getPriceOnOrAfter(series: StockDataPoint[], date: string): number | nul
   return null;
 }
 
+function getSeriesFxRate(series: StockDataPoint[] | null | undefined, date?: string): number | null {
+  if (!series?.length) return null;
+  if (!date) return series[series.length - 1]?.close ?? null;
+  return getPriceOnOrAfter(series, date) ?? getPriceOnOrBefore(series, date);
+}
+
 function getTimeframeCutoff(timeframe: Timeframe): number | null {
   const daysMap: Record<Exclude<Timeframe, 'ALL'>, number> = {
     '1M': 30,
@@ -919,7 +925,7 @@ export default function PortfolioTracker() {
   const [holdingsFilter, setHoldingsFilter] = useState<HoldingsFilter>('all');
   const [search, setSearch] = useState('');
   const [transactionSide, setTransactionSide] = useState<TransactionSide>('BUY');
-  const [shares, setShares] = useState('');
+  const [transactionValue, setTransactionValue] = useState('');
   const [fillPrice, setFillPrice] = useState('');
   const [fees, setFees] = useState('');
   const [taxes, setTaxes] = useState('');
@@ -1050,13 +1056,14 @@ export default function PortfolioTracker() {
   const fxKey = useCallback((from: SupportedCurrency, to: SupportedCurrency) => `${from}_${to}`, []);
 
   const fetchAndCacheFx = useCallback(
-    async (from: SupportedCurrency, to: SupportedCurrency, force = false) => {
-      if (from === to) return;
+    async (from: SupportedCurrency, to: SupportedCurrency, force = false): Promise<StockDataPoint[] | null> => {
+      if (from === to) return [];
       const key = fxKey(from, to);
-      if (!force && fxData[key]?.length) return;
+      if (!force && fxData[key]?.length) return fxData[key];
       const payload = await fetchFxSeries(from, to);
-      if ('error' in payload) return;
+      if ('error' in payload) return null;
       setFxData((prev) => ({ ...prev, [key]: payload }));
+      return payload;
     },
     [fxData, fxKey],
   );
@@ -1386,17 +1393,17 @@ export default function PortfolioTracker() {
 
   const handleAddTransaction = async () => {
     const symbol = search.trim().toUpperCase();
-    const nShares = Number.parseFloat(shares);
-    const nPrice = Number.parseFloat(fillPrice);
+    const nValue = Number.parseFloat(transactionValue);
+    const nManualPrice = Number.parseFloat(fillPrice);
     const nFees = Math.max(0, Number.parseFloat(fees || '0') || 0);
     const nTaxes = Math.max(0, Number.parseFloat(taxes || '0') || 0);
     const isManualInput = addInputMode === 'manual';
 
-    if (!symbol || Number.isNaN(nShares) || nShares <= 0 || !buyDate) {
-      setError('Please fill in symbol, date and shares.');
+    if (!symbol || Number.isNaN(nValue) || nValue <= 0 || !buyDate) {
+      setError('Please fill in symbol, date and value.');
       return;
     }
-    if (isManualInput && (Number.isNaN(nPrice) || nPrice <= 0)) {
+    if (isManualInput && (Number.isNaN(nManualPrice) || nManualPrice <= 0)) {
       setError('Please enter a valid execution price for manual mode.');
       return;
     }
@@ -1404,14 +1411,6 @@ export default function PortfolioTracker() {
       setError('Please enter a valid ticker symbol.');
       return;
     }
-    if (transactionSide === 'SELL') {
-      const openQty = openQuantityBySymbol.get(symbol) || 0;
-      if (nShares > openQty) {
-        setError(`Not enough shares to sell. Available: ${openQty.toFixed(4)}.`);
-        return;
-      }
-    }
-
     setLoading(true);
     setError(null);
     const snapshot = await fetchStockSnapshot(symbol);
@@ -1437,8 +1436,52 @@ export default function PortfolioTracker() {
     }
 
     const inferredCurrency = normalizeCurrency(snapshot.meta.currency || tradeCurrency);
-    const txPrice = isManualInput ? nPrice : (marketPrice as number);
-    const txCurrency = isManualInput ? tradeCurrency : inferredCurrency;
+    const txCurrency = tradeCurrency;
+    let txPrice = isManualInput ? nManualPrice : (marketPrice as number);
+
+    if (!isManualInput && inferredCurrency !== txCurrency) {
+      const inferredToBaseSeries =
+        inferredCurrency === baseCurrency
+          ? []
+          : ((await fetchAndCacheFx(inferredCurrency, baseCurrency)) ??
+            fxData[fxKey(inferredCurrency, baseCurrency)]);
+      const txToBaseSeries =
+        txCurrency === baseCurrency
+          ? []
+          : ((await fetchAndCacheFx(txCurrency, baseCurrency)) ?? fxData[fxKey(txCurrency, baseCurrency)]);
+      const inferredToBase = inferredCurrency === baseCurrency ? 1 : getSeriesFxRate(inferredToBaseSeries, buyDate);
+      const txToBase = txCurrency === baseCurrency ? 1 : getSeriesFxRate(txToBaseSeries, buyDate);
+
+      if (!inferredToBase || inferredToBase <= 0 || !txToBase || txToBase <= 0) {
+        setError(`Automatic mode could not convert ${inferredCurrency} to ${txCurrency} for ${buyDate}.`);
+        setLoading(false);
+        return;
+      }
+
+      txPrice = (txPrice * inferredToBase) / txToBase;
+    }
+
+    if (!Number.isFinite(txPrice) || txPrice <= 0) {
+      setError('Could not determine a valid transaction price.');
+      setLoading(false);
+      return;
+    }
+
+    const computedShares = nValue / txPrice;
+    const nShares = Number(computedShares.toFixed(8));
+    if (!Number.isFinite(nShares) || nShares <= 0) {
+      setError('Could not derive a valid share quantity from value and price.');
+      setLoading(false);
+      return;
+    }
+    if (transactionSide === 'SELL') {
+      const openQty = openQuantityBySymbol.get(symbol) || 0;
+      if (nShares > openQty + 1e-8) {
+        setError(`Not enough shares to sell. Available: ${openQty.toFixed(4)}.`);
+        setLoading(false);
+        return;
+      }
+    }
 
     if (transactionSide === 'BUY') {
       await fetchAndCacheDividends(symbol, true);
@@ -1462,7 +1505,7 @@ export default function PortfolioTracker() {
     setTransactions((prev) => [...prev, tx]);
     if (!selectedSymbol) selectHoldingSymbol(symbol);
     setSearch('');
-    setShares('');
+    setTransactionValue('');
     setFillPrice('');
     setFees('');
     setTaxes('');
@@ -2248,11 +2291,29 @@ export default function PortfolioTracker() {
       series[series.length - 1]?.close ??
       null;
     if (!resolved || !Number.isFinite(resolved)) return null;
+    const marketCurrency = normalizeCurrency(stockMeta[symbol]?.currency || tradeCurrency);
+    const txCurrency = tradeCurrency;
+    let txPrice: number | null = resolved;
+    if (marketCurrency !== txCurrency) {
+      const marketToBase = marketCurrency === baseCurrency ? 1 : getFxRate(marketCurrency, baseCurrency, buyDate);
+      const txToBase = txCurrency === baseCurrency ? 1 : getFxRate(txCurrency, baseCurrency, buyDate);
+      if (!marketToBase || marketToBase <= 0 || !txToBase || txToBase <= 0) {
+        txPrice = null;
+      } else {
+        txPrice = (resolved * marketToBase) / txToBase;
+      }
+    }
+    const enteredValue = Number.parseFloat(transactionValue);
+    const estimatedShares =
+      txPrice && Number.isFinite(enteredValue) && enteredValue > 0 ? enteredValue / txPrice : null;
     return {
-      price: resolved,
-      currency: normalizeCurrency(stockMeta[symbol]?.currency || tradeCurrency),
+      marketPrice: resolved,
+      marketCurrency,
+      txPrice,
+      txCurrency,
+      estimatedShares,
     };
-  }, [addInputMode, buyDate, search, stockData, stockMeta, tradeCurrency]);
+  }, [addInputMode, baseCurrency, buyDate, getFxRate, search, stockData, stockMeta, tradeCurrency, transactionValue]);
 
   const returnsSummaryLabel = formatPercent(timeWeightedReturnPct, 1);
   const riskSummaryLabel = formatPercent(maxDrawdownPct, 1);
@@ -3527,13 +3588,13 @@ export default function PortfolioTracker() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Shares</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Value</label>
                   <input
                     type="number"
                     step="any"
-                    placeholder="10"
-                    value={shares}
-                    onChange={(event) => setShares(event.target.value)}
+                    placeholder="2500"
+                    value={transactionValue}
+                    onChange={(event) => setTransactionValue(event.target.value)}
                     className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                   />
                 </div>
@@ -3574,28 +3635,42 @@ export default function PortfolioTracker() {
                 </div>
               </div>
 
-              {addInputMode === 'manual' ? (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Transaction Currency</label>
-                  <select
-                    value={tradeCurrency}
-                    onChange={(event) => setTradeCurrency(normalizeCurrency(event.target.value))}
-                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
-                  >
-                    {SUPPORTED_CURRENCIES.map((currency) => (
-                      <option key={currency} value={currency}>
-                        {currency}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Transaction Currency</label>
+                <select
+                  value={tradeCurrency}
+                  onChange={(event) => setTradeCurrency(normalizeCurrency(event.target.value))}
+                  className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
+                >
+                  {SUPPORTED_CURRENCIES.map((currency) => (
+                    <option key={currency} value={currency}>
+                      {currency}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {addInputMode === 'automatic' && (
                 <div className="rounded-lg border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
                   {autoModePreview ? (
-                    <div className="mt-1 text-foreground">
-                      Preview: {formatMoney(autoModePreview.price, autoModePreview.currency, 2, 2)}
+                    <div className="mt-1 space-y-1 text-foreground">
+                      <div>
+                        Market: {formatMoney(autoModePreview.marketPrice, autoModePreview.marketCurrency, 2, 2)}
+                      </div>
+                      {autoModePreview.txPrice ? (
+                        <div>
+                          Transaction: {formatMoney(autoModePreview.txPrice, autoModePreview.txCurrency, 2, 2)}
+                        </div>
+                      ) : (
+                        <div className="text-amber-300">FX rate unavailable for selected transaction currency.</div>
+                      )}
+                      {autoModePreview.estimatedShares && Number.isFinite(autoModePreview.estimatedShares) ? (
+                        <div>Estimated shares: {autoModePreview.estimatedShares.toFixed(6)}</div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  ) : (
+                    <div>Add symbol and date to preview automatic pricing.</div>
+                  )}
                 </div>
               )}
 

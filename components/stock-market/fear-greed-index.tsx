@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader } from '@/components/ui/dialog';
 
 const INTERNAL_API_URL = '/api/fear-greed';
+const PUBLIC_FGI_FALLBACK_URL = 'https://api2.mmeter.app/data/public/fgi';
 const RAPIDAPI_FGI_URL = 'https://fear-and-greed-index.p.rapidapi.com/v1/fgi';
 const RAPIDAPI_FGI_HOST = 'fear-and-greed-index.p.rapidapi.com';
 const RAPIDAPI_PUBLIC_KEY = (process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '').trim();
@@ -16,13 +17,9 @@ type FetchError = Error & { status?: number };
 function parseFearGreedScore(payload: unknown): number | null {
   if (!payload || typeof payload !== 'object') return null;
 
-  const data = payload as {
-    fgi?: { now?: { value?: unknown } };
-    data?: Array<{ value?: unknown }>;
-    value?: unknown;
-  };
-
-  const rawCandidates = [data.fgi?.now?.value, data.data?.[0]?.value, data.value];
+  const data = payload as any;
+  const latestSeriesNow = Array.isArray(data?.fgi) ? data.fgi[data.fgi.length - 1]?.now : null;
+  const rawCandidates = [data?.fgi?.now?.value, data?.data?.[0]?.value, data?.value, latestSeriesNow];
 
   for (const candidate of rawCandidates) {
     const numericValue =
@@ -80,15 +77,30 @@ export default function FearGreedIndex() {
         }
 
         if (score === null) {
-          if (RAPIDAPI_PUBLIC_KEY) {
-            const directData = await fetchJsonWithTimeout(RAPIDAPI_FGI_URL, {
+          try {
+            const publicFallbackData = await fetchJsonWithTimeout(PUBLIC_FGI_FALLBACK_URL, {
               method: 'GET',
-              headers: {
-                'x-rapidapi-key': RAPIDAPI_PUBLIC_KEY,
-                'x-rapidapi-host': RAPIDAPI_FGI_HOST,
-              },
             });
-            score = parseFearGreedScore(directData);
+            score = parseFearGreedScore(publicFallbackData);
+          } catch {
+            // Ignore fallback errors and continue to the next provider.
+          }
+        }
+
+        if (score === null) {
+          if (RAPIDAPI_PUBLIC_KEY) {
+            try {
+              const directData = await fetchJsonWithTimeout(RAPIDAPI_FGI_URL, {
+                method: 'GET',
+                headers: {
+                  'x-rapidapi-key': RAPIDAPI_PUBLIC_KEY,
+                  'x-rapidapi-host': RAPIDAPI_FGI_HOST,
+                },
+              });
+              score = parseFearGreedScore(directData);
+            } catch {
+              // Ignore direct-provider errors and surface one final unavailable state below.
+            }
           }
         }
 
