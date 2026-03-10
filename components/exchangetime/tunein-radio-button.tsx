@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
 interface TuneInRadioButtonProps {
-  mode?: 'floating' | 'pill';
+  mode?: 'floating' | 'pill' | 'nav';
   open?: boolean;
   className?: string;
   contentClassName?: string;
@@ -76,9 +76,13 @@ export default function TuneInRadioButton({
   onOpenChange,
 }: TuneInRadioButtonProps) {
   const isPill = mode === 'pill';
+  const isNav = mode === 'nav';
   const [internalOpen, setInternalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const wasDragging = useRef(false);
+  const floatingButtonRef = useRef<HTMLButtonElement>(null);
+  const navButtonRef = useRef<HTMLButtonElement>(null);
+  const [navAnchorRect, setNavAnchorRect] = useState<DOMRect | null>(null);
   const [position, setPosition] = useState(() => {
     if (typeof window === 'undefined') {
       return { x: 24, y: 24 };
@@ -145,19 +149,23 @@ export default function TuneInRadioButton({
   if (modalLeft + modalWidth > winWidth) modalLeft = winWidth - modalWidth - 16;
   if (modalLeft < 0) modalLeft = 16;
 
-  const modalId = isPill ? 'tunein-radio-modal-pill' : 'tunein-radio-modal-floating';
+  const modalId = isPill
+    ? 'tunein-radio-modal-pill'
+    : isNav
+      ? 'tunein-radio-modal-nav'
+      : 'tunein-radio-modal-floating';
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!open || dragging || isPill) return;
+    if (!open || dragging || isPill || isNav) return;
     function handleClick(e: MouseEvent | TouchEvent) {
+      const target = e.target as Node;
       const modal = document.getElementById(modalId);
-      if (modal && !modal.contains(e.target as Node)) {
-        setOpenState(false);
-      }
+      if (modal?.contains(target) || floatingButtonRef.current?.contains(target)) return;
+      setOpenState(false);
     }
     document.addEventListener('mousedown', handleClick);
     document.addEventListener('touchstart', handleClick);
@@ -165,7 +173,42 @@ export default function TuneInRadioButton({
       document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('touchstart', handleClick);
     };
-  }, [open, dragging, isPill, modalId, setOpenState]);
+  }, [open, dragging, isPill, isNav, modalId, setOpenState]);
+
+  useEffect(() => {
+    if (!isNav || !open) return;
+
+    const syncAnchor = () => {
+      if (!navButtonRef.current) return;
+      setNavAnchorRect(navButtonRef.current.getBoundingClientRect());
+    };
+
+    syncAnchor();
+    window.addEventListener('resize', syncAnchor);
+    window.addEventListener('scroll', syncAnchor, true);
+    return () => {
+      window.removeEventListener('resize', syncAnchor);
+      window.removeEventListener('scroll', syncAnchor, true);
+    };
+  }, [isNav, open]);
+
+  useEffect(() => {
+    if (!isNav || !open) return;
+
+    function handleClick(e: MouseEvent | TouchEvent) {
+      const target = e.target as Node;
+      const modal = document.getElementById(modalId);
+      if (modal?.contains(target) || navButtonRef.current?.contains(target)) return;
+      setOpenState(false);
+    }
+
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+    };
+  }, [isNav, modalId, open, setOpenState]);
 
   const getClampedPosition = useCallback(
     (clientX: number, clientY: number) => {
@@ -203,7 +246,7 @@ export default function TuneInRadioButton({
   );
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isPill) return;
+    if (isPill || isNav) return;
     setDragging(true);
     wasDragging.current = false;
     setOffset({ x: e.clientX - position.x, y: e.clientY - position.y });
@@ -220,7 +263,7 @@ export default function TuneInRadioButton({
   );
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (isPill) return;
+    if (isPill || isNav) return;
     const touch = e.touches[0];
     if (!touch) return;
     setDragging(true);
@@ -249,7 +292,7 @@ export default function TuneInRadioButton({
   };
 
   useEffect(() => {
-    if (isPill) return;
+    if (isPill || isNav) return;
     if (dragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
@@ -270,7 +313,7 @@ export default function TuneInRadioButton({
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [isPill, dragging, handleMouseMove, handleTouchMove, handleTouchEnd]);
+  }, [isPill, isNav, dragging, handleMouseMove, handleTouchMove, handleTouchEnd]);
 
   if (isPill) {
     return (
@@ -356,6 +399,71 @@ export default function TuneInRadioButton({
     );
   }
 
+  if (isNav) {
+    const panelWidth = Math.min(320, winWidth - 16);
+    let panelLeft = navAnchorRect?.left ?? 8;
+    const anchorTop = navAnchorRect?.top ?? 56;
+    const anchorBottom = navAnchorRect?.bottom ?? 56;
+    let panelTop = anchorBottom + 8;
+
+    if (panelLeft + panelWidth > winWidth - 8) {
+      panelLeft = winWidth - panelWidth - 8;
+    }
+    if (panelLeft < 8) panelLeft = 8;
+
+    if (panelTop + modalHeight > winHeight - 8) {
+      const aboveAnchorTop = anchorTop - modalHeight - 8;
+      panelTop = aboveAnchorTop > 8 ? aboveAnchorTop : Math.max(8, winHeight - modalHeight - 8);
+    }
+
+    return (
+      <>
+        <button
+          ref={navButtonRef}
+          type="button"
+          className={`${className ?? ''} ${open ? 'text-foreground' : ''}`}
+          aria-label="Open radio player"
+          aria-expanded={open}
+          aria-controls={modalId}
+          onClick={() => {
+            if (navButtonRef.current) {
+              setNavAnchorRect(navButtonRef.current.getBoundingClientRect());
+            }
+            setOpenState((prev) => !prev);
+          }}
+        >
+          <RadioIcon size={14} />
+          <span>Radio</span>
+        </button>
+
+        {isMounted &&
+          createPortal(
+            <div
+              style={{
+                position: 'fixed',
+                left: panelLeft,
+                top: panelTop,
+                zIndex: 1100,
+                pointerEvents: open ? 'auto' : 'none',
+                display: open ? 'block' : 'none',
+              }}
+            >
+              <div
+                id={modalId}
+                className="et-dropdown-panel w-[320px] max-w-[calc(100vw-1rem)] overflow-hidden p-2"
+                style={{ pointerEvents: 'auto' }}
+              >
+                <div className="overflow-hidden rounded-lg border border-border/70 bg-card/70">
+                  <RadioEmbeds visible={open} />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+      </>
+    );
+  }
+
   return (
     <>
       <div
@@ -371,6 +479,7 @@ export default function TuneInRadioButton({
         onTouchStart={handleTouchStart}
       >
         <button
+          ref={floatingButtonRef}
           className={`et-floating-radio-button ${open ? 'et-floating-radio-button-open' : ''}`}
           style={{ position: 'relative', zIndex: 2, width: buttonSize, height: buttonSize }}
           tabIndex={0}

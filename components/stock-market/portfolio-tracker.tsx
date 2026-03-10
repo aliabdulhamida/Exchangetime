@@ -967,6 +967,10 @@ export default function PortfolioTracker() {
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
 
+  useEffect(() => {
+    setTradeCurrency(baseCurrency);
+  }, [baseCurrency]);
+
   const trackedSymbols = useMemo(
     () => Array.from(new Set(transactions.map((tx) => tx.symbol))).sort(),
     [transactions],
@@ -2558,11 +2562,22 @@ export default function PortfolioTracker() {
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     {activeChart === 'dividends' ? (
-                      <BarChartComponent data={filteredDividendHistory} margin={{ top: 4, right: 6, left: 4, bottom: 4 }}>
+                      <BarChartComponent
+                        data={filteredDividendHistory}
+                        margin={{ top: 4, right: 6, left: 8, bottom: 4 }}
+                      >
                         <XAxis
                           dataKey="date"
                           tickFormatter={(date: string | number) =>
                             new Date(date).toLocaleDateString(undefined, { month: 'short' })
+                          }
+                        />
+                        <YAxis
+                          width={72}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(value: string | number) =>
+                            formatMoney(Number(value), baseCurrency, 0, 0)
                           }
                         />
                         <Tooltip
@@ -2735,29 +2750,44 @@ export default function PortfolioTracker() {
                     </p>
                   ) : null}
                 </div>
-                <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background p-1">
-                  <Button
-                    onClick={() => setShowAddForm(true)}
-                    size="sm"
-                    variant="outline"
-                    className="h-8 w-8 rounded-full border-border bg-background p-0 text-foreground shadow-none transition-colors hover:bg-muted/20"
-                    aria-label="Add transaction"
-                    title="Add transaction"
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={baseCurrency}
+                    onChange={(event) => setBaseCurrency(normalizeCurrency(event.target.value))}
+                    className="h-8 w-[4.9rem] rounded-md border border-border bg-background px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/25"
+                    aria-label="Portfolio currency"
+                    title="Portfolio currency"
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    onClick={handleReload}
-                    disabled={loading || trackedSymbols.length === 0}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 rounded-full border-border bg-background p-0 text-foreground shadow-none transition-colors hover:bg-muted/20 disabled:opacity-40"
-                    aria-label="Reload holdings"
-                    title="Reload holdings"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${reloading ? 'animate-spin' : ''}`} />
-                    <span className="sr-only">Reload</span>
-                  </Button>
+                    {SUPPORTED_CURRENCIES.map((currency) => (
+                      <option key={`portfolio-${currency}`} value={currency}>
+                        {currency}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background p-1">
+                    <Button
+                      onClick={() => setShowAddForm(true)}
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 rounded-full border-border bg-background p-0 text-foreground shadow-none transition-colors hover:bg-muted/20"
+                      aria-label="Add transaction"
+                      title="Add transaction"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      onClick={handleReload}
+                      disabled={loading || trackedSymbols.length === 0}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 rounded-full border-border bg-background p-0 text-foreground shadow-none transition-colors hover:bg-muted/20 disabled:opacity-40"
+                      aria-label="Reload holdings"
+                      title="Reload holdings"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${reloading ? 'animate-spin' : ''}`} />
+                      <span className="sr-only">Reload</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardHeader>

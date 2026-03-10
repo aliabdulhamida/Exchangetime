@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { Dialog, DialogTrigger, DialogContent, DialogHeader } from '@/components/ui/dialog';
+
 const INTERNAL_VIX_QUOTE_URL =
   '/api/quote?symbol=%5EVIX&chart=1&range=5d&interval=1d&includePrePost=false';
 const PUBLIC_VIX_QUOTE_URL = 'https://api2.mmeter.app/data/public/vix';
@@ -150,22 +152,104 @@ export default function VixIndex() {
         : 'N/A';
 
   return (
-    <div className="flex items-center gap-1 sm:gap-2 px-1 py-0.5 sm:px-2 sm:py-1 rounded">
-      <span className="text-[9px] sm:text-[10px] font-semibold text-muted-foreground">VIX</span>
-      <span className="font-bold text-[10px] sm:text-xs text-foreground">
-        {typeof value === 'number' ? value.toFixed(2) : '-'}
-      </span>
-      <span
-        className={`text-[9px] sm:text-[10px] font-medium ${
-          typeof changePct !== 'number'
-            ? 'text-muted-foreground'
-            : isRiskOff
-              ? 'text-red-500'
-              : 'text-green-500'
-        }`}
-      >
-        {changeLabel}
-      </span>
-    </div>
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-1 sm:gap-2 px-1 py-0.5 sm:px-2 sm:py-1 rounded bg-transparent border-0 cursor-pointer hover:opacity-90 transition"
+          aria-label="Open VIX information"
+        >
+          <span className="text-[9px] sm:text-[10px] font-semibold text-muted-foreground">VIX</span>
+          <span className="font-bold text-[10px] sm:text-xs text-foreground">
+            {typeof value === 'number' ? value.toFixed(2) : '-'}
+          </span>
+          <span
+            className={`text-[9px] sm:text-[10px] font-medium ${
+              typeof changePct !== 'number'
+                ? 'text-muted-foreground'
+                : isRiskOff
+                  ? 'text-red-500'
+                  : 'text-green-500'
+            }`}
+          >
+            {changeLabel}
+          </span>
+        </button>
+      </DialogTrigger>
+
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <span className="text-xl font-semibold tracking-tight">VIX (Volatility Index)</span>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The VIX reflects expected 30-day volatility for the S&amp;P 500 from options pricing.
+          </p>
+        </DialogHeader>
+
+        <div className="mt-4 space-y-4 text-sm">
+          <div className="rounded-xl border border-border bg-card/60 p-4">
+            <p className="text-foreground/90">
+              It is often called the market&rsquo;s <span className="font-semibold">fear gauge</span>.
+              Rising VIX means traders price in more uncertainty; falling VIX suggests calmer risk
+              conditions.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-border bg-card/40 p-4">
+              <h4 className="mb-1 text-sm font-semibold text-foreground">How To Read Levels</h4>
+              <div className="space-y-2 text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Below 15</span>
+                  <span className="font-medium text-green-500">Calm</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>15-20</span>
+                  <span className="font-medium text-emerald-500">Normal</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>20-30</span>
+                  <span className="font-medium text-yellow-400">Elevated</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>30-40</span>
+                  <span className="font-medium text-orange-400">Stress</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Above 40</span>
+                  <span className="font-medium text-red-500">Panic Zone</span>
+                </div>
+                <p className="pt-1 text-xs">
+                  Spikes are often short-lived. Falling from high levels can indicate stabilization
+                  rather than immediate bullish confirmation.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-card/40 p-4">
+              <h4 className="mb-1 text-sm font-semibold text-foreground">How To Use It</h4>
+              <p className="text-muted-foreground">
+                Treat VIX as a risk-temperature signal, not a standalone trade trigger. Combine it
+                with trend, breadth, and macro events.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card/40 p-4">
+            <h4 className="mb-2 text-sm font-semibold text-foreground">Current Snapshot</h4>
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span>VIX value</span>
+              <span className="font-semibold text-foreground">
+                {typeof value === 'number' ? value.toFixed(2) : 'N/A'}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-muted-foreground">
+              <span>Daily change</span>
+              <span className={isRiskOff ? 'font-semibold text-red-500' : 'font-semibold text-green-500'}>
+                {typeof changePct === 'number' ? changeLabel : 'N/A'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
