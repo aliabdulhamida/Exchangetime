@@ -454,7 +454,7 @@ export default function EconomicIndicators() {
             <table className="min-w-[980px] w-full border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border/80 bg-muted/25">
-                  <th className="sticky left-0 z-10 min-w-[170px] border-r border-border/80 bg-card px-3 py-2 text-left font-semibold text-foreground">
+                  <th className="sticky left-0 z-10 w-[104px] min-w-[104px] max-w-[104px] sm:w-[128px] sm:min-w-[128px] sm:max-w-[128px] border-r border-border/80 bg-card px-2 py-2 text-left font-semibold text-foreground">
                     Country
                   </th>
                   {columnLabels.map((column) => (
@@ -471,8 +471,8 @@ export default function EconomicIndicators() {
               <tbody>
                 {matrixRows.map((country) => (
                   <tr key={country.code} className="border-b border-border/60 hover:bg-muted/20">
-                    <td className="sticky left-0 z-10 border-r border-border/80 bg-card px-3 py-2">
-                      <div className="font-medium text-foreground">{country.name}</div>
+                    <td className="sticky left-0 z-10 w-[104px] min-w-[104px] max-w-[104px] sm:w-[128px] sm:min-w-[128px] sm:max-w-[128px] border-r border-border/80 bg-card px-2 py-2">
+                      <div className="font-medium leading-tight text-foreground">{country.name}</div>
                       <div className="text-[11px] text-muted-foreground">{country.code}</div>
                     </td>
                     {columnLabels.map((column) => {
