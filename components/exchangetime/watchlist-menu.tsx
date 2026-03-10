@@ -30,6 +30,10 @@ const WATCHLISTS_STORAGE_KEY = 'et_watchlists';
 const ACTIVE_WATCHLIST_STORAGE_KEY = 'et_active_watchlist_id';
 const LEGACY_WATCHLIST_STORAGE_KEY = 'et_watchlist';
 const LEGACY_WATCHLIST_TITLE_STORAGE_KEY = 'et_watchlist_title';
+const WATCHLIST_SESSION_GAP_SECONDS = 3 * 60 * 60;
+const WATCHLIST_MIN_SESSION_POINTS = 6;
+
+type TimedClosePoint = { timestamp: number; close: number };
 
 function cloneDefaultWatchlist(): WatchlistEntry[] {
   return DEFAULT_WATCHLIST.map((entry) => ({ ticker: entry.ticker }));
@@ -165,6 +169,109 @@ function makeWatchlistId(): string {
   return `wl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function extractTimedClosePoints(chartPayload: any): TimedClosePoint[] {
+  const result = chartPayload?.chart?.result?.[0];
+  const timestampsRaw = Array.isArray(result?.timestamp)
+    ? result.timestamp
+    : Array.isArray(chartPayload?.timestamps)
+      ? chartPayload.timestamps
+      : [];
+  const closesRaw = Array.isArray(result?.indicators?.quote?.[0]?.close)
+    ? result.indicators.quote[0].close
+    : Array.isArray(chartPayload?.series)
+      ? chartPayload.series
+      : [];
+
+  if (!Array.isArray(timestampsRaw) || !Array.isArray(closesRaw) || timestampsRaw.length === 0) {
+    return [];
+  }
+
+  const pointCount = Math.min(timestampsRaw.length, closesRaw.length);
+  const points: TimedClosePoint[] = [];
+
+  for (let index = 0; index < pointCount; index += 1) {
+    const timestamp = timestampsRaw[index];
+    const close = closesRaw[index];
+    if (
+      typeof timestamp !== 'number' ||
+      !Number.isFinite(timestamp) ||
+      typeof close !== 'number' ||
+      !Number.isFinite(close)
+    ) {
+      continue;
+    }
+
+    points.push({ timestamp, close });
+  }
+
+  return points;
+}
+
+function splitPointsIntoSessions(points: TimedClosePoint[]): TimedClosePoint[][] {
+  if (points.length === 0) return [];
+
+  const sorted = [...points].sort((a, b) => a.timestamp - b.timestamp);
+  const sessions: TimedClosePoint[][] = [[sorted[0]]];
+
+  for (let index = 1; index < sorted.length; index += 1) {
+    const point = sorted[index];
+    const previous = sorted[index - 1];
+    if (point.timestamp - previous.timestamp > WATCHLIST_SESSION_GAP_SECONDS) {
+      sessions.push([point]);
+      continue;
+    }
+
+    sessions[sessions.length - 1].push(point);
+  }
+
+  return sessions;
+}
+
+function selectWatchlistSparklineSeries(points: TimedClosePoint[]): number[] {
+  const sessions = splitPointsIntoSessions(points);
+  if (sessions.length === 0) return [];
+
+  for (let index = sessions.length - 1; index >= 0; index -= 1) {
+    const session = sessions[index];
+    if (session.length >= WATCHLIST_MIN_SESSION_POINTS) {
+      return session.map((point) => point.close);
+    }
+  }
+
+  const latestSession = sessions[sessions.length - 1];
+  if (latestSession.length >= 2) {
+    return latestSession.map((point) => point.close);
+  }
+
+  for (let index = sessions.length - 2; index >= 0; index -= 1) {
+    const session = sessions[index];
+    if (session.length >= 2) {
+      return session.map((point) => point.close);
+    }
+  }
+
+  return [];
+}
+
+function extractWatchlistSparklineSeries(chartPayload: any): number[] {
+  const timedPoints = extractTimedClosePoints(chartPayload);
+  if (timedPoints.length >= 2) {
+    const selectedSession = selectWatchlistSparklineSeries(timedPoints);
+    if (selectedSession.length >= 2) {
+      return selectedSession;
+    }
+  }
+
+  const fallbackSeries = Array.isArray(chartPayload?.series)
+    ? chartPayload.series
+    : chartPayload?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+  if (!Array.isArray(fallbackSeries)) return [];
+
+  return fallbackSeries.filter(
+    (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value),
+  );
+}
+
 function buildSparklinePath(points: number[], width: number, height: number): string {
   if (points.length < 2) return '';
 
@@ -292,14 +399,7 @@ export default function WatchlistMenu({
           if (!chartResponse.ok) return;
 
           const chartPayload = await chartResponse.json();
-          const rawSeries = Array.isArray(chartPayload?.series)
-            ? chartPayload.series
-            : chartPayload?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-
-          if (!Array.isArray(rawSeries)) return;
-          const cleaned = rawSeries.filter(
-            (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value),
-          );
+          const cleaned = extractWatchlistSparklineSeries(chartPayload);
           if (cleaned.length >= 2) {
             daySeriesResult[stock.ticker] = cleaned;
           }
