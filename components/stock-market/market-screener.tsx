@@ -239,7 +239,7 @@ export default function MarketScreener() {
                 key={key}
                 type="button"
                 onClick={() => setActiveTab(key)}
-                className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
+                className={`whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition sm:px-3 sm:text-sm ${
                   isActive
                     ? 'border-sky-400/70 bg-sky-500/15 text-sky-200'
                     : 'border-border/70 bg-background/50 text-foreground hover:border-border hover:bg-muted/40'
@@ -289,99 +289,185 @@ export default function MarketScreener() {
         </Alert>
       )}
 
-      <div className="max-h-[560px] overflow-auto rounded-xl border border-border/70 bg-card/20">
-        <table className="min-w-[860px] w-full text-sm">
-          <thead className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
-            <tr className="border-b border-border/70">
-              <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-left backdrop-blur">
-                Symbol
-              </th>
-              <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-left backdrop-blur">
-                Company
-              </th>
-              <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
-                Price
-              </th>
-              <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
-                % Change
-              </th>
-              <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
-                Change
-              </th>
-              <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
-                Volume
-              </th>
-              <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
-                Rel Vol
-              </th>
-              <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
-                Mkt Cap
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && !payload ? (
-              Array.from({ length: 8 }).map((_, index) => (
-                <tr key={`skeleton-${index}`} className="border-b border-border/60">
-                  <td className="px-3 py-2" colSpan={8}>
-                    <div className="h-5 w-full animate-pulse rounded bg-muted/40" />
-                  </td>
-                </tr>
-              ))
-            ) : filteredRows.length > 0 ? (
-              filteredRows.map((row) => (
-                <tr
-                  key={`${activeTab}-${row.symbol}`}
-                  className="border-b border-border/60 transition-colors hover:bg-muted/25"
-                >
-                  <td className="px-3 py-2 font-semibold text-foreground">
+      <div className="md:hidden">
+        <div className="max-h-[62vh] space-y-2 overflow-y-auto rounded-xl border border-border/70 bg-card/20 p-2">
+          {loading && !payload ? (
+            Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={`mobile-skeleton-${index}`}
+                className="rounded-lg border border-border/60 bg-background/50 p-3"
+              >
+                <div className="h-4 w-24 animate-pulse rounded bg-muted/40" />
+                <div className="mt-2 h-3 w-40 animate-pulse rounded bg-muted/40" />
+                <div className="mt-3 h-9 w-full animate-pulse rounded bg-muted/40" />
+              </div>
+            ))
+          ) : filteredRows.length > 0 ? (
+            filteredRows.map((row) => (
+              <div
+                key={`${activeTab}-mobile-${row.symbol}`}
+                className="rounded-lg border border-border/60 bg-background/50 p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <button
                       type="button"
                       onClick={() => handleTickerClick(row.symbol)}
-                      className="font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:underline"
+                      className="text-sm font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:underline"
                       title="Load in Technical Analysis"
                       aria-label={`Load ${row.symbol} in Technical Analysis`}
                     >
                       {row.symbol}
                     </button>
-                    <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                    <p className="mt-0.5 line-clamp-1 text-xs text-foreground">{row.name}</p>
+                    <p className="mt-0.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
                       {row.exchange || '-'}
                     </p>
-                  </td>
-                  <td className="px-3 py-2 text-foreground">
-                    <p className="line-clamp-1">{row.name}</p>
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">
-                    {formatPrice(row.price, row.currency)}
-                  </td>
-                  <td
-                    className={`px-3 py-2 text-right font-semibold ${toneClass(row.changePercent)}`}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-foreground">
+                      {formatPrice(row.price, row.currency)}
+                    </p>
+                    <p className={`text-xs font-semibold ${toneClass(row.changePercent)}`}>
+                      {formatSignedPercent(row.changePercent)}
+                    </p>
+                    <p className={`text-xs font-semibold ${toneClass(row.change)}`}>
+                      {formatSignedPrice(row.change, row.currency)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-3 gap-2 rounded-md border border-border/60 bg-card/60 p-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                      Volume
+                    </p>
+                    <p className="mt-0.5 text-xs font-semibold text-foreground">
+                      {formatCompactNumber(row.volume)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                      Rel Vol
+                    </p>
+                    <p className="mt-0.5 text-xs font-semibold text-foreground">
+                      {formatRelativeVolume(row.volume, row.averageVolume)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                      Mkt Cap
+                    </p>
+                    <p className="mt-0.5 text-xs font-semibold text-foreground">
+                      {formatCompactNumber(row.marketCap)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-6 text-center text-sm text-muted-foreground">
+              No stocks match the current filter.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="hidden md:block">
+        <div className="max-h-[560px] overflow-auto rounded-xl border border-border/70 bg-card/20">
+          <table className="min-w-[860px] w-full text-sm">
+            <thead className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
+              <tr className="border-b border-border/70">
+                <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-left backdrop-blur">
+                  Symbol
+                </th>
+                <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-left backdrop-blur">
+                  Company
+                </th>
+                <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
+                  Price
+                </th>
+                <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
+                  % Change
+                </th>
+                <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
+                  Change
+                </th>
+                <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
+                  Volume
+                </th>
+                <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
+                  Rel Vol
+                </th>
+                <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
+                  Mkt Cap
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && !payload ? (
+                Array.from({ length: 8 }).map((_, index) => (
+                  <tr key={`skeleton-${index}`} className="border-b border-border/60">
+                    <td className="px-3 py-2" colSpan={8}>
+                      <div className="h-5 w-full animate-pulse rounded bg-muted/40" />
+                    </td>
+                  </tr>
+                ))
+              ) : filteredRows.length > 0 ? (
+                filteredRows.map((row) => (
+                  <tr
+                    key={`${activeTab}-${row.symbol}`}
+                    className="border-b border-border/60 transition-colors hover:bg-muted/25"
                   >
-                    {formatSignedPercent(row.changePercent)}
-                  </td>
-                  <td className={`px-3 py-2 text-right font-semibold ${toneClass(row.change)}`}>
-                    {formatSignedPrice(row.change, row.currency)}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">
-                    {formatCompactNumber(row.volume)}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">
-                    {formatRelativeVolume(row.volume, row.averageVolume)}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">
-                    {formatCompactNumber(row.marketCap)}
+                    <td className="px-3 py-2 font-semibold text-foreground">
+                      <button
+                        type="button"
+                        onClick={() => handleTickerClick(row.symbol)}
+                        className="font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:underline"
+                        title="Load in Technical Analysis"
+                        aria-label={`Load ${row.symbol} in Technical Analysis`}
+                      >
+                        {row.symbol}
+                      </button>
+                      <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                        {row.exchange || '-'}
+                      </p>
+                    </td>
+                    <td className="px-3 py-2 text-foreground">
+                      <p className="line-clamp-1">{row.name}</p>
+                    </td>
+                    <td className="px-3 py-2 text-right text-foreground">
+                      {formatPrice(row.price, row.currency)}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right font-semibold ${toneClass(row.changePercent)}`}
+                    >
+                      {formatSignedPercent(row.changePercent)}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-semibold ${toneClass(row.change)}`}>
+                      {formatSignedPrice(row.change, row.currency)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-foreground">
+                      {formatCompactNumber(row.volume)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-foreground">
+                      {formatRelativeVolume(row.volume, row.averageVolume)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-foreground">
+                      {formatCompactNumber(row.marketCap)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="px-3 py-6 text-center text-sm text-muted-foreground" colSpan={8}>
+                    No stocks match the current filter.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td className="px-3 py-6 text-center text-sm text-muted-foreground" colSpan={8}>
-                  No stocks match the current filter.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

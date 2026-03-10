@@ -11,7 +11,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  webpack: (config) => {
+  webpack: (config, { dev }) => {
     // Workaround for Node 22 + webpack WasmHash crash
     config.output = config.output || {};
     // Use sha256 to avoid wasm hash path entirely
@@ -30,6 +30,13 @@ const nextConfig = {
       syncWebAssembly: false,
       layers: true,
     };
+
+    // Prevent flaky filesystem cache artifacts in synced folders during local dev.
+    if (dev) {
+      config.cache = {
+        type: 'memory',
+      };
+    }
 
     return config;
   },
