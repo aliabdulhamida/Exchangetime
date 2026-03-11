@@ -357,12 +357,19 @@ export default function WatchlistMenu({
     const changesResult: { [ticker: string]: number | null } = {};
     const daySeriesResult: { [ticker: string]: number[] } = {};
 
-    await Promise.all(
+    await Promise.allSettled(
       watchlist.map(async (stock) => {
-        const dayChartRequest = fetch(
-          `/api/quote?symbol=${encodeURIComponent(stock.ticker)}&chart=1&range=1d&interval=5m&includePrePost=false`,
-          { cache: 'no-store' },
-        );
+        let dayChartRequest: Promise<Response> | null = null;
+        try {
+          dayChartRequest = fetch(
+            `/api/quote?symbol=${encodeURIComponent(stock.ticker)}&chart=1&range=1d&interval=5m&includePrePost=false`,
+            { cache: 'no-store' },
+          );
+        } catch (err) {
+          if (typeof window !== 'undefined') {
+            console.error('Day chart request init error', stock.ticker, err);
+          }
+        }
 
         try {
           const data = await fetchStockDataPortfolio(stock.ticker);
@@ -394,6 +401,7 @@ export default function WatchlistMenu({
           if (typeof window !== 'undefined') console.error('Price fetch error', stock.ticker, err);
         }
 
+        if (!dayChartRequest) return;
         try {
           const chartResponse = await dayChartRequest;
           if (!chartResponse.ok) return;
@@ -403,7 +411,11 @@ export default function WatchlistMenu({
           if (cleaned.length >= 2) {
             daySeriesResult[stock.ticker] = cleaned;
           }
-        } catch {}
+        } catch (err) {
+          if (typeof window !== 'undefined') {
+            console.error('Day chart fetch error', stock.ticker, err);
+          }
+        }
       }),
     );
 

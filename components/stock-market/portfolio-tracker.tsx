@@ -2551,7 +2551,11 @@ export default function PortfolioTracker() {
                   </div>
                 </div>
               ) : null}
-              <div className="relative min-h-[18rem] w-full flex-1 overflow-hidden rounded-xl bg-background p-0 sm:min-h-[22rem]">
+              <div
+                className={`relative min-h-[18rem] w-full flex-1 overflow-hidden rounded-xl bg-background p-0 sm:min-h-[22rem] ${
+                  isMobile && activeChart === 'value' ? 'touch-none' : ''
+                }`}
+              >
                 <ChartContainer
                   config={
                     activeChart === 'dividends'
