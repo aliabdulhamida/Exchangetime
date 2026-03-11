@@ -37,10 +37,16 @@ function toNum(v) {
   return undefined;
 }
 
+function toStableNumber(value, precision = 6) {
+  if (!Number.isFinite(value)) return undefined;
+  const normalized = Number(value.toFixed(precision));
+  return Number.isFinite(normalized) ? normalized : undefined;
+}
+
 function toPercent(v) {
   const n = toNum(v);
   if (typeof n !== 'number') return undefined;
-  return Math.abs(n) <= 1 ? n * 100 : n;
+  return toStableNumber(Math.abs(n) <= 1 ? n * 100 : n);
 }
 
 async function fetchTwelveDataQuote(symbol) {
