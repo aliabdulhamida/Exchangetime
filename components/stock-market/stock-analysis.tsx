@@ -1279,6 +1279,7 @@ export default function StockAnalysis() {
                             {selectedStock.symbol.slice(0, 2)}
                           </span>
                           {activeLogoUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={activeLogoUrl}
                               alt={`${selectedStock.name} logo`}
