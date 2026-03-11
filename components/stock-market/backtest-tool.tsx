@@ -409,13 +409,11 @@ export default function BacktestTool() {
   }, [normalizedWeightPercents, parsedSymbols]);
 
   const portfolioColor = useMemo(() => {
-    if (!portfolioHistory || portfolioHistory.length < 2) return '#e5e7eb';
-    const first = portfolioHistory[0].value;
-    const last = portfolioHistory[portfolioHistory.length - 1].value;
-    if (last > first) return '#34d399';
-    if (last < first) return '#fb7185';
+    if (!result) return '#e5e7eb';
+    if (result.totalReturn > 0) return '#34d399';
+    if (result.totalReturn < 0) return '#fb7185';
     return '#e5e7eb';
-  }, [portfolioHistory]);
+  }, [result]);
 
   const summaryCards = useMemo(() => {
     if (!result) return [];
@@ -458,10 +456,18 @@ export default function BacktestTool() {
       .map((point) => point.value)
       .filter((value) => typeof value === 'number' && Number.isFinite(value));
     if (!values.length) return null;
-    const low = Math.min(...values);
     const high = Math.max(...values);
     const last = values[values.length - 1];
-    return { low, high, last };
+    let runningPeak = values[0];
+    let maxDrawdownPct = 0;
+    for (const value of values) {
+      if (value > runningPeak) runningPeak = value;
+      if (runningPeak > 0) {
+        const drawdownPct = ((runningPeak - value) / runningPeak) * 100;
+        if (drawdownPct > maxDrawdownPct) maxDrawdownPct = drawdownPct;
+      }
+    }
+    return { high, last, maxDrawdownPct };
   }, [portfolioHistory]);
   const dividendStats = useMemo(() => {
     if (!dividendHistory || dividendHistory.length === 0) return null;
@@ -469,11 +475,19 @@ export default function BacktestTool() {
       .map((point) => point.amount)
       .filter((value) => typeof value === 'number' && Number.isFinite(value));
     if (!payouts.length) return null;
+    const payoutCount = payouts.length;
+    const rangeStart = portfolioHistory?.[0]?.date ?? startDate;
+    const rangeEnd = portfolioHistory?.[portfolioHistory.length - 1]?.date ?? endDate;
+    const startTs = Date.parse(`${rangeStart}T00:00:00Z`);
+    const endTs = Date.parse(`${rangeEnd}T00:00:00Z`);
+    const rangeMs = Number.isFinite(startTs) && Number.isFinite(endTs) ? Math.max(endTs - startTs, 0) : 0;
+    const years = Math.max(rangeMs / (365.25 * 24 * 60 * 60 * 1000), 1);
     const total = payouts.reduce((sum, amount) => sum + amount, 0);
     const avg = total / payouts.length;
     const peak = Math.max(...payouts);
-    return { total, avg, peak };
-  }, [dividendHistory]);
+    const payoutsPerYear = payoutCount / years;
+    return { total, avg, peak, payoutsPerYear };
+  }, [dividendHistory, endDate, portfolioHistory, startDate]);
   const hasPortfolioSection = Boolean(portfolioHistory && portfolioHistory.length > 0);
   const hasDividendSection = Boolean(dividendHistory && dividendHistory.length > 0);
 
@@ -488,9 +502,11 @@ export default function BacktestTool() {
         {portfolioStats && (
           <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
             <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
-              <span className="text-muted-foreground">Low</span>
-              <div className="mt-0.5 font-semibold tabular-nums text-foreground">
-                ${formatCompact(portfolioStats.low, 2)}
+              <span className="text-muted-foreground">Max Drawdown</span>
+              <div className="mt-0.5 font-semibold tabular-nums text-rose-300">
+                {portfolioStats.maxDrawdownPct > 0
+                  ? `-${portfolioStats.maxDrawdownPct.toFixed(2)}%`
+                  : '0.00%'}
               </div>
             </div>
             <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
@@ -589,20 +605,26 @@ export default function BacktestTool() {
           <p className={captionClass}>Dividend Cashflow</p>
         </div>
         {dividendStats && (
-          <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
-            <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+          <div className="mb-2 flex gap-1 overflow-x-auto pb-1 text-[10px] sm:grid sm:grid-cols-4 sm:gap-1.5 sm:overflow-visible sm:pb-0">
+            <div className="min-w-[6.5rem] shrink-0 rounded-md border border-border/80 bg-background/70 px-1 py-0.5 sm:min-w-0 sm:px-1.5 sm:py-1">
               <span className="text-muted-foreground">Total</span>
               <div className="mt-0.5 font-semibold tabular-nums text-foreground">
                 ${formatCompact(dividendStats.total, 2)}
               </div>
             </div>
-            <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+            <div className="min-w-[6.5rem] shrink-0 rounded-md border border-border/80 bg-background/70 px-1 py-0.5 sm:min-w-0 sm:px-1.5 sm:py-1">
               <span className="text-muted-foreground">Average</span>
               <div className="mt-0.5 font-semibold tabular-nums text-foreground">
                 ${formatCompact(dividendStats.avg, 2)}
               </div>
             </div>
-            <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+            <div className="min-w-[6.5rem] shrink-0 rounded-md border border-border/80 bg-background/70 px-1 py-0.5 sm:min-w-0 sm:px-1.5 sm:py-1">
+              <span className="text-muted-foreground">Payouts / Year</span>
+              <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                {dividendStats.payoutsPerYear.toFixed(1)}
+              </div>
+            </div>
+            <div className="min-w-[6.5rem] shrink-0 rounded-md border border-border/80 bg-background/70 px-1 py-0.5 sm:min-w-0 sm:px-1.5 sm:py-1">
               <span className="text-muted-foreground">Peak</span>
               <div className="mt-0.5 font-semibold tabular-nums text-foreground">
                 ${formatCompact(dividendStats.peak, 2)}
