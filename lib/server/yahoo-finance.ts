@@ -153,6 +153,31 @@ export function toNullableString(value: any): string | null {
   return null;
 }
 
+function toSafeHttpUrl(value: any): string | null {
+  const raw = toNullableString(value);
+  if (!raw) return null;
+  const normalized = raw.includes('://') ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function buildGoogleFaviconUrl(value: any): string | undefined {
+  const safeUrl = toSafeHttpUrl(value);
+  if (!safeUrl) return undefined;
+  try {
+    const hostname = new URL(safeUrl).hostname.trim();
+    if (!hostname) return undefined;
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=128`;
+  } catch {
+    return undefined;
+  }
+}
+
 function coercePercent(value: number | null): number | undefined {
   if (value === null || !Number.isFinite(value)) return undefined;
   return Math.abs(value) <= 1 ? value * 100 : value;
@@ -541,6 +566,13 @@ export function mapYahooMetrics(snapshot: YahooQuoteSnapshot, fallbackCompanyNam
   const summaryDetail = snapshot.summaryDetail || {};
   const defaultKeyStats = snapshot.defaultKeyStats || {};
   const financialData = snapshot.financialData || {};
+  const directLogoUrl =
+    toSafeHttpUrl(quoteResult?.logo_url) ||
+    toSafeHttpUrl(quoteResult?.logoUrl) ||
+    toSafeHttpUrl(snapshot.summaryProfile?.logo_url) ||
+    toSafeHttpUrl(snapshot.summaryProfile?.logoUrl);
+  const logoUrl =
+    directLogoUrl || buildGoogleFaviconUrl(snapshot.summaryProfile?.website || snapshot.summaryProfile?.url);
 
   const freeCashflowRaw = toFiniteNumber(financialData?.freeCashflow) ?? toFiniteNumber(financialData?.freeCashFlow);
 
@@ -595,6 +627,7 @@ export function mapYahooMetrics(snapshot: YahooQuoteSnapshot, fallbackCompanyNam
       toNullableString(snapshot.summaryProfile?.companyName) ||
       fallbackCompanyName ||
       snapshot.symbol,
+    logoUrl,
     source: 'yahoo',
   };
 }

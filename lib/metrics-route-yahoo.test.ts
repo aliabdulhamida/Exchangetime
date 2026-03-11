@@ -93,6 +93,9 @@ describe('pages/api/metrics yahoo-first routing', () => {
           quoteSummary: {
             result: [
               {
+                summaryProfile: {
+                  website: 'https://www.apple.com',
+                },
                 summaryDetail: { dividendYield: { raw: 0.005 } },
                 defaultKeyStatistics: { earningsQuarterlyGrowth: { raw: 0.2 } },
                 financialData: {
@@ -125,6 +128,7 @@ describe('pages/api/metrics yahoo-first routing', () => {
     expect(res.body.roe).toBe(22);
     expect(res.body.revenueGrowth).toBe(10);
     expect(res.body.freeCashFlow).toBe(80);
+    expect(res.body.logoUrl).toBe('https://www.google.com/s2/favicons?domain=www.apple.com&sz=128');
   });
 
   it('falls back to twelvedata when yahoo fails', async () => {

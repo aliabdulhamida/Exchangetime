@@ -41,7 +41,7 @@ describe('yahoo-finance helpers', () => {
           longName: 'Apple Inc.',
         },
         summaryResult: {},
-        summaryProfile: {},
+        summaryProfile: { website: 'https://www.apple.com' },
         summaryDetail: {
           dividendYield: { raw: 0.005 },
         },
@@ -70,6 +70,7 @@ describe('yahoo-finance helpers', () => {
     expect(payload.earningsGrowth).toBe(15);
     expect(payload.freeCashFlow).toBe(120);
     expect(payload.dividendYield).toBe(0.5);
+    expect(payload.logoUrl).toBe('https://www.google.com/s2/favicons?domain=www.apple.com&sz=128');
   });
 
   it('maps analyst consensus from yahoo recommendation fields', () => {

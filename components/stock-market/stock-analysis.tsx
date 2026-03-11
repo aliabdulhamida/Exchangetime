@@ -6,10 +6,12 @@ import {
   ArrowUpRight,
   Calendar,
   Dot,
+  ExternalLink,
+  Newspaper,
   Search,
   Users,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -29,14 +31,15 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import AnalystValuation from './AnalystValuation';
-import NewsModal from './NewsModal';
 
 type ChartRange = '1M' | '3M' | '6M' | '1Y' | 'YTD' | '52W';
-type MobilePanelTab = 'analysis' | 'insider';
+type MobilePanelTab = 'analysis' | 'insider' | 'news';
+type RightPanelTab = 'insider' | 'news';
 
 interface StockData {
   symbol: string;
   name: string;
+  logoUrl?: string;
   price: number;
   change: number;
   changePercent: number;
@@ -67,6 +70,15 @@ interface InsiderTrade {
   date: string;
 }
 
+interface StockNewsItem {
+  id: string;
+  headline: string;
+  datetime: number;
+  summary: string;
+  url: string;
+  source: string;
+}
+
 type Metrics = {
   peRatio?: number;
   pbRatio?: number;
@@ -81,6 +93,7 @@ type Metrics = {
   currentRatio?: number;
   freeCashFlow?: number;
   companyName?: string;
+  logoUrl?: string;
 };
 
 type FullChartPoint = {
@@ -118,6 +131,11 @@ type InsiderCacheEntry = {
   trades: InsiderTrade[];
 };
 
+type NewsCacheEntry = {
+  fetchedAt: number;
+  items: StockNewsItem[];
+};
+
 type MetricKind = 'ratio' | 'percent' | 'billions';
 type MetricField =
   | 'pe'
@@ -149,7 +167,9 @@ const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
 const CHART_CACHE_TTL_MS = 5 * 60 * 1000;
 const FUNDAMENTALS_CACHE_TTL_MS = 10 * 60 * 1000;
 const INSIDER_CACHE_TTL_MS = 10 * 60 * 1000;
+const NEWS_CACHE_TTL_MS = 10 * 60 * 1000;
 const CHART_RANGES: readonly ChartRange[] = ['1M', '3M', '6M', '1Y'];
+const NEWS_PAGE_SIZE = 6;
 
 const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
 const sellRegex = /sell|sale|dispose|disposition/i;
@@ -198,6 +218,21 @@ function toFiniteNumber(value: unknown): number | null {
   return null;
 }
 
+function toSafeHttpUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const raw = value.trim();
+  if (!raw) return undefined;
+
+  const normalized = raw.includes('://') ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return undefined;
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 function hasMetricsSignal(metrics: Metrics | null | undefined): boolean {
   if (!metrics || typeof metrics !== 'object') return false;
   const keys: (keyof Metrics)[] = [
@@ -214,7 +249,9 @@ function hasMetricsSignal(metrics: Metrics | null | undefined): boolean {
     'currentRatio',
     'freeCashFlow',
   ];
-  return keys.some((key) => typeof metrics[key] === 'number' && Number.isFinite(metrics[key] as number));
+  return keys.some(
+    (key) => typeof metrics[key] === 'number' && Number.isFinite(metrics[key] as number),
+  );
 }
 
 function formatRatio(value?: number, digits = 2): string {
@@ -451,9 +488,15 @@ function getSignedTradeValue(trade: InsiderTrade | undefined): number {
   return 0;
 }
 
-function normalizeInsiderTrade(raw: any, fallbackSymbol: string, fallbackCompany: string): InsiderTrade {
+function normalizeInsiderTrade(
+  raw: any,
+  fallbackSymbol: string,
+  fallbackCompany: string,
+): InsiderTrade {
   const symbol =
-    typeof raw?.symbol === 'string' && raw.symbol.trim() ? raw.symbol.trim().toUpperCase() : fallbackSymbol;
+    typeof raw?.symbol === 'string' && raw.symbol.trim()
+      ? raw.symbol.trim().toUpperCase()
+      : fallbackSymbol;
   const company =
     typeof raw?.company === 'string' && raw.company.trim() ? raw.company.trim() : fallbackCompany;
 
@@ -470,10 +513,28 @@ function normalizeInsiderTrade(raw: any, fallbackSymbol: string, fallbackCompany
   };
 }
 
+function normalizeNewsItem(raw: any, fallbackSymbol: string): StockNewsItem | null {
+  const headline = typeof raw?.headline === 'string' ? raw.headline.trim() : '';
+  const url = typeof raw?.url === 'string' ? raw.url.trim() : '';
+  const datetime = toFiniteNumber(raw?.datetime);
+  if (!headline || !url || typeof datetime !== 'number') return null;
+
+  return {
+    id:
+      (typeof raw?.id === 'string' && raw.id.trim()) ||
+      `${fallbackSymbol}-${datetime}-${headline.slice(0, 24)}`,
+    headline,
+    datetime,
+    summary: typeof raw?.summary === 'string' ? raw.summary.trim() : '',
+    url,
+    source: typeof raw?.source === 'string' && raw.source.trim() ? raw.source.trim() : 'Source',
+  };
+}
+
 export default function StockAnalysis() {
   const [loading, setLoading] = useState(false);
-  const [newsOpen, setNewsOpen] = useState(false);
   const [mobilePanelTab, setMobilePanelTab] = useState<MobilePanelTab>('analysis');
+  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('insider');
   const [searchSymbol, setSearchSymbol] = useState('');
   const [activeSymbol, setActiveSymbol] = useState('');
   const [selectedStock, setSelectedStock] = useState<StockData | null>(null);
@@ -481,6 +542,9 @@ export default function StockAnalysis() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [insiderError, setInsiderError] = useState<string | null>(null);
   const [insiderEmptyState, setInsiderEmptyState] = useState<string | null>(null);
+  const [newsError, setNewsError] = useState<string | null>(null);
+  const [newsItems, setNewsItems] = useState<StockNewsItem[]>([]);
+  const [newsPage, setNewsPage] = useState(1);
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [fullChartData, setFullChartData] = useState<FullChartPoint[]>([]);
   const [chartRange, setChartRange] = useState<ChartRange>('1M');
@@ -488,10 +552,12 @@ export default function StockAnalysis() {
   const [insiderCompanyName, setInsiderCompanyName] = useState('');
   const [insiderTrades, setInsiderTrades] = useState<InsiderTrade[]>([]);
   const [selectedTradeIndexes, setSelectedTradeIndexes] = useState<number[]>([]);
+  const [logoCandidateIndex, setLogoCandidateIndex] = useState(0);
 
   const chartCacheRef = useRef<Record<string, ChartCacheEntry>>({});
   const fundamentalsCacheRef = useRef<Record<string, FundamentalsCacheEntry>>({});
   const insiderCacheRef = useRef<Record<string, InsiderCacheEntry>>({});
+  const newsCacheRef = useRef<Record<string, NewsCacheEntry>>({});
   const requestSequenceRef = useRef(0);
   const chartRangeSequenceRef = useRef(0);
 
@@ -510,9 +576,42 @@ export default function StockAnalysis() {
   const ytdChange = useMemo(() => calcPercentChange(ytdData), [ytdData]);
   const week52Change = useMemo(() => calcPercentChange(week52Data), [week52Data]);
   const activeMetricSection = useMemo(
-    () => METRIC_SECTIONS.find((section) => section.title === activeSectionTitle) ?? METRIC_SECTIONS[0],
+    () =>
+      METRIC_SECTIONS.find((section) => section.title === activeSectionTitle) ?? METRIC_SECTIONS[0],
     [activeSectionTitle],
   );
+  const logoCandidates = useMemo(() => {
+    if (!selectedStock) return [] as string[];
+    const fromMetrics = selectedStock.logoUrl;
+    const bySymbol = `https://financialmodelingprep.com/image-stock/${encodeURIComponent(
+      selectedStock.symbol,
+    )}.png`;
+    return Array.from(
+      new Set([fromMetrics, bySymbol].filter((value): value is string => Boolean(value))),
+    );
+  }, [selectedStock]);
+  const activeLogoUrl =
+    logoCandidateIndex >= 0 && logoCandidateIndex < logoCandidates.length
+      ? logoCandidates[logoCandidateIndex]
+      : undefined;
+  const newsTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(newsItems.length / NEWS_PAGE_SIZE)),
+    [newsItems.length],
+  );
+  const visibleNewsItems = useMemo(
+    () => newsItems.slice((newsPage - 1) * NEWS_PAGE_SIZE, newsPage * NEWS_PAGE_SIZE),
+    [newsItems, newsPage],
+  );
+
+  useEffect(() => {
+    setLogoCandidateIndex(0);
+  }, [selectedStock?.symbol, selectedStock?.logoUrl]);
+
+  useEffect(() => {
+    if (newsPage > newsTotalPages) {
+      setNewsPage(newsTotalPages);
+    }
+  }, [newsPage, newsTotalPages]);
 
   const chartIsPositive =
     chartData.length > 1 && chartData[chartData.length - 1].price >= chartData[0].price;
@@ -609,13 +708,17 @@ export default function StockAnalysis() {
       if (!response.ok) return null;
       const payload = await response.json();
       const dcfCandidate = payload?.dcf ?? payload?.[0]?.dcf;
-      return typeof dcfCandidate === 'number' && Number.isFinite(dcfCandidate) ? dcfCandidate : null;
+      return typeof dcfCandidate === 'number' && Number.isFinite(dcfCandidate)
+        ? dcfCandidate
+        : null;
     } catch {
       return null;
     }
   }
 
-  async function fetchFundamentals(symbol: string): Promise<{ metrics: Metrics; dcf: number | null }> {
+  async function fetchFundamentals(
+    symbol: string,
+  ): Promise<{ metrics: Metrics; dcf: number | null }> {
     const cached = fundamentalsCacheRef.current[symbol];
     const now = Date.now();
 
@@ -627,7 +730,10 @@ export default function StockAnalysis() {
       return { metrics: cached.metrics, dcf: cached.dcf };
     }
 
-    const [metrics, dcf] = await Promise.all([fetchAdditionalMetrics(symbol), fetchDcfValue(symbol)]);
+    const [metrics, dcf] = await Promise.all([
+      fetchAdditionalMetrics(symbol),
+      fetchDcfValue(symbol),
+    ]);
 
     if (hasMetricsSignal(metrics) || dcf !== null) {
       fundamentalsCacheRef.current[symbol] = {
@@ -691,7 +797,8 @@ export default function StockAnalysis() {
 
     const latestClose = points.length ? points[points.length - 1].price : null;
     const previousClose =
-      toFiniteNumber(meta?.previousClose) ?? (points.length > 1 ? points[points.length - 2].price : null);
+      toFiniteNumber(meta?.previousClose) ??
+      (points.length > 1 ? points[points.length - 2].price : null);
 
     const snapshot: QuoteSnapshot = {
       meta,
@@ -725,7 +832,9 @@ export default function StockAnalysis() {
 
     const payload = await response.json();
     const company =
-      typeof payload?.company === 'string' && payload.company.trim() ? payload.company.trim() : symbol;
+      typeof payload?.company === 'string' && payload.company.trim()
+        ? payload.company.trim()
+        : symbol;
     const rows: any[] = Array.isArray(payload?.trades) ? payload.trades : [];
     const trades = rows
       .map((row: any) => normalizeInsiderTrade(row, symbol, company))
@@ -744,6 +853,47 @@ export default function StockAnalysis() {
     return { company, trades };
   }
 
+  async function fetchNewsSnapshot(symbol: string): Promise<StockNewsItem[]> {
+    const cached = newsCacheRef.current[symbol];
+    const now = Date.now();
+
+    if (cached && now - cached.fetchedAt < NEWS_CACHE_TTL_MS) {
+      return cached.items;
+    }
+
+    const toDate = new Date();
+    const fromDate = new Date(toDate);
+    fromDate.setDate(toDate.getDate() - 6);
+
+    const response = await fetch(
+      `/api/news?ticker=${encodeURIComponent(symbol)}&from=${fromDate.toISOString().slice(0, 10)}&to=${toDate
+        .toISOString()
+        .slice(0, 10)}`,
+    );
+
+    if (!response.ok) {
+      throw new Error(`Error fetching news: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const rows = Array.isArray(payload) ? payload : [];
+    const items = rows
+      .map((row: any) => normalizeNewsItem(row, symbol))
+      .filter((item: StockNewsItem | null): item is StockNewsItem => item !== null);
+
+    newsCacheRef.current[symbol] = {
+      fetchedAt: now,
+      items,
+    };
+
+    return items;
+  }
+
+  function selectRightPanelTab(tab: RightPanelTab) {
+    setRightPanelTab(tab);
+    setMobilePanelTab(tab);
+  }
+
   async function handleSearch() {
     const symbol = searchSymbol.trim().toUpperCase();
     if (!symbol) return;
@@ -759,6 +909,9 @@ export default function StockAnalysis() {
       setInsiderEmptyState(null);
       setAnalysisError(null);
       setInsiderError(null);
+      setNewsError(null);
+      setNewsItems([]);
+      setNewsPage(1);
       return;
     }
 
@@ -770,6 +923,9 @@ export default function StockAnalysis() {
     setAnalysisError(null);
     setInsiderError(null);
     setInsiderEmptyState(null);
+    setNewsError(null);
+    setNewsItems([]);
+    setNewsPage(1);
     setSelectedTradeIndexes([]);
     setSelectedStock(null);
     setChartData([]);
@@ -779,17 +935,22 @@ export default function StockAnalysis() {
     setLoading(true);
 
     try {
-      const [chartResult, fundamentalsResult, insiderResult] = await Promise.allSettled([
-        fetchChartSnapshot(symbol),
-        fetchFundamentals(symbol),
-        fetchInsiderSnapshot(symbol),
-      ]);
+      const [chartResult, fundamentalsResult, insiderResult, newsResult] = await Promise.allSettled(
+        [
+          fetchChartSnapshot(symbol),
+          fetchFundamentals(symbol),
+          fetchInsiderSnapshot(symbol),
+          fetchNewsSnapshot(symbol),
+        ],
+      );
 
       if (requestId !== requestSequenceRef.current) return;
 
       const chartSnapshot = chartResult.status === 'fulfilled' ? chartResult.value : null;
       const fundamentals =
-        fundamentalsResult.status === 'fulfilled' ? fundamentalsResult.value : { metrics: {}, dcf: null };
+        fundamentalsResult.status === 'fulfilled'
+          ? fundamentalsResult.value
+          : { metrics: {}, dcf: null };
 
       if (chartSnapshot?.quote) {
         applyChartRange(chartSnapshot.points, chartRange);
@@ -810,6 +971,7 @@ export default function StockAnalysis() {
           setSelectedStock({
             symbol,
             name: fundamentals.metrics?.companyName || meta?.longName || meta?.shortName || symbol,
+            logoUrl: toSafeHttpUrl(fundamentals.metrics?.logoUrl),
             price,
             change,
             changePercent,
@@ -862,17 +1024,36 @@ export default function StockAnalysis() {
             : 'Error fetching insider trades.',
         );
       }
+
+      if (newsResult.status === 'fulfilled') {
+        setNewsItems(newsResult.value);
+        setNewsError(null);
+        setNewsPage(1);
+      } else {
+        setNewsItems([]);
+        setNewsPage(1);
+        setNewsError(
+          newsResult.status === 'rejected' && newsResult.reason instanceof Error
+            ? newsResult.reason.message
+            : 'Error fetching news.',
+        );
+      }
     } catch (err: unknown) {
       if (requestId !== requestSequenceRef.current) return;
 
       setAnalysisError('Unknown error while fetching stock data.');
-      setInsiderError(err instanceof Error ? err.message : 'Unknown error while fetching insider data.');
+      setInsiderError(
+        err instanceof Error ? err.message : 'Unknown error while fetching insider data.',
+      );
       setSelectedStock(null);
       setChartData([]);
       setFullChartData([]);
       setInsiderTrades([]);
       setInsiderCompanyName(symbol);
       setInsiderEmptyState(null);
+      setNewsItems([]);
+      setNewsPage(1);
+      setNewsError(err instanceof Error ? err.message : 'Unknown error while fetching news.');
     } finally {
       if (requestId === requestSequenceRef.current) {
         setLoading(false);
@@ -948,7 +1129,7 @@ export default function StockAnalysis() {
       )}
 
       <div className={`${panelClass} p-1 md:hidden`}>
-        <div className="grid grid-cols-2 gap-1">
+        <div className="grid grid-cols-3 gap-1">
           <button
             type="button"
             onClick={() => setMobilePanelTab('analysis')}
@@ -962,7 +1143,7 @@ export default function StockAnalysis() {
           </button>
           <button
             type="button"
-            onClick={() => setMobilePanelTab('insider')}
+            onClick={() => selectRightPanelTab('insider')}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               mobilePanelTab === 'insider'
                 ? 'bg-foreground text-background'
@@ -971,12 +1152,25 @@ export default function StockAnalysis() {
           >
             Insider
           </button>
+          <button
+            type="button"
+            onClick={() => selectRightPanelTab('news')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              mobilePanelTab === 'news'
+                ? 'bg-foreground text-background'
+                : 'bg-background text-muted-foreground'
+            }`}
+          >
+            News
+          </button>
         </div>
       </div>
 
       {loading ? (
         <div className="grid grid-cols-1 items-start gap-2.5 sm:gap-3 xl:grid-cols-2">
-          <div className={`${mobilePanelTab === 'analysis' ? 'block' : 'hidden'} space-y-2.5 md:block`}>
+          <div
+            className={`${mobilePanelTab === 'analysis' ? 'block' : 'hidden'} space-y-2.5 md:block`}
+          >
             <div className={`${sectionClass} flex items-start justify-between`}>
               <div className="space-y-2">
                 <Skeleton className="h-3 w-14" />
@@ -1018,7 +1212,9 @@ export default function StockAnalysis() {
             </div>
           </div>
 
-          <div className={`${mobilePanelTab === 'insider' ? 'block' : 'hidden'} space-y-2.5 md:block`}>
+          <div
+            className={`${mobilePanelTab === 'insider' || mobilePanelTab === 'news' ? 'block' : 'hidden'} space-y-2.5 md:block`}
+          >
             <div className={`${sectionClass} flex items-start justify-between`}>
               <div className="space-y-2">
                 <Skeleton className="h-3 w-14" />
@@ -1076,28 +1272,39 @@ export default function StockAnalysis() {
               <>
                 <div className={sectionClass}>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className={captionClass}>Company</p>
-                      <h3 className="mt-1 truncate text-[1.2rem] font-semibold leading-tight text-foreground sm:text-[1.35rem]">
-                        {selectedStock.name}
-                      </h3>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="rounded-md border border-border bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                          {selectedStock.symbol}
-                        </span>
-                        <button
-                          className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
-                          onClick={() => setNewsOpen(true)}
-                          aria-label={`Show news for ${selectedStock.symbol}`}
-                        >
-                          News
-                        </button>
+                    <div className="min-w-0 self-center">
+                      <div className="flex items-start gap-2.5">
+                        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-border/70 bg-zinc-50">
+                          <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-zinc-500">
+                            {selectedStock.symbol.slice(0, 2)}
+                          </span>
+                          {activeLogoUrl && (
+                            <img
+                              src={activeLogoUrl}
+                              alt={`${selectedStock.name} logo`}
+                              className="absolute inset-0 h-full w-full object-contain"
+                              loading="lazy"
+                              onError={() => {
+                                setLogoCandidateIndex((current) => {
+                                  const next = current + 1;
+                                  return next < logoCandidates.length
+                                    ? next
+                                    : logoCandidates.length;
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="truncate text-[1.2rem] font-semibold leading-tight text-foreground sm:text-[1.35rem]">
+                            {selectedStock.name}
+                          </h3>
+                        </div>
                       </div>
                     </div>
 
                     <div className="shrink-0 text-right">
-                      <p className={captionClass}>Price</p>
-                      <p className="mt-1 tabular-nums text-[1.45rem] font-semibold leading-none tracking-tight text-foreground sm:text-[1.6rem]">
+                      <p className="tabular-nums text-[1.45rem] font-semibold leading-none tracking-tight text-foreground sm:text-[1.6rem]">
                         ${selectedStock.price.toFixed(2)}
                       </p>
                       <p
@@ -1110,11 +1317,6 @@ export default function StockAnalysis() {
                       </p>
                     </div>
                   </div>
-                  <NewsModal
-                    open={newsOpen}
-                    onOpenChange={setNewsOpen}
-                    ticker={selectedStock.symbol}
-                  />
                 </div>
 
                 <div className={sectionClass}>
@@ -1145,7 +1347,10 @@ export default function StockAnalysis() {
                         metricSignalTone(row.field, selectedStock[row.field]),
                       );
                       return (
-                        <div key={`${activeMetricSection.title}-${row.field}`} className={metricRowClass}>
+                        <div
+                          key={`${activeMetricSection.title}-${row.field}`}
+                          className={metricRowClass}
+                        >
                           <span className="inline-flex items-center text-xs text-foreground sm:text-sm">
                             <span className={`mr-2 h-1.5 w-1.5 rounded-full ${toneClasses.dot}`} />
                             {row.label}
@@ -1270,7 +1475,8 @@ export default function StockAnalysis() {
                           content={({ active, payload, label }) => {
                             if (!active || !payload || !payload.length) return null;
                             const point = payload[0].payload;
-                            const priceValue = typeof point?.price === 'number' ? point.price : null;
+                            const priceValue =
+                              typeof point?.price === 'number' ? point.price : null;
                             return (
                               <div className="rounded-lg border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground shadow-sm">
                                 <div className="font-medium text-muted-foreground">
@@ -1361,7 +1567,9 @@ export default function StockAnalysis() {
                               : 'ml-1 text-foreground'
                           }
                         >
-                          {ytdChange !== null ? `${ytdChange > 0 ? '+' : ''}${ytdChange.toFixed(2)}%` : ' - '}
+                          {ytdChange !== null
+                            ? `${ytdChange > 0 ? '+' : ''}${ytdChange.toFixed(2)}%`
+                            : ' - '}
                         </span>
                       </div>
                       <div className="rounded-md border border-border bg-background px-1.5 py-0.5">
@@ -1383,7 +1591,6 @@ export default function StockAnalysis() {
                     </div>
                   </div>
                 </div>
-
               </>
             ) : (
               !analysisError && (
@@ -1411,365 +1618,505 @@ export default function StockAnalysis() {
           </div>
 
           <div
-            className={`${mobilePanelTab === 'insider' ? 'block' : 'hidden'} space-y-2.5 sm:space-y-3 md:block`}
+            className={`${mobilePanelTab === 'insider' || mobilePanelTab === 'news' ? 'block' : 'hidden'} space-y-2.5 sm:space-y-3 md:block`}
           >
-            <div className={sectionClass}>
+            <div className="hidden px-0 py-0 md:block">
               <div className="flex items-center justify-between gap-3">
-                <p className={captionClass}>Insider Activity</p>
-                {resolvedSymbol && (
-                  <span className="inline-flex rounded-md border border-border bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                    {resolvedSymbol}
-                  </span>
-                )}
+                <div className="grid w-full max-w-[13.5rem] grid-cols-2 gap-1 rounded-lg border border-border p-1">
+                  <button
+                    type="button"
+                    onClick={() => selectRightPanelTab('insider')}
+                    className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      rightPanelTab === 'insider'
+                        ? 'bg-foreground text-background'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Insider
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => selectRightPanelTab('news')}
+                    className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      rightPanelTab === 'news'
+                        ? 'bg-foreground text-background'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    News
+                  </button>
+                </div>
               </div>
             </div>
 
-            {insiderError && (
-              <Alert
-                variant="destructive"
-                className="flex items-start gap-2 rounded-2xl border border-rose-500/40 bg-rose-900/20 px-3 py-2.5 text-rose-200"
-              >
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
-                <span className="text-sm">{insiderError}</span>
-              </Alert>
-            )}
-
-            {!insiderError && insiderTrades.length > 0 && (
+            {rightPanelTab === 'insider' ? (
               <>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  <div className={`${panelClass} col-span-2 flex items-center gap-2 px-2.5 py-2 sm:col-span-1`}>
-                    <div
-                      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                        netVolume >= 0
-                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                          : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
-                      }`}
-                    >
-                      {netVolume >= 0 ? (
-                        <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                      ) : (
-                        <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Net Flow</p>
-                      <p
-                        className={`mt-0.5 truncate text-xs font-semibold tabular-nums sm:text-sm ${
-                          netVolume >= 0 ? 'text-emerald-300' : 'text-rose-300'
-                        }`}
+                {insiderError && (
+                  <Alert
+                    variant="destructive"
+                    className="flex items-start gap-2 rounded-2xl border border-rose-500/40 bg-rose-900/20 px-3 py-2.5 text-rose-200"
+                  >
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+                    <span className="text-sm">{insiderError}</span>
+                  </Alert>
+                )}
+
+                {!insiderError && insiderTrades.length > 0 && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <div
+                        className={`${panelClass} col-span-2 flex items-center gap-2 px-2.5 py-2 sm:col-span-1`}
                       >
-                        {formatSignedCompactCurrency(netVolume)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className={`${panelClass} flex items-center gap-2 px-2.5 py-2`}>
-                    <div className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
-                      <Users className="h-3 w-3" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                        Active Insiders
-                      </p>
-                      <p className="mt-0.5 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
-                        {uniqueInsiderCount}
-                      </p>
-                    </div>
-                  </div>
-                  <div className={`${panelClass} flex items-center gap-2 px-2.5 py-2`}>
-                    <div className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
-                      <Calendar className="h-3 w-3" aria-hidden="true" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                        Latest Filing
-                      </p>
-                      <p className="mt-0.5 truncate text-xs font-semibold tabular-nums text-foreground sm:text-sm">
-                        {latestInsiderTradeDate ? formatFullDate(latestInsiderTradeDate) : '-'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div className={`${panelClass} px-2.5 py-2`}>
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Buy Trades</p>
-                    <p className="mt-1 text-xs font-semibold tabular-nums text-emerald-300 sm:text-sm">
-                      {buyCount}
-                    </p>
-                  </div>
-                  <div className={`${panelClass} px-2.5 py-2`}>
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Sell Trades</p>
-                    <p className="mt-1 text-xs font-semibold tabular-nums text-rose-300 sm:text-sm">
-                      {sellCount}
-                    </p>
-                  </div>
-                  <div className={`${panelClass} px-2.5 py-2`}>
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Buy Volume</p>
-                    <p className="mt-1 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
-                      ${formatCompactNumber(buyVolume)}
-                    </p>
-                  </div>
-                  <div className={`${panelClass} px-2.5 py-2`}>
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Sell Volume</p>
-                    <p className="mt-1 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
-                      ${formatCompactNumber(sellVolume)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className={sectionClass}>
-                  {insiderChartStats && (
-                    <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
-                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
-                        <span className="text-muted-foreground">Peak Buy</span>
-                        <div className="mt-0.5 font-semibold tabular-nums text-foreground">
-                          ${formatCompactNumber(insiderChartStats.peakBuy, 2)}
-                        </div>
-                      </div>
-                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
-                        <span className="text-muted-foreground">Peak Sell</span>
-                        <div className="mt-0.5 font-semibold tabular-nums text-foreground">
-                          ${formatCompactNumber(insiderChartStats.peakSell, 2)}
-                        </div>
-                      </div>
-                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
-                        <span className="text-muted-foreground">Avg Net</span>
                         <div
-                          className={`mt-0.5 font-semibold tabular-nums ${
-                            insiderChartStats.avgNet >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                            netVolume >= 0
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                              : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
                           }`}
                         >
-                          {formatSignedCompactCurrency(insiderChartStats.avgNet, 2)}
+                          {netVolume >= 0 ? (
+                            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                          ) : (
+                            <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                            Net Flow
+                          </p>
+                          <p
+                            className={`mt-0.5 truncate text-xs font-semibold tabular-nums sm:text-sm ${
+                              netVolume >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                            }`}
+                          >
+                            {formatSignedCompactCurrency(netVolume)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`${panelClass} flex items-center gap-2 px-2.5 py-2`}>
+                        <div className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+                          <Users className="h-3 w-3" aria-hidden="true" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                            Active Insiders
+                          </p>
+                          <p className="mt-0.5 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
+                            {uniqueInsiderCount}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`${panelClass} flex items-center gap-2 px-2.5 py-2`}>
+                        <div className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+                          <Calendar className="h-3 w-3" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                            Latest Filing
+                          </p>
+                          <p className="mt-0.5 truncate text-xs font-semibold tabular-nums text-foreground sm:text-sm">
+                            {latestInsiderTradeDate ? formatFullDate(latestInsiderTradeDate) : '-'}
+                          </p>
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  <ChartContainer
-                    className="h-[145px] !aspect-auto sm:h-[170px]"
-                    config={{
-                      buy: { label: 'Buy Volume', color: '#34d399' },
-                      sellSigned: { label: 'Sell Volume', color: '#fb7185' },
-                    }}
-                  >
-                    <BarChart data={insiderChartData} margin={{ top: 8, right: 8, left: -2, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="insiderBuyGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#34d399" stopOpacity={0.92} />
-                          <stop offset="95%" stopColor="#34d399" stopOpacity={0.5} />
-                        </linearGradient>
-                        <linearGradient id="insiderSellGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#fb7185" stopOpacity={0.92} />
-                          <stop offset="95%" stopColor="#fb7185" stopOpacity={0.5} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid
-                        vertical={false}
-                        stroke="rgba(161,161,170,0.18)"
-                        strokeDasharray="3 3"
-                      />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fill: '#a1a1aa', fontSize: 10 }}
-                        tickFormatter={(value: string) => formatShortDate(value)}
-                        axisLine={false}
-                        tickLine={false}
-                        minTickGap={20}
-                      />
-                      <YAxis
-                        tick={{ fill: '#a1a1aa', fontSize: 10 }}
-                        tickFormatter={(value: number) =>
-                          `${value < 0 ? '-' : ''}$${formatCompactNumber(Math.abs(value), 1)}`
-                        }
-                        axisLine={false}
-                        tickLine={false}
-                        width={44}
-                        domain={
-                          insiderChartAbsMax > 0
-                            ? [-insiderChartAbsMax * 1.15, insiderChartAbsMax * 1.15]
-                            : ['auto', 'auto']
-                        }
-                      />
-                      <ReferenceLine y={0} stroke="rgba(161,161,170,0.35)" strokeDasharray="3 3" />
-                      <Tooltip
-                        cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                        content={({ active, payload, label }) => {
-                          if (!active || !payload?.length) return null;
-                          const point = payload[0]?.payload as
-                            | { date: string; buy: number; sell: number; net: number }
-                            | undefined;
-                          if (!point) return null;
-                          return (
-                            <div className="rounded-lg border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground shadow-sm">
-                              <div className="font-medium text-muted-foreground">
-                                {formatFullDate(String(label || point.date))}
-                              </div>
-                              <div className="mt-1 text-emerald-300">Buy: ${formatCompactNumber(point.buy)}</div>
-                              <div className="text-rose-300">Sell: ${formatCompactNumber(point.sell)}</div>
-                              <div className={point.net >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
-                                Net: {formatSignedCompactCurrency(point.net)}
-                              </div>
-                            </div>
-                          );
-                        }}
-                      />
-                      <Bar dataKey="buy" fill="url(#insiderBuyGradient)" radius={[3, 3, 0, 0]} maxBarSize={14} />
-                      <Bar
-                        dataKey="sellSigned"
-                        fill="url(#insiderSellGradient)"
-                        radius={[3, 3, 0, 0]}
-                        maxBarSize={14}
-                      />
-                    </BarChart>
-                  </ChartContainer>
-                </div>
-
-                {selectedTradeIndexes.length > 0 && (
-                  <div className="flex items-center justify-center">
-                    <div className="rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs font-medium text-foreground sm:text-sm">
-                      Selected total: {selectedTradesNet >= 0 ? '+' : '-'}$
-                      {formatCompactNumber(Math.abs(selectedTradesNet))}
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className={`${panelClass} px-2.5 py-2`}>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          Buy Trades
+                        </p>
+                        <p className="mt-1 text-xs font-semibold tabular-nums text-emerald-300 sm:text-sm">
+                          {buyCount}
+                        </p>
+                      </div>
+                      <div className={`${panelClass} px-2.5 py-2`}>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          Sell Trades
+                        </p>
+                        <p className="mt-1 text-xs font-semibold tabular-nums text-rose-300 sm:text-sm">
+                          {sellCount}
+                        </p>
+                      </div>
+                      <div className={`${panelClass} px-2.5 py-2`}>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          Buy Volume
+                        </p>
+                        <p className="mt-1 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
+                          ${formatCompactNumber(buyVolume)}
+                        </p>
+                      </div>
+                      <div className={`${panelClass} px-2.5 py-2`}>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          Sell Volume
+                        </p>
+                        <p className="mt-1 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
+                          ${formatCompactNumber(sellVolume)}
+                        </p>
+                      </div>
                     </div>
+
+                    <div className={sectionClass}>
+                      {insiderChartStats && (
+                        <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
+                          <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                            <span className="text-muted-foreground">Peak Buy</span>
+                            <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                              ${formatCompactNumber(insiderChartStats.peakBuy, 2)}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                            <span className="text-muted-foreground">Peak Sell</span>
+                            <div className="mt-0.5 font-semibold tabular-nums text-foreground">
+                              ${formatCompactNumber(insiderChartStats.peakSell, 2)}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                            <span className="text-muted-foreground">Avg Net</span>
+                            <div
+                              className={`mt-0.5 font-semibold tabular-nums ${
+                                insiderChartStats.avgNet >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                              }`}
+                            >
+                              {formatSignedCompactCurrency(insiderChartStats.avgNet, 2)}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <ChartContainer
+                        className="h-[145px] !aspect-auto sm:h-[170px]"
+                        config={{
+                          buy: { label: 'Buy Volume', color: '#34d399' },
+                          sellSigned: { label: 'Sell Volume', color: '#fb7185' },
+                        }}
+                      >
+                        <BarChart
+                          data={insiderChartData}
+                          margin={{ top: 8, right: 8, left: -2, bottom: 0 }}
+                        >
+                          <defs>
+                            <linearGradient id="insiderBuyGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#34d399" stopOpacity={0.92} />
+                              <stop offset="95%" stopColor="#34d399" stopOpacity={0.5} />
+                            </linearGradient>
+                            <linearGradient id="insiderSellGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#fb7185" stopOpacity={0.92} />
+                              <stop offset="95%" stopColor="#fb7185" stopOpacity={0.5} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid
+                            vertical={false}
+                            stroke="rgba(161,161,170,0.18)"
+                            strokeDasharray="3 3"
+                          />
+                          <XAxis
+                            dataKey="date"
+                            tick={{ fill: '#a1a1aa', fontSize: 10 }}
+                            tickFormatter={(value: string) => formatShortDate(value)}
+                            axisLine={false}
+                            tickLine={false}
+                            minTickGap={20}
+                          />
+                          <YAxis
+                            tick={{ fill: '#a1a1aa', fontSize: 10 }}
+                            tickFormatter={(value: number) =>
+                              `${value < 0 ? '-' : ''}$${formatCompactNumber(Math.abs(value), 1)}`
+                            }
+                            axisLine={false}
+                            tickLine={false}
+                            width={44}
+                            domain={
+                              insiderChartAbsMax > 0
+                                ? [-insiderChartAbsMax * 1.15, insiderChartAbsMax * 1.15]
+                                : ['auto', 'auto']
+                            }
+                          />
+                          <ReferenceLine
+                            y={0}
+                            stroke="rgba(161,161,170,0.35)"
+                            strokeDasharray="3 3"
+                          />
+                          <Tooltip
+                            cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload?.length) return null;
+                              const point = payload[0]?.payload as
+                                | { date: string; buy: number; sell: number; net: number }
+                                | undefined;
+                              if (!point) return null;
+                              return (
+                                <div className="rounded-lg border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground shadow-sm">
+                                  <div className="font-medium text-muted-foreground">
+                                    {formatFullDate(String(label || point.date))}
+                                  </div>
+                                  <div className="mt-1 text-emerald-300">
+                                    Buy: ${formatCompactNumber(point.buy)}
+                                  </div>
+                                  <div className="text-rose-300">
+                                    Sell: ${formatCompactNumber(point.sell)}
+                                  </div>
+                                  <div
+                                    className={
+                                      point.net >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                                    }
+                                  >
+                                    Net: {formatSignedCompactCurrency(point.net)}
+                                  </div>
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar
+                            dataKey="buy"
+                            fill="url(#insiderBuyGradient)"
+                            radius={[3, 3, 0, 0]}
+                            maxBarSize={14}
+                          />
+                          <Bar
+                            dataKey="sellSigned"
+                            fill="url(#insiderSellGradient)"
+                            radius={[3, 3, 0, 0]}
+                            maxBarSize={14}
+                          />
+                        </BarChart>
+                      </ChartContainer>
+                    </div>
+
+                    {selectedTradeIndexes.length > 0 && (
+                      <div className="flex items-center justify-center">
+                        <div className="rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs font-medium text-foreground sm:text-sm">
+                          Selected total: {selectedTradesNet >= 0 ? '+' : '-'}$
+                          {formatCompactNumber(Math.abs(selectedTradesNet))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-center text-[11px] text-muted-foreground">
+                      Select transactions to aggregate signed value.
+                    </div>
+
+                    <div className={tradeContainerClass}>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                        {insiderTrades.map((trade, index) => {
+                          const selected = selectedTradeIndexes.includes(index);
+                          const transactionKind = getTransactionKind(trade.transaction);
+                          const transactionClass =
+                            transactionKind === 'buy'
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                              : transactionKind === 'sell'
+                                ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                                : 'border-border bg-background text-muted-foreground';
+                          const transactionLabel =
+                            transactionKind === 'buy'
+                              ? 'Buy'
+                              : transactionKind === 'sell'
+                                ? 'Sell'
+                                : trade.transaction;
+                          const tradeValue = getTradeValue(trade);
+                          const signedTradeValueLabel =
+                            transactionKind === 'buy'
+                              ? `+$${formatCompactNumber(tradeValue)}`
+                              : transactionKind === 'sell'
+                                ? `-$${formatCompactNumber(tradeValue)}`
+                                : `$${formatCompactNumber(tradeValue)}`;
+
+                          return (
+                            <button
+                              key={`${trade.symbol}-${trade.date}-${trade.insider}-${index}`}
+                              type="button"
+                              onClick={() => toggleSelectTrade(index)}
+                              className={`${panelClass} w-full p-2.5 text-left transition-colors sm:p-3 ${
+                                selected ? 'border-foreground bg-card' : 'hover:bg-card/90'
+                              }`}
+                              aria-pressed={selected}
+                              aria-label={`Toggle insider transaction ${index + 1}`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-semibold text-foreground sm:text-sm">
+                                    {trade.insider}
+                                  </p>
+                                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                    {trade.position}
+                                  </p>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <span
+                                    className={`text-[10px] font-semibold tabular-nums ${
+                                      transactionKind === 'buy'
+                                        ? 'text-emerald-300'
+                                        : transactionKind === 'sell'
+                                          ? 'text-rose-300'
+                                          : 'text-foreground'
+                                    }`}
+                                  >
+                                    {signedTradeValueLabel}
+                                  </span>
+                                  <span
+                                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${transactionClass}`}
+                                  >
+                                    {transactionKind === 'buy' ? (
+                                      <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                                    ) : transactionKind === 'sell' ? (
+                                      <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
+                                    ) : (
+                                      <Dot className="h-3 w-3" aria-hidden="true" />
+                                    )}
+                                    {transactionLabel}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                                {formatFullDate(trade.date)}
+                              </p>
+
+                              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                    Price
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                                    {formatCurrency(trade.price)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                    Shares
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                                    {formatCompactNumber(trade.shares)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                    Value
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                                    ${formatCompactNumber(tradeValue)}
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {!insiderError && insiderTrades.length === 0 && !!insiderEmptyState && (
+                  <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-200">
+                    {insiderEmptyState}
                   </div>
                 )}
 
-                <div className="text-center text-[11px] text-muted-foreground">
-                  Select transactions to aggregate signed value.
-                </div>
-
-                <div className={tradeContainerClass}>
-                  <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-                    {insiderTrades.map((trade, index) => {
-                      const selected = selectedTradeIndexes.includes(index);
-                      const transactionKind = getTransactionKind(trade.transaction);
-                      const transactionClass =
-                        transactionKind === 'buy'
-                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                          : transactionKind === 'sell'
-                            ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
-                            : 'border-border bg-background text-muted-foreground';
-                      const transactionLabel =
-                        transactionKind === 'buy'
-                          ? 'Buy'
-                          : transactionKind === 'sell'
-                            ? 'Sell'
-                            : trade.transaction;
-                      const tradeValue = getTradeValue(trade);
-                      const signedTradeValueLabel =
-                        transactionKind === 'buy'
-                          ? `+$${formatCompactNumber(tradeValue)}`
-                          : transactionKind === 'sell'
-                            ? `-$${formatCompactNumber(tradeValue)}`
-                            : `$${formatCompactNumber(tradeValue)}`;
-
-                      return (
-                        <button
-                          key={`${trade.symbol}-${trade.date}-${trade.insider}-${index}`}
-                          type="button"
-                          onClick={() => toggleSelectTrade(index)}
-                          className={`${panelClass} w-full p-2.5 text-left transition-colors sm:p-3 ${
-                            selected ? 'border-foreground bg-card' : 'hover:bg-card/90'
-                          }`}
-                          aria-pressed={selected}
-                          aria-label={`Toggle insider transaction ${index + 1}`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="truncate text-xs font-semibold text-foreground sm:text-sm">
-                                {trade.insider}
-                              </p>
-                              <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                                {trade.position}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1">
-                              <span
-                                className={`text-[10px] font-semibold tabular-nums ${
-                                  transactionKind === 'buy'
-                                    ? 'text-emerald-300'
-                                    : transactionKind === 'sell'
-                                      ? 'text-rose-300'
-                                      : 'text-foreground'
-                                }`}
-                              >
-                                {signedTradeValueLabel}
-                              </span>
-                              <span
-                                className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${transactionClass}`}
-                              >
-                                {transactionKind === 'buy' ? (
-                                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                                ) : transactionKind === 'sell' ? (
-                                  <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
-                                ) : (
-                                  <Dot className="h-3 w-3" aria-hidden="true" />
-                                )}
-                                {transactionLabel}
-                              </span>
-                            </div>
-                          </div>
-
-                          <p className="mt-1.5 text-[10px] text-muted-foreground">{formatFullDate(trade.date)}</p>
-
-                          <div className="mt-2 grid grid-cols-3 gap-1.5">
-                            <div>
-                              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                                Price
-                              </p>
-                              <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
-                                {formatCurrency(trade.price)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                                Shares
-                              </p>
-                              <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
-                                {formatCompactNumber(trade.shares)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                                Value
-                              </p>
-                              <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
-                                ${formatCompactNumber(tradeValue)}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                {!insiderError && insiderTrades.length === 0 && !insiderEmptyState && (
+                  <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/60 px-3 py-2.5">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 text-muted-foreground"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="16" x2="12" y2="12" />
+                      <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Insider trading data is delayed and should be used for informational purposes
+                      only.
+                    </span>
                   </div>
-                </div>
+                )}
               </>
-            )}
+            ) : (
+              <div className="space-y-2.5 md:pt-7">
+                {newsError && (
+                  <Alert
+                    variant="destructive"
+                    className="flex items-start gap-2 rounded-2xl border border-rose-500/40 bg-rose-900/20 px-3 py-2.5 text-rose-200"
+                  >
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+                    <span className="text-sm">{newsError}</span>
+                  </Alert>
+                )}
 
-            {!insiderError && insiderTrades.length === 0 && !!insiderEmptyState && (
-              <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-200">
-                {insiderEmptyState}
-              </div>
-            )}
+                {!newsError && visibleNewsItems.length > 0 && (
+                  <>
+                    <div className={sectionClass}>
+                      <div className="et-scrollbar max-h-[430px] space-y-2 overflow-y-auto pr-1 md:max-h-[485px]">
+                        {visibleNewsItems.map((item) => (
+                          <a
+                            key={item.id}
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group block overflow-hidden rounded-xl border border-border bg-background/40 p-2.5 transition hover:border-foreground/20 hover:bg-background/70"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="max-w-[58%] truncate rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                {item.source}
+                              </span>
+                              <span className="shrink-0 text-[10px] text-muted-foreground">
+                                {new Date(item.datetime * 1000).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                            <h4 className="mt-1.5 line-clamp-2 break-words text-xs font-semibold text-foreground sm:text-sm">
+                              {item.headline}
+                            </h4>
+                            <p className="mt-1 line-clamp-3 break-words text-[11px] text-muted-foreground sm:text-xs">
+                              {item.summary || item.headline}
+                            </p>
+                            <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-foreground/85 group-hover:text-foreground">
+                              Read article
+                              <ExternalLink className="h-3 w-3" />
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
 
-            {!insiderError && insiderTrades.length === 0 && !insiderEmptyState && (
-              <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/60 px-3 py-2.5">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 text-muted-foreground"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="16" x2="12" y2="12" />
-                  <line x1="12" y1="8" x2="12.01" y2="8" />
-                </svg>
-                <span className="text-xs font-normal text-muted-foreground">
-                  Insider trading data is delayed and should be used for informational purposes only.
-                </span>
+                    <div className={`${panelClass} flex items-center justify-between px-3 py-2`}>
+                      <button
+                        type="button"
+                        onClick={() => setNewsPage((page) => Math.max(1, page - 1))}
+                        disabled={newsPage <= 1}
+                        className="rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-[11px] text-muted-foreground">
+                        Page {newsPage} of {newsTotalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setNewsPage((page) => Math.min(newsTotalPages, page + 1))}
+                        disabled={newsPage >= newsTotalPages}
+                        className="rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {!newsError && visibleNewsItems.length === 0 && (
+                  <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/60 px-3 py-2.5">
+                    <Newspaper className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-normal text-muted-foreground">
+                      No recent news found for {resolvedSymbol || 'this ticker'}.
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1791,7 +2138,7 @@ export default function StockAnalysis() {
             <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
           <span className="text-xs font-normal text-muted-foreground">
-            Search a ticker to load stock analysis and insider activity in one view.
+            Search a ticker to load stock analysis, insider activity, and news in one view.
           </span>
         </div>
       )}

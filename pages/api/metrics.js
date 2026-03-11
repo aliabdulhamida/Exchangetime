@@ -49,6 +49,32 @@ function toPercent(v) {
   return toStableNumber(Math.abs(n) <= 1 ? n * 100 : n);
 }
 
+function toSafeHttpUrl(value) {
+  if (typeof value !== 'string') return undefined;
+  const raw = value.trim();
+  if (!raw) return undefined;
+  const normalized = raw.includes('://') ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return undefined;
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function buildGoogleFaviconUrl(value) {
+  const safeUrl = toSafeHttpUrl(value);
+  if (!safeUrl) return undefined;
+  try {
+    const hostname = new URL(safeUrl).hostname.trim();
+    if (!hostname) return undefined;
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=128`;
+  } catch {
+    return undefined;
+  }
+}
+
 async function fetchTwelveDataQuote(symbol) {
   if (!TWELVE_DATA_API_KEY) return null;
   const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(TWELVE_DATA_API_KEY)}`;
@@ -71,6 +97,11 @@ async function fetchMassiveTickerDetails(symbol) {
 
 function buildFallbackMetricsFromTwelveData(ticker, quote) {
   const freeCashFlowRaw = toNum(quote?.free_cash_flow);
+  const logoUrl =
+    toSafeHttpUrl(quote?.logo_url) ||
+    toSafeHttpUrl(quote?.logo) ||
+    toSafeHttpUrl(quote?.icon) ||
+    buildGoogleFaviconUrl(quote?.website);
   return {
     peRatio: toNum(quote?.pe ?? quote?.pe_ratio),
     pbRatio: toNum(quote?.pb ?? quote?.price_to_book),
@@ -86,11 +117,16 @@ function buildFallbackMetricsFromTwelveData(ticker, quote) {
     earningsGrowth: toPercent(quote?.earnings_growth),
     epsGrowth: toPercent(quote?.eps_growth),
     companyName: quote?.name || ticker,
+    logoUrl,
     source: 'twelvedata',
   };
 }
 
 function buildFallbackMetricsFromMassive(ticker, details) {
+  const logoUrl =
+    toSafeHttpUrl(details?.branding?.logo_url) ||
+    toSafeHttpUrl(details?.branding?.icon_url) ||
+    buildGoogleFaviconUrl(details?.homepage_url);
   return {
     peRatio: undefined,
     pbRatio: undefined,
@@ -106,6 +142,7 @@ function buildFallbackMetricsFromMassive(ticker, details) {
     earningsGrowth: undefined,
     epsGrowth: undefined,
     companyName: details?.name || ticker,
+    logoUrl,
     source: 'massive',
   };
 }
@@ -165,6 +202,7 @@ async function fetchFmpMetrics(ticker, apiKey) {
     earningsGrowth: toPercent(growth?.netIncomeGrowth),
     epsGrowth: undefined,
     companyName: profile?.companyName || ticker,
+    logoUrl: toSafeHttpUrl(profile?.image) || buildGoogleFaviconUrl(profile?.website),
     source: 'fmp',
   };
 }
@@ -209,6 +247,7 @@ function buildUnavailableMetrics(ticker, reason = 'upstream_unavailable') {
     earningsGrowth: undefined,
     epsGrowth: undefined,
     companyName: ticker,
+    logoUrl: undefined,
     source: 'unavailable',
     unavailableReason: reason,
   };
