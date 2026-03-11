@@ -348,7 +348,7 @@ export default function TuneInRadioButton({
             <>
               <motion.button
                 type="button"
-                className="fixed inset-0 z-[62] bg-slate-950/40 lg:hidden"
+                className="fixed inset-0 z-[170] bg-slate-950/40 lg:hidden"
                 onClick={() => setOpenState(false)}
                 aria-label="Close radio player"
                 aria-hidden={!open}
@@ -360,7 +360,7 @@ export default function TuneInRadioButton({
               />
               <motion.section
                 id={modalId}
-                className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-md lg:hidden"
+                className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[180] overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-md lg:hidden"
                 aria-hidden={!open}
                 aria-label="Radio player"
                 style={{

@@ -1588,7 +1588,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
           <motion.button
             key="mobile-panel-backdrop"
             type="button"
-            className="fixed inset-0 z-[62] bg-slate-950/40 lg:hidden"
+            className="fixed inset-0 z-[170] bg-slate-950/40 lg:hidden"
             onClick={handleNavigation}
             aria-label="Close mobile navigation panel"
             initial={{ opacity: 0 }}
@@ -1604,7 +1604,7 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
           <motion.section
             key={`mobile-panel-${mobilePanel}`}
             id="mobile-nav-panel"
-            className="et-mobile-panel-shell fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[63] overflow-hidden rounded-2xl lg:hidden"
+            className="et-mobile-panel-shell fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.1rem)] z-[180] overflow-hidden rounded-2xl lg:hidden"
             aria-label={mobilePanel === 'modules' ? 'Module navigation' : 'Help and legal links'}
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

@@ -3549,7 +3549,7 @@ export default function PortfolioTracker() {
       />
 
       {showAddForm && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/55 p-2 sm:items-center sm:justify-center sm:p-4">
+        <div className="fixed inset-0 z-[200] flex items-end bg-black/55 p-2 sm:items-center sm:justify-center sm:p-4">
           <Card className="w-full max-w-md overflow-hidden rounded-xl border border-border bg-background">
             <CardHeader className="border-b border-border bg-background px-4 py-3 sm:px-6 sm:py-4">
               <CardTitle className="text-base font-semibold sm:text-lg">Add Transaction</CardTitle>
