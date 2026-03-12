@@ -4,6 +4,14 @@ export const dynamic = 'force-dynamic';
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 20_000;
+const REQUEST_RETRY_DELAYS_MS = [350, 850];
+const FRED_HEADERS = {
+  Accept: 'text/csv,text/plain;q=0.9,*/*;q=0.8',
+  // FRED's edge occasionally times out generic runtime clients; browser-like headers improve reliability.
+  'User-Agent':
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
 
 type SeriesPoint = {
   date: string;
@@ -332,26 +340,42 @@ function buildCountrySnapshot(
 }
 
 async function fetchCsvWithTimeout(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let lastError: unknown = null;
 
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      cache: 'no-store',
-      headers: {
-        Accept: 'text/csv,text/plain;q=0.9,*/*;q=0.8',
-      },
-    });
+  for (let attempt = 0; attempt <= REQUEST_RETRY_DELAYS_MS.length; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    if (!response.ok) {
-      throw new Error(`FRED request failed (${response.status}) for ${url}`);
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: FRED_HEADERS,
+      });
+
+      if (!response.ok) {
+        throw new Error(`FRED request failed (${response.status}) for ${url}`);
+      }
+
+      const csv = await response.text();
+      if (!csv.trim()) {
+        throw new Error(`FRED response was empty for ${url}`);
+      }
+      return csv;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= REQUEST_RETRY_DELAYS_MS.length) {
+        break;
+      }
+      await new Promise((resolve) => {
+        setTimeout(resolve, REQUEST_RETRY_DELAYS_MS[attempt]);
+      });
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    return response.text();
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError instanceof Error ? lastError : new Error(`FRED request failed for ${url}`);
 }
 
 async function loadIndicators(): Promise<IndicatorsResponse> {
@@ -372,14 +396,23 @@ async function loadIndicators(): Promise<IndicatorsResponse> {
     ),
   );
 
-  const seriesPairs = await Promise.all(
+  const seriesSettled = await Promise.allSettled(
     uniqueSeriesIds.map(async (seriesId) => {
       const csv = await fetchCsvWithTimeout(csvUrl(seriesId, startDate));
       return [seriesId, parseCsvSeries(csv)] as const;
     }),
   );
 
-  const seriesMap = new Map<string, SeriesPoint[]>(seriesPairs);
+  const seriesMap = new Map<string, SeriesPoint[]>();
+  for (const result of seriesSettled) {
+    if (result.status !== 'fulfilled') {
+      continue;
+    }
+    const [seriesId, points] = result.value;
+    if (points.length > 0) {
+      seriesMap.set(seriesId, points);
+    }
+  }
 
   const countries: CountrySnapshot[] = [];
   for (const config of COUNTRY_CONFIGS) {
