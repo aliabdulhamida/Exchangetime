@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -2326,6 +2326,8 @@ export default function PortfolioTracker() {
     ? normalizeDateRange(performanceDragRange.start, performanceDragRange.end)
     : null;
   const activeSelectionRange = dragOverlayRange;
+  const dragRafRef = useRef<number | null>(null);
+  const pendingDragLabelRef = useRef<string | null>(null);
 
   const selectedRangeStartPoint = useMemo(() => {
     if (!activeSelectionRange) return null;
@@ -2367,27 +2369,50 @@ export default function PortfolioTracker() {
       if (activeChart !== 'value' || !timeframePortfolioHistory.length) return;
       const label = typeof state?.activeLabel === 'string' ? state.activeLabel : null;
       if (!label) return;
+      pendingDragLabelRef.current = null;
       setPerformanceDragRange({ start: label, end: label });
     },
     [activeChart, timeframePortfolioHistory.length],
   );
+
+  const flushPendingDragLabel = useCallback(() => {
+    dragRafRef.current = null;
+    const label = pendingDragLabelRef.current;
+    if (!label) return;
+    pendingDragLabelRef.current = null;
+    setPerformanceDragRange((prev) => {
+      if (!prev || prev.end === label) return prev;
+      return { ...prev, end: label };
+    });
+  }, []);
 
   const handleChartDragMove = useCallback(
     (state: any) => {
       if (activeChart !== 'value') return;
       const label = typeof state?.activeLabel === 'string' ? state.activeLabel : null;
       if (!label) return;
-      setPerformanceDragRange((prev) => {
-        if (!prev) return prev;
-        if (prev.end === label) return prev;
-        return { ...prev, end: label };
-      });
+      pendingDragLabelRef.current = label;
+      if (dragRafRef.current !== null) return;
+      dragRafRef.current = window.requestAnimationFrame(flushPendingDragLabel);
     },
-    [activeChart],
+    [activeChart, flushPendingDragLabel],
   );
 
   const handleChartDragEnd = useCallback(() => {
+    pendingDragLabelRef.current = null;
+    if (dragRafRef.current !== null) {
+      window.cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
     setPerformanceDragRange(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (dragRafRef.current !== null) {
+        window.cancelAnimationFrame(dragRafRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -2605,7 +2630,7 @@ export default function PortfolioTracker() {
                         onMouseDown={handleChartDragStart}
                         onMouseMove={handleChartDragMove}
                         onMouseUp={handleChartDragEnd}
-                        onMouseLeave={() => setPerformanceDragRange(null)}
+                        onMouseLeave={handleChartDragEnd}
                       >
                         <XAxis dataKey="date" hide />
                         <YAxis hide domain={[chartDomainMin, chartDomainMax]} />
