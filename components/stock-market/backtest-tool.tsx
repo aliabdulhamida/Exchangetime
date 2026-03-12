@@ -952,23 +952,25 @@ export default function BacktestTool() {
                   className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
                 />
               </div>
-              <div>
-                <label className={captionClass}>Start Date</label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
-                  className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className={captionClass}>End Date</label>
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                  className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
-                />
+              <div className="grid grid-cols-2 gap-2.5 sm:col-span-2">
+                <div>
+                  <label className={captionClass}>Start Date</label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(event) => setStartDate(event.target.value)}
+                    className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className={captionClass}>End Date</label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(event) => setEndDate(event.target.value)}
+                    className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
+                  />
+                </div>
               </div>
             </div>
 
