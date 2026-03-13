@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import {
   Area,
   AreaChart,
@@ -40,6 +40,12 @@ type HoldingsPanelTab = 'holdings' | 'transactions' | 'insights' | 'allocation';
 type HoldingsSort = 'weight' | 'pnl' | 'value' | 'symbol';
 type HoldingsFilter = 'all' | 'gainers' | 'losers' | 'highWeight';
 type DateRange = { start: string; end: string };
+type HoldingSwipeGesture = {
+  symbol: string;
+  startX: number;
+  startY: number;
+  dragging: boolean;
+};
 
 interface PortfolioTransaction {
   id: string;
@@ -146,6 +152,13 @@ type DrawdownAttributionDatum = {
 };
 
 const SUPPORTED_CURRENCIES: SupportedCurrency[] = ['USD', 'EUR', 'GBP', 'CHF'];
+const HOLDING_SWIPE_ACTION_WIDTH_PX = 58;
+const HOLDING_SWIPE_DELETE_THRESHOLD_PX = 40;
+const HOLDING_SWIPE_MAX_PX = HOLDING_SWIPE_ACTION_WIDTH_PX;
+const HOLDING_TAP_SUPPRESSION_MS = 280;
+const HOLDING_SWIPE_COACH_DURATION_MS = 4800;
+const HOLDING_SWIPE_COACH_SEEN_KEY = 'portfolioHoldingSwipeCoachSeen';
+const HOLDING_SWIPE_RADIUS_CLASS = 'rounded-[1rem]';
 const ALLOCATION_FALLBACK_COLORS = [
   '#3b82f6',
   '#06b6d4',
@@ -937,6 +950,19 @@ export default function PortfolioTracker() {
   const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('ALL');
   const [dividendYear, setDividendYear] = useState<number>(() => new Date().getFullYear());
   const [performanceDragRange, setPerformanceDragRange] = useState<DateRange | null>(null);
+  const [activeHoldingSwipeSymbol, setActiveHoldingSwipeSymbol] = useState<string | null>(null);
+  const [showHoldingSwipeCoach, setShowHoldingSwipeCoach] = useState(false);
+  const [hasHoldingSwipeCoachPlayed, setHasHoldingSwipeCoachPlayed] = useState(true);
+  const holdingSwipeGestureRef = useRef<HoldingSwipeGesture | null>(null);
+  const activeHoldingSwipeSymbolRef = useRef<string | null>(null);
+  const activeHoldingSwipeOffsetRef = useRef(0);
+  const holdingSwipeRafRef = useRef<number | null>(null);
+  const pendingHoldingSwipeRef = useRef<{ symbol: string; offset: number } | null>(null);
+  const holdingCardRefBySymbol = useRef<Record<string, HTMLDivElement | null>>({});
+  const suppressHoldingOpenRef = useRef<{ symbol: string | null; until: number }>({
+    symbol: null,
+    until: 0,
+  });
 
   const [baseCurrency, setBaseCurrency] = useState<SupportedCurrency>(() => {
     if (typeof window === 'undefined') return 'USD';
@@ -989,6 +1015,11 @@ export default function PortfolioTracker() {
     const timer = setTimeout(() => setError(null), 3000);
     return () => clearTimeout(timer);
   }, [error]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setHasHoldingSwipeCoachPlayed(localStorage.getItem(HOLDING_SWIPE_COACH_SEEN_KEY) === '1');
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1532,6 +1563,151 @@ export default function PortfolioTracker() {
     setTransactions((prev) => prev.filter((tx) => tx.symbol !== symbol));
   };
 
+  const setHoldingSwipeVisual = useCallback(
+    (symbol: string, offset: number, mode: 'drag' | 'snap' = 'drag') => {
+      const cardNode = holdingCardRefBySymbol.current[symbol];
+      if (cardNode) {
+        cardNode.style.transition = mode === 'snap' ? 'transform 180ms ease' : 'none';
+        cardNode.style.transform = `translate3d(${offset}px, 0, 0)`;
+      }
+    },
+    [],
+  );
+
+  const flushPendingHoldingSwipeVisual = useCallback(() => {
+    holdingSwipeRafRef.current = null;
+    const pending = pendingHoldingSwipeRef.current;
+    if (!pending) return;
+    pendingHoldingSwipeRef.current = null;
+    setHoldingSwipeVisual(pending.symbol, pending.offset, 'drag');
+  }, [setHoldingSwipeVisual]);
+
+  const scheduleHoldingSwipeVisual = useCallback(
+    (symbol: string, offset: number) => {
+      pendingHoldingSwipeRef.current = { symbol, offset };
+      if (holdingSwipeRafRef.current !== null) return;
+      holdingSwipeRafRef.current = window.requestAnimationFrame(flushPendingHoldingSwipeVisual);
+    },
+    [flushPendingHoldingSwipeVisual],
+  );
+
+  const resetHoldingSwipeVisual = useCallback(
+    (symbol: string | null, mode: 'drag' | 'snap' = 'snap') => {
+      if (!symbol) return;
+      if (holdingSwipeRafRef.current !== null) {
+        window.cancelAnimationFrame(holdingSwipeRafRef.current);
+        holdingSwipeRafRef.current = null;
+      }
+      pendingHoldingSwipeRef.current = null;
+      setHoldingSwipeVisual(symbol, 0, mode);
+    },
+    [setHoldingSwipeVisual],
+  );
+
+  const clearActiveHoldingSwipe = useCallback(
+    (mode: 'drag' | 'snap' = 'snap') => {
+      const symbol = activeHoldingSwipeSymbolRef.current;
+      resetHoldingSwipeVisual(symbol, mode);
+      holdingSwipeGestureRef.current = null;
+      activeHoldingSwipeSymbolRef.current = null;
+      activeHoldingSwipeOffsetRef.current = 0;
+      setActiveHoldingSwipeSymbol(null);
+    },
+    [resetHoldingSwipeVisual],
+  );
+
+  const markHoldingSwipeCoachSeen = useCallback(() => {
+    setShowHoldingSwipeCoach(false);
+    setHasHoldingSwipeCoachPlayed(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(HOLDING_SWIPE_COACH_SEEN_KEY, '1');
+    }
+  }, []);
+
+  const handleHoldingTouchStart = useCallback(
+    (symbol: string, event: TouchEvent<HTMLDivElement>) => {
+      if (!isMobile) return;
+      if (showHoldingSwipeCoach) markHoldingSwipeCoachSeen();
+      const touch = event.touches[0];
+      if (!touch) return;
+      if (activeHoldingSwipeSymbolRef.current && activeHoldingSwipeSymbolRef.current !== symbol) {
+        resetHoldingSwipeVisual(activeHoldingSwipeSymbolRef.current, 'drag');
+      }
+      activeHoldingSwipeSymbolRef.current = symbol;
+      activeHoldingSwipeOffsetRef.current = 0;
+      setActiveHoldingSwipeSymbol(symbol);
+      setHoldingSwipeVisual(symbol, 0, 'drag');
+      holdingSwipeGestureRef.current = {
+        symbol,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        dragging: false,
+      };
+    },
+    [isMobile, markHoldingSwipeCoachSeen, resetHoldingSwipeVisual, setHoldingSwipeVisual, showHoldingSwipeCoach],
+  );
+
+  const handleHoldingTouchMove = useCallback(
+    (symbol: string, event: TouchEvent<HTMLDivElement>) => {
+      if (!isMobile) return;
+      const swipeGesture = holdingSwipeGestureRef.current;
+      if (!swipeGesture || swipeGesture.symbol !== symbol) return;
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      const dx = touch.clientX - swipeGesture.startX;
+      const dy = touch.clientY - swipeGesture.startY;
+      if (!swipeGesture.dragging) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        if (Math.abs(dx) <= Math.abs(dy) || dx >= 0) {
+          clearActiveHoldingSwipe('drag');
+          return;
+        }
+        swipeGesture.dragging = true;
+      }
+
+      event.preventDefault();
+      const offset = Math.max(-HOLDING_SWIPE_MAX_PX, Math.min(0, dx));
+      activeHoldingSwipeOffsetRef.current = offset;
+      scheduleHoldingSwipeVisual(symbol, offset);
+      if (offset <= -12) {
+        suppressHoldingOpenRef.current = {
+          symbol,
+          until: Date.now() + HOLDING_TAP_SUPPRESSION_MS,
+        };
+      }
+    },
+    [clearActiveHoldingSwipe, isMobile, scheduleHoldingSwipeVisual],
+  );
+
+  const handleHoldingTouchEnd = useCallback(
+    (symbol: string, event: TouchEvent<HTMLDivElement>) => {
+      const swipeGesture = holdingSwipeGestureRef.current;
+      if (!swipeGesture || swipeGesture.symbol !== symbol) return;
+      const touch = event.changedTouches[0];
+      const finalOffset = touch
+        ? Math.max(-HOLDING_SWIPE_MAX_PX, Math.min(0, touch.clientX - swipeGesture.startX))
+        : activeHoldingSwipeOffsetRef.current;
+      clearActiveHoldingSwipe('snap');
+      if (finalOffset <= -HOLDING_SWIPE_DELETE_THRESHOLD_PX) {
+        handleDeleteHolding(symbol);
+      }
+    },
+    [clearActiveHoldingSwipe, handleDeleteHolding],
+  );
+
+  const handleHoldingTouchCancel = useCallback(() => {
+    clearActiveHoldingSwipe('snap');
+  }, [clearActiveHoldingSwipe]);
+
+  useEffect(() => {
+    return () => {
+      if (holdingSwipeRafRef.current !== null) {
+        window.cancelAnimationFrame(holdingSwipeRafRef.current);
+      }
+    };
+  }, []);
+
   const handleReload = async () => {
     if (!trackedSymbols.length) return;
     setReloading(true);
@@ -1788,6 +1964,37 @@ export default function PortfolioTracker() {
     });
     return sorted;
   }, [holdingSnapshots, holdingSearch, holdingsFilter, holdingsSort]);
+
+  useEffect(() => {
+    if (!activeHoldingSwipeSymbol) return;
+    const isStillVisible =
+      holdingsPanelTab === 'holdings' &&
+      visibleHoldingSnapshots.some((holding) => holding.symbol === activeHoldingSwipeSymbol);
+    if (!isStillVisible) {
+      clearActiveHoldingSwipe('drag');
+    }
+  }, [activeHoldingSwipeSymbol, clearActiveHoldingSwipe, holdingsPanelTab, visibleHoldingSnapshots]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (hasHoldingSwipeCoachPlayed || showHoldingSwipeCoach) return;
+    if (holdingsPanelTab !== 'holdings') return;
+    if (visibleHoldingSnapshots.length === 0) return;
+    if (activeHoldingSwipeSymbol) return;
+    setShowHoldingSwipeCoach(true);
+    const timer = window.setTimeout(() => {
+      markHoldingSwipeCoachSeen();
+    }, HOLDING_SWIPE_COACH_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [
+    activeHoldingSwipeSymbol,
+    hasHoldingSwipeCoachPlayed,
+    holdingsPanelTab,
+    isMobile,
+    markHoldingSwipeCoachSeen,
+    showHoldingSwipeCoach,
+    visibleHoldingSnapshots.length,
+  ]);
 
   const currentPortfolioValue = useMemo(
     () => holdingSnapshots.reduce((sum, row) => sum + row.currentValue, 0),
@@ -2359,10 +2566,20 @@ export default function PortfolioTracker() {
           selectedRangeStartPoint.value) *
         100
       : null;
-  const showMobileDragSummary =
-    isMobile &&
-    activeChart === 'value' &&
-    Boolean(activeSelectionRange && selectedRangeStartPoint && selectedRangeEndPoint);
+  const fallbackMobileSummaryStartPoint = timeframePortfolioHistory[0] ?? null;
+  const fallbackMobileSummaryEndPoint = timeframePortfolioHistory[timeframePortfolioHistory.length - 1] ?? null;
+  const mobileSummaryStartPoint = selectedRangeStartPoint ?? fallbackMobileSummaryStartPoint;
+  const mobileSummaryEndPoint = selectedRangeEndPoint ?? fallbackMobileSummaryEndPoint;
+  const mobileSummaryPnl =
+    mobileSummaryStartPoint && mobileSummaryEndPoint
+      ? mobileSummaryEndPoint.value - mobileSummaryStartPoint.value
+      : null;
+  const mobileSummaryPct =
+    mobileSummaryStartPoint && mobileSummaryEndPoint && mobileSummaryStartPoint.value > 0
+      ? ((mobileSummaryEndPoint.value - mobileSummaryStartPoint.value) / mobileSummaryStartPoint.value) * 100
+      : null;
+  const showMobileChartSummary =
+    isMobile && activeChart === 'value' && Boolean(mobileSummaryStartPoint && mobileSummaryEndPoint);
 
   const handleChartDragStart = useCallback(
     (state: any) => {
@@ -2546,31 +2763,31 @@ export default function PortfolioTracker() {
             </CardHeader>
 
             <CardContent className="flex flex-1 flex-col pt-4">
-              {showMobileDragSummary ? (
+              {showMobileChartSummary ? (
                 <div className="mb-2.5 rounded-md border border-border bg-background px-2.5 py-2 text-[10px] text-foreground">
                   <div className="grid grid-cols-3 items-center gap-1.5 text-center">
                     <div>
                       <div className="text-muted-foreground">
-                        {formatShortDate(selectedRangeStartPoint!.date)}
+                        {formatShortDate(mobileSummaryStartPoint!.date)}
                       </div>
                       <div className="font-semibold">
-                        {formatMoney(selectedRangeStartPoint!.value, baseCurrency, 2, 2)}
+                        {formatMoney(mobileSummaryStartPoint!.value, baseCurrency, 2, 2)}
                       </div>
                     </div>
                     <div className="rounded border border-border bg-background py-1">
-                      <div className={`font-semibold leading-tight ${metricTone(selectedRangePct)}`}>
-                        {formatPercent(selectedRangePct)}
+                      <div className={`font-semibold leading-tight ${metricTone(mobileSummaryPct)}`}>
+                        {formatPercent(mobileSummaryPct)}
                       </div>
-                      <div className={`font-semibold leading-tight ${metricTone(selectedRangePnl)}`}>
-                        {formatSignedMoney(selectedRangePnl, baseCurrency)}
+                      <div className={`font-semibold leading-tight ${metricTone(mobileSummaryPnl)}`}>
+                        {formatSignedMoney(mobileSummaryPnl, baseCurrency)}
                       </div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">
-                        {formatShortDate(selectedRangeEndPoint!.date)}
+                        {formatShortDate(mobileSummaryEndPoint!.date)}
                       </div>
                       <div className="font-semibold">
-                        {formatMoney(selectedRangeEndPoint!.value, baseCurrency, 2, 2)}
+                        {formatMoney(mobileSummaryEndPoint!.value, baseCurrency, 2, 2)}
                       </div>
                     </div>
                   </div>
@@ -2685,7 +2902,7 @@ export default function PortfolioTracker() {
                           content={({ active, payload }) => {
                             if (!active || !payload || !payload.length) return null;
                             const item: any = payload[0].payload;
-                            if (isMobile && activeSelectionRange && selectedRangeStartPoint && selectedRangeEndPoint) {
+                            if (isMobile && mobileSummaryStartPoint && mobileSummaryEndPoint) {
                               return null;
                             }
                             if (activeSelectionRange && selectedRangeStartPoint && selectedRangeEndPoint) {
@@ -2924,81 +3141,112 @@ export default function PortfolioTracker() {
                 visibleHoldingSnapshots.length > 0 ? (
                   <div className="max-h-[min(62vh,35rem)] overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
                     <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-                      {visibleHoldingSnapshots.map((holding) => {
+                      {visibleHoldingSnapshots.map((holding, index) => {
                         const signal = resolveHoldingSignal(holding);
+                        const isCoachHolding =
+                          showHoldingSwipeCoach && isMobile && index === 0 && activeHoldingSwipeSymbol === null;
+                        const isActiveSwipeHolding = isMobile && activeHoldingSwipeSymbol === holding.symbol;
                         return (
                           <div
                             key={holding.symbol}
-                            onClick={() => openHoldingDetails(holding.symbol)}
-                            className={`h-full cursor-pointer rounded-xl border px-3.5 py-3 transition-all ${
-                              selectedSymbol === holding.symbol
-                                ? 'border-foreground/35 bg-muted/20'
-                                : 'border-border bg-background'
-                            }`}
+                            className={`relative h-full overflow-hidden ${HOLDING_SWIPE_RADIUS_CLASS}`}
                           >
-                            <div className="mb-1.5 flex items-center justify-between gap-2">
-                              <div className="text-base font-medium tracking-tight text-foreground">
-                                {holding.symbol}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleDeleteHolding(holding.symbol);
-                                  }}
-                                  className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/20 hover:text-rose-400"
-                                  aria-label={`Delete ${holding.symbol}`}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </div>
+                            <div
+                              className="et-holding-delete-bg pointer-events-none absolute inset-y-0 right-0 flex items-center justify-center rounded-r-[1rem] bg-rose-600 text-white"
+                              style={{ width: `${HOLDING_SWIPE_ACTION_WIDTH_PX}px` }}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </div>
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-[11px] text-muted-foreground">
-                                  Position Value
-                                </p>
-                                <span className="text-xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
-                                  {formatMoney(holding.currentValue, baseCurrency, 0, 0)}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[11px] text-muted-foreground">
-                                  Unrealized P/L
-                                </p>
-                                <p className={`text-sm font-semibold ${metricTone(holding.unrealizedPnl)}`}>
-                                  {formatSignedMoney(holding.unrealizedPnl, baseCurrency)}
-                                </p>
-                                <span
-                                  className={`rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium ${
-                                    holding.unrealizedPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                                  }`}
+                            <div className={`h-full ${isCoachHolding ? 'et-holding-swipe-coach' : ''}`}>
+                              <div
+                                ref={(node) => {
+                                  holdingCardRefBySymbol.current[holding.symbol] = node;
+                                }}
+                                onClick={() => {
+                                  const suppress = suppressHoldingOpenRef.current;
+                                  if (suppress.symbol === holding.symbol && suppress.until > Date.now()) {
+                                    suppressHoldingOpenRef.current = { symbol: null, until: 0 };
+                                    return;
+                                  }
+                                  openHoldingDetails(holding.symbol);
+                                }}
+                                onTouchStart={(event) => handleHoldingTouchStart(holding.symbol, event)}
+                                onTouchMove={(event) => handleHoldingTouchMove(holding.symbol, event)}
+                                onTouchEnd={(event) => handleHoldingTouchEnd(holding.symbol, event)}
+                                onTouchCancel={handleHoldingTouchCancel}
+                                className={`relative z-10 h-full cursor-pointer ${HOLDING_SWIPE_RADIUS_CLASS} border bg-background px-3.5 py-3 transition-[border-color,box-shadow] ${
+                                  selectedSymbol === holding.symbol
+                                    ? 'border-foreground/35 shadow-[inset_0_0_0_1px_hsl(var(--foreground)/0.06)]'
+                                    : 'border-border'
+                                } ${isActiveSwipeHolding ? 'border-r-transparent' : ''} ${isMobile ? 'touch-pan-y will-change-transform' : ''}`}
+                              >
+                                <div className="mb-1.5 flex items-center justify-between gap-2">
+                                  <div className="text-base font-medium tracking-tight text-foreground">
+                                    {holding.symbol}
+                                  </div>
+                                  {!isMobile ? (
+                                    <button
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleDeleteHolding(holding.symbol);
+                                      }}
+                                      className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/20 hover:text-rose-400"
+                                      aria-label={`Delete ${holding.symbol}`}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  ) : null}
+                                </div>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-[11px] text-muted-foreground">
+                                      Position Value
+                                    </p>
+                                    <span className="text-xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
+                                      {formatMoney(holding.currentValue, baseCurrency, 0, 0)}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[11px] text-muted-foreground">
+                                      Unrealized P/L
+                                    </p>
+                                    <p className={`text-sm font-semibold ${metricTone(holding.unrealizedPnl)}`}>
+                                      {formatSignedMoney(holding.unrealizedPnl, baseCurrency)}
+                                    </p>
+                                    <span
+                                      className={`rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium ${
+                                        holding.unrealizedPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                      }`}
+                                    >
+                                      {formatPercent(holding.unrealizedPct, 1)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div
+                                  className={`mt-2.5 grid grid-cols-3 gap-1.5 ${HOLDING_SWIPE_RADIUS_CLASS} border border-border bg-background px-2.5 py-2 text-[11px]`}
                                 >
-                                  {formatPercent(holding.unrealizedPct, 1)}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-xl border border-border bg-background px-2.5 py-2 text-[11px]">
-                              <div>
-                                <p className="text-muted-foreground">Weight</p>
-                                <p className="font-semibold text-foreground">
-                                  {formatPercent(holding.weightPct, 2)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground">Contribution</p>
-                                <p className={`font-semibold ${metricTone(holding.totalContribution)}`}>
-                                  {formatSignedMoney(holding.totalContribution, baseCurrency)}
-                                </p>
-                              </div>
-                              <div className="flex items-center justify-end">
-                                <span
-                                  className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${holdingSignalPillClass(
-                                    signal,
-                                  )}`}
-                                >
-                                  {holdingSignalLabel(signal)}
-                                </span>
+                                  <div>
+                                    <p className="text-muted-foreground">Weight</p>
+                                    <p className="font-semibold text-foreground">
+                                      {formatPercent(holding.weightPct, 2)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground">Contribution</p>
+                                    <p className={`font-semibold ${metricTone(holding.totalContribution)}`}>
+                                      {formatSignedMoney(holding.totalContribution, baseCurrency)}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center justify-end">
+                                    <span
+                                      className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${holdingSignalPillClass(
+                                        signal,
+                                      )}`}
+                                    >
+                                      {holdingSignalLabel(signal)}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>

@@ -806,3 +806,35 @@ select {
     font-size: 0.8rem;
   }
 }
+
+@keyframes et-holding-swipe-coach {
+  0%,
+  16%,
+  100% {
+    transform: translateX(0);
+  }
+
+  30%,
+  44% {
+    transform: translateX(-68px);
+  }
+
+  58% {
+    transform: translateX(-24px);
+  }
+
+  72% {
+    transform: translateX(0);
+  }
+}
+
+.et-holding-swipe-coach {
+  animation: et-holding-swipe-coach 4.8s cubic-bezier(0.2, 0.75, 0.2, 1) 1;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .et-holding-swipe-coach {
+    animation: none;
+  }
+}

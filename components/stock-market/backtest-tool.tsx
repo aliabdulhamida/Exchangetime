@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, Play, Settings } from 'lucide-react';
+import { AlertTriangle, Calendar, Play, Settings } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   Area,
@@ -829,6 +829,8 @@ export default function BacktestTool() {
   const panelClass = 'rounded-2xl border border-border/70 bg-card/70';
   const sectionClass = `${panelClass} p-3 sm:p-3.5`;
   const captionClass = 'text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px]';
+  const dateInputClass =
+    'h-8 w-full min-w-0 rounded-lg border-border bg-background/80 pr-8 text-left text-sm leading-tight [color-scheme:dark] [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:leading-tight [&::-webkit-datetime-edit]:leading-tight [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0';
 
   return (
     <div className={shellClass}>
@@ -953,23 +955,29 @@ export default function BacktestTool() {
                 />
               </div>
               <div className="grid grid-cols-2 gap-2.5 sm:col-span-2">
-                <div>
+                <div className="min-w-0">
                   <label className={captionClass}>Start Date</label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(event) => setStartDate(event.target.value)}
-                    className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
-                  />
+                  <div className="relative mt-1">
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(event) => setStartDate(event.target.value)}
+                      className={dateInputClass}
+                    />
+                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  </div>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className={captionClass}>End Date</label>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(event) => setEndDate(event.target.value)}
-                    className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
-                  />
+                  <div className="relative mt-1">
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(event) => setEndDate(event.target.value)}
+                      className={dateInputClass}
+                    />
+                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  </div>
                 </div>
               </div>
             </div>
