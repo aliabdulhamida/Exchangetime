@@ -1555,13 +1555,13 @@ export default function PortfolioTracker() {
     setTransactions((prev) => prev.filter((tx) => tx.id !== transactionId));
   };
 
-  const handleDeleteHolding = (symbol: string) => {
+  const handleDeleteHolding = useCallback((symbol: string) => {
     if (typeof window !== 'undefined') {
       const confirmed = window.confirm(`Remove all transactions for ${symbol}?`);
       if (!confirmed) return;
     }
     setTransactions((prev) => prev.filter((tx) => tx.symbol !== symbol));
-  };
+  }, []);
 
   const setHoldingSwipeVisual = useCallback(
     (symbol: string, offset: number, mode: 'drag' | 'snap' = 'drag') => {
