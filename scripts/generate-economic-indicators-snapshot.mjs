@@ -1,78 +1,17 @@
-import { NextResponse } from 'next/server';
-import { readFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-export const maxDuration = 60;
-
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 20_000;
 const REQUEST_RETRY_DELAYS_MS = [350, 850];
-const SNAPSHOT_FILE = path.join(process.cwd(), 'public', 'economic-indicators.json');
+const OUTPUT_FILE = path.join(process.cwd(), 'public', 'economic-indicators.json');
 const FRED_HEADERS = {
   Accept: 'text/csv,text/plain;q=0.9,*/*;q=0.8',
-  // FRED's edge occasionally times out generic runtime clients; browser-like headers improve reliability.
   'User-Agent':
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-type SeriesPoint = {
-  date: string;
-  value: number;
-};
-
-type MetricValue = {
-  label: string;
-  value: number;
-  unit: '%' | 'pp' | 'index' | 'usdT';
-  date: string;
-  series: string[];
-};
-
-type CountryMetrics = {
-  gdp: MetricValue;
-  interestRate: MetricValue;
-  inflationYoY: MetricValue;
-  unemploymentRate: MetricValue;
-  tenYearYield: MetricValue;
-  realInterestRate: MetricValue;
-  yieldCurveSlope: MetricValue;
-  inflationTargetGap: MetricValue;
-  unemploymentChange12m: MetricValue;
-  miseryIndex: MetricValue;
-};
-
-type CountrySnapshot = {
-  code: string;
-  name: string;
-  metrics: CountryMetrics;
-};
-
-type IndicatorsResponse = {
-  fetchedAt: string;
-  source: 'FRED';
-  countries: CountrySnapshot[];
-};
-
-type CachedIndicators = {
-  payload: unknown;
-  cachedAt: number;
-};
-
-type CountryConfig = {
-  code: string;
-  name: string;
-  gdpSeries: string;
-  interestRateSeries: string;
-  interestRateLabel: string;
-  cpiSeries: string;
-  unemploymentSeries: string;
-  tenYearYieldSeries: string;
-};
-
-const COUNTRY_CONFIGS: CountryConfig[] = [
+const COUNTRY_CONFIGS = [
   {
     code: 'US',
     name: 'United States',
@@ -125,45 +64,11 @@ const COUNTRY_CONFIGS: CountryConfig[] = [
   },
 ];
 
-const globalIndicatorsCache = globalThis as typeof globalThis & {
-  __economicIndicatorsCache?: CachedIndicators;
-};
-
-function isIndicatorsResponse(payload: unknown): payload is IndicatorsResponse {
-  if (!payload || typeof payload !== 'object') return false;
-  const maybePayload = payload as {
-    countries?: Array<{
-      metrics?: {
-        gdp?: { value?: unknown };
-      };
-    }>;
-  };
-  if (!Array.isArray(maybePayload.countries) || maybePayload.countries.length === 0) {
-    return false;
-  }
-  const firstCountry = maybePayload.countries[0];
-  const gdpValue = firstCountry?.metrics?.gdp?.value;
-  if (!Number.isFinite(typeof gdpValue === 'number' ? gdpValue : Number(gdpValue))) {
-    return false;
-  }
-  return true;
-}
-
-async function loadSnapshot(): Promise<IndicatorsResponse | null> {
-  try {
-    const raw = await readFile(SNAPSHOT_FILE, 'utf8');
-    const parsed = JSON.parse(raw) as unknown;
-    return isIndicatorsResponse(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function formatDate(date: Date): string {
+function formatDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
-function csvUrl(seriesId: string, startDate: string): string {
+function csvUrl(seriesId, startDate) {
   const params = new URLSearchParams({
     id: seriesId,
     cosd: startDate,
@@ -171,11 +76,11 @@ function csvUrl(seriesId: string, startDate: string): string {
   return `https://fred.stlouisfed.org/graph/fredgraph.csv?${params.toString()}`;
 }
 
-function isIsoDate(value: string): boolean {
+function isIsoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function parseCsvSeries(csv: string): SeriesPoint[] {
+function parseCsvSeries(csv) {
   const lines = csv
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -185,8 +90,7 @@ function parseCsvSeries(csv: string): SeriesPoint[] {
     return [];
   }
 
-  const points: SeriesPoint[] = [];
-
+  const points = [];
   for (let i = 1; i < lines.length; i += 1) {
     const [rawDate, rawValue] = lines[i].split(',');
     const date = (rawDate ?? '').trim();
@@ -202,24 +106,24 @@ function parseCsvSeries(csv: string): SeriesPoint[] {
   return points;
 }
 
-function parseDateToUtcMs(value: string): number {
+function parseDateToUtcMs(value) {
   return Date.parse(`${value}T00:00:00.000Z`);
 }
 
-function monthsAgo(date: string, monthDelta: number): string {
+function monthsAgo(date, monthDelta) {
   const base = new Date(`${date}T00:00:00.000Z`);
   base.setUTCMonth(base.getUTCMonth() - monthDelta);
   return formatDate(base);
 }
 
-function latestPoint(series: SeriesPoint[], seriesId: string): SeriesPoint {
+function latestPoint(series, seriesId) {
   if (series.length === 0) {
     throw new Error(`No observations available for ${seriesId}`);
   }
   return series[series.length - 1];
 }
 
-function findPointAtOrBefore(series: SeriesPoint[], date: string): SeriesPoint | null {
+function findPointAtOrBefore(series, date) {
   const targetMs = parseDateToUtcMs(date);
   for (let i = series.length - 1; i >= 0; i -= 1) {
     const pointMs = parseDateToUtcMs(series[i].date);
@@ -230,7 +134,7 @@ function findPointAtOrBefore(series: SeriesPoint[], date: string): SeriesPoint |
   return null;
 }
 
-function getSeriesOrThrow(seriesMap: Map<string, SeriesPoint[]>, seriesId: string): SeriesPoint[] {
+function getSeriesOrThrow(seriesMap, seriesId) {
   const series = seriesMap.get(seriesId);
   if (!series || series.length === 0) {
     throw new Error(`Series ${seriesId} is unavailable`);
@@ -238,10 +142,7 @@ function getSeriesOrThrow(seriesMap: Map<string, SeriesPoint[]>, seriesId: strin
   return series;
 }
 
-function buildCountrySnapshot(
-  config: CountryConfig,
-  seriesMap: Map<string, SeriesPoint[]>,
-): CountrySnapshot {
+function buildCountrySnapshot(config, seriesMap) {
   const gdpSeries = getSeriesOrThrow(seriesMap, config.gdpSeries);
   const interestSeries = getSeriesOrThrow(seriesMap, config.interestRateSeries);
   const cpiSeries = getSeriesOrThrow(seriesMap, config.cpiSeries);
@@ -354,8 +255,8 @@ function buildCountrySnapshot(
   };
 }
 
-async function fetchCsvWithTimeout(url: string): Promise<string> {
-  let lastError: unknown = null;
+async function fetchCsvWithTimeout(url) {
+  let lastError = null;
 
   for (let attempt = 0; attempt <= REQUEST_RETRY_DELAYS_MS.length; attempt += 1) {
     const controller = new AbortController();
@@ -393,7 +294,7 @@ async function fetchCsvWithTimeout(url: string): Promise<string> {
   throw lastError instanceof Error ? lastError : new Error(`FRED request failed for ${url}`);
 }
 
-async function loadIndicators(): Promise<IndicatorsResponse> {
+async function loadIndicators() {
   const today = new Date();
   const lookbackStart = new Date(today);
   lookbackStart.setUTCFullYear(lookbackStart.getUTCFullYear() - 6);
@@ -414,11 +315,11 @@ async function loadIndicators(): Promise<IndicatorsResponse> {
   const seriesSettled = await Promise.allSettled(
     uniqueSeriesIds.map(async (seriesId) => {
       const csv = await fetchCsvWithTimeout(csvUrl(seriesId, startDate));
-      return [seriesId, parseCsvSeries(csv)] as const;
+      return [seriesId, parseCsvSeries(csv)];
     }),
   );
 
-  const seriesMap = new Map<string, SeriesPoint[]>();
+  const seriesMap = new Map();
   for (const result of seriesSettled) {
     if (result.status !== 'fulfilled') {
       continue;
@@ -429,12 +330,12 @@ async function loadIndicators(): Promise<IndicatorsResponse> {
     }
   }
 
-  const countries: CountrySnapshot[] = [];
+  const countries = [];
   for (const config of COUNTRY_CONFIGS) {
     try {
       countries.push(buildCountrySnapshot(config, seriesMap));
     } catch {
-      // Skip this country if one of its required series is missing or stale.
+      // Skip countries with missing source series.
     }
   }
 
@@ -449,80 +350,14 @@ async function loadIndicators(): Promise<IndicatorsResponse> {
   };
 }
 
-export async function GET() {
-  const now = Date.now();
-  const cached = globalIndicatorsCache.__economicIndicatorsCache;
-
-  if (
-    cached &&
-    now - cached.cachedAt < CACHE_TTL_MS &&
-    isIndicatorsResponse(cached.payload)
-  ) {
-    return NextResponse.json(cached.payload, {
-      headers: {
-        'x-cache': 'HIT',
-      },
-    });
-  }
-
-  if (cached && !isIndicatorsResponse(cached.payload)) {
-    // Invalidate incompatible cache shapes left over from older route versions.
-    globalIndicatorsCache.__economicIndicatorsCache = undefined;
-  }
-
-  try {
-    const payload = await loadIndicators();
-
-    globalIndicatorsCache.__economicIndicatorsCache = {
-      payload,
-      cachedAt: now,
-    };
-
-    return NextResponse.json(payload, {
-      headers: {
-        'x-cache': 'MISS',
-      },
-    });
-  } catch (error) {
-    if (cached && isIndicatorsResponse(cached.payload)) {
-      return NextResponse.json(
-        {
-          ...cached.payload,
-          stale: true,
-          error: 'Using cached macro data due to upstream fetch failure.',
-        },
-        {
-          headers: {
-            'x-cache': 'STALE',
-          },
-        },
-      );
-    }
-
-    const snapshot = await loadSnapshot();
-    if (snapshot) {
-      return NextResponse.json(
-        {
-          ...snapshot,
-          stale: true,
-          error: 'Using build snapshot because live macro data could not be fetched.',
-        },
-        {
-          headers: {
-            'x-cache': 'SNAPSHOT',
-          },
-        },
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load economic indicators from upstream source.',
-      },
-      { status: 502 },
-    );
-  }
+try {
+  const payload = await loadIndicators();
+  await mkdir(path.dirname(OUTPUT_FILE), { recursive: true });
+  await writeFile(OUTPUT_FILE, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  console.log(
+    `Wrote ${OUTPUT_FILE} with ${payload.countries.length} countries at ${payload.fetchedAt}`,
+  );
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
 }

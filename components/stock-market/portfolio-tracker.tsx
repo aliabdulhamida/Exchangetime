@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
+import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import {
   Area,
   AreaChart,
@@ -39,12 +39,23 @@ type AddInputMode = 'manual' | 'automatic';
 type HoldingsPanelTab = 'holdings' | 'transactions' | 'insights' | 'allocation';
 type HoldingsSort = 'weight' | 'pnl' | 'value' | 'symbol';
 type HoldingsFilter = 'all' | 'gainers' | 'losers' | 'highWeight';
-type DateRange = { start: string; end: string };
 type HoldingSwipeGesture = {
   symbol: string;
   startX: number;
   startY: number;
   dragging: boolean;
+};
+type PerformanceChartPoint = {
+  date: string;
+  value: number;
+};
+type DividendChartPoint = {
+  date: string;
+  amount: number;
+};
+type DragSelection = {
+  startIndex: number;
+  endIndex: number;
 };
 
 interface PortfolioTransaction {
@@ -311,10 +322,6 @@ function chartDomainMax(dataMax: number): number {
   return dataMax + buffer;
 }
 
-function normalizeDateRange(start: string, end: string): DateRange {
-  return start <= end ? { start, end } : { start: end, end: start };
-}
-
 function formatShortDate(date: string): string {
   const parsed = new Date(`${date}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return date;
@@ -324,6 +331,456 @@ function formatShortDate(date: string): string {
     year: 'numeric',
   });
 }
+
+function PerformanceRangeSummaryCard({
+  baseCurrency,
+  endPoint,
+  pnl,
+  pct,
+  startPoint,
+  textSizeClass,
+}: {
+  baseCurrency: SupportedCurrency;
+  endPoint: PerformanceChartPoint;
+  pnl: number | null;
+  pct: number | null;
+  startPoint: PerformanceChartPoint;
+  textSizeClass: string;
+}) {
+  return (
+    <div className={`rounded-md border border-border bg-background px-2.5 py-1.5 text-foreground ${textSizeClass}`}>
+      <div className="grid grid-cols-3 items-center gap-1.5 text-center">
+        <div>
+          <div className="text-muted-foreground">{formatShortDate(startPoint.date)}</div>
+          <div className="font-semibold">{formatMoney(startPoint.value, baseCurrency, 2, 2)}</div>
+        </div>
+        <div className="rounded border border-border bg-background py-1">
+          <div className={`font-semibold leading-tight ${metricTone(pct)}`}>{formatPercent(pct)}</div>
+          <div className={`font-semibold leading-tight ${metricTone(pnl)}`}>
+            {formatSignedMoney(pnl, baseCurrency)}
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">{formatShortDate(endPoint.date)}</div>
+          <div className="font-semibold">{formatMoney(endPoint.value, baseCurrency, 2, 2)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const PerformanceChartCard = memo(function PerformanceChartCard({
+  activeChart,
+  activeTimeframe,
+  allDividendYears,
+  baseCurrency,
+  dividendYear,
+  filteredDividendHistory,
+  isMobile,
+  onActiveChartChange,
+  onDividendYearChange,
+  onTimeframeChange,
+  onValueChartStyleChange,
+  timeframePortfolioHistory,
+  valueChartStyle,
+}: {
+  activeChart: 'value' | 'dividends';
+  activeTimeframe: Timeframe;
+  allDividendYears: number[];
+  baseCurrency: SupportedCurrency;
+  dividendYear: number;
+  filteredDividendHistory: DividendChartPoint[];
+  isMobile: boolean;
+  onActiveChartChange: (value: 'value' | 'dividends') => void;
+  onDividendYearChange: (value: number) => void;
+  onTimeframeChange: (value: Timeframe) => void;
+  onValueChartStyleChange: (value: 'area' | 'line') => void;
+  timeframePortfolioHistory: PerformanceChartPoint[];
+  valueChartStyle: 'area' | 'line';
+}) {
+  const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
+  const dragRafRef = useRef<number | null>(null);
+  const pendingDragIndexRef = useRef<number | null>(null);
+
+  const labelToIndexMap = useMemo(
+    () => new Map(timeframePortfolioHistory.map((point, index) => [point.date, index])),
+    [timeframePortfolioHistory],
+  );
+
+  const activeSelection = useMemo(() => {
+    if (!dragSelection || !timeframePortfolioHistory.length) return null;
+    const maxIndex = timeframePortfolioHistory.length - 1;
+    const startIndex = clamp(Math.min(dragSelection.startIndex, dragSelection.endIndex), 0, maxIndex);
+    const endIndex = clamp(Math.max(dragSelection.startIndex, dragSelection.endIndex), 0, maxIndex);
+    return { startIndex, endIndex };
+  }, [dragSelection, timeframePortfolioHistory.length]);
+
+  const selectedRangeStartPoint = activeSelection ? timeframePortfolioHistory[activeSelection.startIndex] ?? null : null;
+  const selectedRangeEndPoint = activeSelection ? timeframePortfolioHistory[activeSelection.endIndex] ?? null : null;
+  const selectedRangePnl =
+    selectedRangeStartPoint && selectedRangeEndPoint
+      ? selectedRangeEndPoint.value - selectedRangeStartPoint.value
+      : null;
+  const selectedRangePct =
+    selectedRangeStartPoint && selectedRangeEndPoint && selectedRangeStartPoint.value > 0
+      ? ((selectedRangeEndPoint.value - selectedRangeStartPoint.value) / selectedRangeStartPoint.value) * 100
+      : null;
+
+  const fallbackMobileSummaryStartPoint = timeframePortfolioHistory[0] ?? null;
+  const fallbackMobileSummaryEndPoint = timeframePortfolioHistory[timeframePortfolioHistory.length - 1] ?? null;
+  const mobileSummaryStartPoint = selectedRangeStartPoint ?? fallbackMobileSummaryStartPoint;
+  const mobileSummaryEndPoint = selectedRangeEndPoint ?? fallbackMobileSummaryEndPoint;
+  const mobileSummaryPnl =
+    mobileSummaryStartPoint && mobileSummaryEndPoint
+      ? mobileSummaryEndPoint.value - mobileSummaryStartPoint.value
+      : null;
+  const mobileSummaryPct =
+    mobileSummaryStartPoint && mobileSummaryEndPoint && mobileSummaryStartPoint.value > 0
+      ? ((mobileSummaryEndPoint.value - mobileSummaryStartPoint.value) / mobileSummaryStartPoint.value) * 100
+      : null;
+  const showMobileChartSummary =
+    isMobile && activeChart === 'value' && Boolean(mobileSummaryStartPoint && mobileSummaryEndPoint);
+
+  const clearPendingDragFrame = useCallback(() => {
+    if (dragRafRef.current === null) return;
+    window.cancelAnimationFrame(dragRafRef.current);
+    dragRafRef.current = null;
+  }, []);
+
+  const resolveDragIndex = useCallback(
+    (state: any) => {
+      if (!timeframePortfolioHistory.length) return null;
+      const tooltipIndex = state?.activeTooltipIndex;
+      if (typeof tooltipIndex === 'number' && Number.isFinite(tooltipIndex)) {
+        return clamp(Math.round(tooltipIndex), 0, timeframePortfolioHistory.length - 1);
+      }
+      const label = typeof state?.activeLabel === 'string' ? state.activeLabel : null;
+      if (!label) return null;
+      const index = labelToIndexMap.get(label);
+      return typeof index === 'number' ? index : null;
+    },
+    [labelToIndexMap, timeframePortfolioHistory.length],
+  );
+
+  const flushPendingDragIndex = useCallback(() => {
+    dragRafRef.current = null;
+    const nextIndex = pendingDragIndexRef.current;
+    if (nextIndex === null) return;
+    pendingDragIndexRef.current = null;
+    startTransition(() => {
+      setDragSelection((prev) => {
+        if (!prev || prev.endIndex === nextIndex) return prev;
+        return { ...prev, endIndex: nextIndex };
+      });
+    });
+  }, []);
+
+  const handleChartDragStart = useCallback(
+    (state: any) => {
+      if (activeChart !== 'value' || !timeframePortfolioHistory.length) return;
+      const nextIndex = resolveDragIndex(state);
+      if (nextIndex === null) return;
+      pendingDragIndexRef.current = null;
+      clearPendingDragFrame();
+      setDragSelection({ startIndex: nextIndex, endIndex: nextIndex });
+    },
+    [activeChart, clearPendingDragFrame, resolveDragIndex, timeframePortfolioHistory.length],
+  );
+
+  const handleChartDragMove = useCallback(
+    (state: any) => {
+      if (activeChart !== 'value') return;
+      const nextIndex = resolveDragIndex(state);
+      if (nextIndex === null) return;
+      pendingDragIndexRef.current = nextIndex;
+      if (dragRafRef.current !== null) return;
+      dragRafRef.current = window.requestAnimationFrame(flushPendingDragIndex);
+    },
+    [activeChart, flushPendingDragIndex, resolveDragIndex],
+  );
+
+  const handleChartDragEnd = useCallback(() => {
+    pendingDragIndexRef.current = null;
+    clearPendingDragFrame();
+    setDragSelection(null);
+  }, [clearPendingDragFrame]);
+
+  useEffect(() => () => clearPendingDragFrame(), [clearPendingDragFrame]);
+
+  useEffect(() => {
+    handleChartDragEnd();
+  }, [activeChart, activeTimeframe, handleChartDragEnd, timeframePortfolioHistory.length]);
+
+  return (
+    <Card className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background xl:col-span-7">
+      <CardHeader className="border-b border-border pb-4 pt-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-lg font-semibold">Performance</CardTitle>
+            <p className="mt-1 text-[11px] text-muted-foreground sm:text-xs">
+              Drag on chart to inspect a custom range
+            </p>
+          </div>
+          <div className="inline-flex gap-1 rounded-lg border border-border bg-background p-1 text-xs sm:text-sm">
+            <button
+              type="button"
+              onClick={() => onActiveChartChange('value')}
+              className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+                activeChart === 'value'
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+              }`}
+            >
+              Value
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleChartDragEnd();
+                onActiveChartChange('dividends');
+              }}
+              className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+                activeChart === 'dividends'
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+              }`}
+            >
+              Dividends
+            </button>
+          </div>
+        </div>
+
+        {activeChart === 'dividends' ? (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Year</span>
+            <select
+              value={dividendYear}
+              onChange={(event) => onDividendYearChange(Number(event.target.value))}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+            >
+              {(allDividendYears.length ? allDividendYears : [new Date().getFullYear()]).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-1 text-xs">
+              {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  onClick={() => {
+                    handleChartDragEnd();
+                    onTimeframeChange(period);
+                  }}
+                  className={`rounded-md border px-2 py-1 transition-colors ${
+                    activeTimeframe === period
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border bg-background text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+                  }`}
+                >
+                  {period}
+                </button>
+              ))}
+            </div>
+            <div className="inline-flex rounded-md border border-border bg-background p-1 text-[11px]">
+              <button
+                type="button"
+                onClick={() => onValueChartStyleChange('area')}
+                className={`rounded px-2 py-1 transition-colors ${
+                  valueChartStyle === 'area'
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+                }`}
+              >
+                Area
+              </button>
+              <button
+                type="button"
+                onClick={() => onValueChartStyleChange('line')}
+                className={`rounded px-2 py-1 transition-colors ${
+                  valueChartStyle === 'line'
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+                }`}
+              >
+                Line
+              </button>
+            </div>
+          </div>
+        )}
+      </CardHeader>
+
+      <CardContent className="flex flex-1 flex-col pt-4">
+        {showMobileChartSummary && mobileSummaryStartPoint && mobileSummaryEndPoint ? (
+          <div className="mb-2.5">
+            <PerformanceRangeSummaryCard
+              baseCurrency={baseCurrency}
+              endPoint={mobileSummaryEndPoint}
+              pnl={mobileSummaryPnl}
+              pct={mobileSummaryPct}
+              startPoint={mobileSummaryStartPoint}
+              textSizeClass="text-[10px]"
+            />
+          </div>
+        ) : null}
+        <div
+          className={`relative min-h-[18rem] w-full flex-1 overflow-hidden rounded-xl bg-background p-0 sm:min-h-[22rem] ${
+            isMobile && activeChart === 'value' ? 'touch-none' : ''
+          }`}
+        >
+          <ChartContainer
+            config={
+              activeChart === 'dividends'
+                ? { amount: { label: 'Dividends', color: 'hsl(var(--chart-2))' } }
+                : { value: { label: 'Value', color: '#3b82f6' } }
+            }
+            className="h-full w-full"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              {activeChart === 'dividends' ? (
+                <BarChartComponent data={filteredDividendHistory} margin={{ top: 4, right: 6, left: 8, bottom: 4 }}>
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(date: string | number) =>
+                      new Date(date).toLocaleDateString(undefined, { month: 'short' })
+                    }
+                  />
+                  <YAxis
+                    width={72}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value: string | number) => formatMoney(Number(value), baseCurrency, 0, 0)}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload || !payload.length) return null;
+                      const item: any = payload[0].payload;
+                      return (
+                        <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground">
+                          <div>{new Date(item.date).toLocaleDateString()}</div>
+                          <div className="font-semibold">{formatMoney(item.amount, baseCurrency)}</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="amount" fill="#f97316" radius={[3, 3, 0, 0]} />
+                </BarChartComponent>
+              ) : (
+                <ComposedChart
+                  data={timeframePortfolioHistory}
+                  margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
+                  onMouseDown={handleChartDragStart}
+                  onMouseMove={handleChartDragMove}
+                  onMouseUp={handleChartDragEnd}
+                  onMouseLeave={handleChartDragEnd}
+                >
+                  <XAxis dataKey="date" hide />
+                  <YAxis hide domain={[chartDomainMin, chartDomainMax]} />
+                  {activeSelection && selectedRangeStartPoint && selectedRangeEndPoint ? (
+                    <>
+                      <ReferenceArea
+                        x1={selectedRangeStartPoint.date}
+                        x2={selectedRangeEndPoint.date}
+                        strokeOpacity={0}
+                        fill="#71717a"
+                        fillOpacity={0.14}
+                      />
+                      <ReferenceLine
+                        x={selectedRangeStartPoint.date}
+                        stroke="#a1a1aa"
+                        strokeDasharray="2 2"
+                        strokeWidth={1}
+                        strokeOpacity={0.8}
+                      />
+                      <ReferenceLine
+                        x={selectedRangeEndPoint.date}
+                        stroke="#a1a1aa"
+                        strokeDasharray="2 2"
+                        strokeWidth={1}
+                        strokeOpacity={0.8}
+                      />
+                    </>
+                  ) : null}
+                  {selectedRangeStartPoint ? (
+                    <ReferenceDot
+                      x={selectedRangeStartPoint.date}
+                      y={selectedRangeStartPoint.value}
+                      r={4}
+                      fill="#111827"
+                      stroke="#f8fafc"
+                      strokeWidth={2}
+                    />
+                  ) : null}
+                  {selectedRangeEndPoint ? (
+                    <ReferenceDot
+                      x={selectedRangeEndPoint.date}
+                      y={selectedRangeEndPoint.value}
+                      r={4}
+                      fill="#111827"
+                      stroke="#f8fafc"
+                      strokeWidth={2}
+                    />
+                  ) : null}
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload || !payload.length) return null;
+                      const item: any = payload[0].payload;
+                      if (isMobile && mobileSummaryStartPoint && mobileSummaryEndPoint) {
+                        return null;
+                      }
+                      if (selectedRangeStartPoint && selectedRangeEndPoint) {
+                        return (
+                          <PerformanceRangeSummaryCard
+                            baseCurrency={baseCurrency}
+                            endPoint={selectedRangeEndPoint}
+                            pnl={selectedRangePnl}
+                            pct={selectedRangePct}
+                            startPoint={selectedRangeStartPoint}
+                            textSizeClass="text-[10px] sm:text-[11px]"
+                          />
+                        );
+                      }
+                      return (
+                        <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground">
+                          <div>{new Date(item.date).toLocaleDateString()}</div>
+                          <div className="font-semibold">{formatMoney(item.value, baseCurrency)}</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  {valueChartStyle === 'area' ? (
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#d4d4d8"
+                      strokeWidth={1.5}
+                      fillOpacity={1}
+                      fill="rgba(212, 212, 216, 0.14)"
+                      isAnimationActive={false}
+                    />
+                  ) : (
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#e5e7eb"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  )}
+                </ComposedChart>
+              )}
+            </ResponsiveContainer>
+          </ChartContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
 
 function resolveHoldingSignal(holding: HoldingSnapshot): HoldingSignal {
   if (holding.weightPct >= 15) return 'highWeight';
@@ -949,7 +1406,6 @@ export default function PortfolioTracker() {
   const [valueChartStyle, setValueChartStyle] = useState<'area' | 'line'>('area');
   const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('ALL');
   const [dividendYear, setDividendYear] = useState<number>(() => new Date().getFullYear());
-  const [performanceDragRange, setPerformanceDragRange] = useState<DateRange | null>(null);
   const [activeHoldingSwipeSymbol, setActiveHoldingSwipeSymbol] = useState<string | null>(null);
   const [showHoldingSwipeCoach, setShowHoldingSwipeCoach] = useState(false);
   const [hasHoldingSwipeCoachPlayed, setHasHoldingSwipeCoachPlayed] = useState(true);
@@ -2529,108 +2985,6 @@ export default function PortfolioTracker() {
   const returnsSummaryLabel = formatPercent(timeWeightedReturnPct, 1);
   const riskSummaryLabel = formatPercent(maxDrawdownPct, 1);
   const benchmarkSummaryLabel = formatPercent(excessVsBenchmark, 1);
-  const dragOverlayRange = performanceDragRange
-    ? normalizeDateRange(performanceDragRange.start, performanceDragRange.end)
-    : null;
-  const activeSelectionRange = dragOverlayRange;
-  const dragRafRef = useRef<number | null>(null);
-  const pendingDragLabelRef = useRef<string | null>(null);
-
-  const selectedRangeStartPoint = useMemo(() => {
-    if (!activeSelectionRange) return null;
-    for (const point of timeframePortfolioHistory) {
-      if (point.date >= activeSelectionRange.start && point.date <= activeSelectionRange.end) {
-        return point;
-      }
-    }
-    return null;
-  }, [timeframePortfolioHistory, activeSelectionRange]);
-
-  const selectedRangeEndPoint = useMemo(() => {
-    if (!activeSelectionRange) return null;
-    for (let i = timeframePortfolioHistory.length - 1; i >= 0; i -= 1) {
-      const point = timeframePortfolioHistory[i];
-      if (point.date >= activeSelectionRange.start && point.date <= activeSelectionRange.end) {
-        return point;
-      }
-    }
-    return null;
-  }, [timeframePortfolioHistory, activeSelectionRange]);
-  const selectedRangePnl =
-    selectedRangeStartPoint && selectedRangeEndPoint
-      ? selectedRangeEndPoint.value - selectedRangeStartPoint.value
-      : null;
-  const selectedRangePct =
-    selectedRangeStartPoint && selectedRangeEndPoint && selectedRangeStartPoint.value > 0
-      ? ((selectedRangeEndPoint.value - selectedRangeStartPoint.value) /
-          selectedRangeStartPoint.value) *
-        100
-      : null;
-  const fallbackMobileSummaryStartPoint = timeframePortfolioHistory[0] ?? null;
-  const fallbackMobileSummaryEndPoint = timeframePortfolioHistory[timeframePortfolioHistory.length - 1] ?? null;
-  const mobileSummaryStartPoint = selectedRangeStartPoint ?? fallbackMobileSummaryStartPoint;
-  const mobileSummaryEndPoint = selectedRangeEndPoint ?? fallbackMobileSummaryEndPoint;
-  const mobileSummaryPnl =
-    mobileSummaryStartPoint && mobileSummaryEndPoint
-      ? mobileSummaryEndPoint.value - mobileSummaryStartPoint.value
-      : null;
-  const mobileSummaryPct =
-    mobileSummaryStartPoint && mobileSummaryEndPoint && mobileSummaryStartPoint.value > 0
-      ? ((mobileSummaryEndPoint.value - mobileSummaryStartPoint.value) / mobileSummaryStartPoint.value) * 100
-      : null;
-  const showMobileChartSummary =
-    isMobile && activeChart === 'value' && Boolean(mobileSummaryStartPoint && mobileSummaryEndPoint);
-
-  const handleChartDragStart = useCallback(
-    (state: any) => {
-      if (activeChart !== 'value' || !timeframePortfolioHistory.length) return;
-      const label = typeof state?.activeLabel === 'string' ? state.activeLabel : null;
-      if (!label) return;
-      pendingDragLabelRef.current = null;
-      setPerformanceDragRange({ start: label, end: label });
-    },
-    [activeChart, timeframePortfolioHistory.length],
-  );
-
-  const flushPendingDragLabel = useCallback(() => {
-    dragRafRef.current = null;
-    const label = pendingDragLabelRef.current;
-    if (!label) return;
-    pendingDragLabelRef.current = null;
-    setPerformanceDragRange((prev) => {
-      if (!prev || prev.end === label) return prev;
-      return { ...prev, end: label };
-    });
-  }, []);
-
-  const handleChartDragMove = useCallback(
-    (state: any) => {
-      if (activeChart !== 'value') return;
-      const label = typeof state?.activeLabel === 'string' ? state.activeLabel : null;
-      if (!label) return;
-      pendingDragLabelRef.current = label;
-      if (dragRafRef.current !== null) return;
-      dragRafRef.current = window.requestAnimationFrame(flushPendingDragLabel);
-    },
-    [activeChart, flushPendingDragLabel],
-  );
-
-  const handleChartDragEnd = useCallback(() => {
-    pendingDragLabelRef.current = null;
-    if (dragRafRef.current !== null) {
-      window.cancelAnimationFrame(dragRafRef.current);
-      dragRafRef.current = null;
-    }
-    setPerformanceDragRange(null);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (dragRafRef.current !== null) {
-        window.cancelAnimationFrame(dragRafRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (holdingsPanelTab !== 'allocation') return;
@@ -2661,317 +3015,21 @@ export default function PortfolioTracker() {
       </div>
       <main className="w-full space-y-6 py-1 sm:py-2">
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-          <Card className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background xl:col-span-7">
-            <CardHeader className="border-b border-border pb-4 pt-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-semibold">Performance</CardTitle>
-                  <p className="mt-1 text-[11px] text-muted-foreground sm:text-xs">
-                    Drag on chart to inspect a custom range
-                  </p>
-                </div>
-                <div className="inline-flex gap-1 rounded-lg border border-border bg-background p-1 text-xs sm:text-sm">
-                  <button
-                    onClick={() => {
-                      setActiveChart('value');
-                    }}
-                    className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                      activeChart === 'value'
-                        ? 'bg-foreground text-background'
-                        : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
-                    }`}
-                  >
-                    Value
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveChart('dividends');
-                      setPerformanceDragRange(null);
-                    }}
-                    className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                      activeChart === 'dividends'
-                        ? 'bg-foreground text-background'
-                        : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
-                    }`}
-                  >
-                    Dividends
-                  </button>
-                </div>
-              </div>
-
-              {activeChart === 'dividends' ? (
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground">Year</span>
-                  <select
-                    value={dividendYear}
-                    onChange={(event) => setDividendYear(Number(event.target.value))}
-                    className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-                  >
-                    {(allDividendYears.length ? allDividendYears : [new Date().getFullYear()]).map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap gap-1 text-xs">
-                    {(['1M', '3M', '6M', '1Y', 'ALL'] as const).map((period) => (
-                      <button
-                        key={period}
-                        onClick={() => {
-                          setActiveTimeframe(period);
-                          setPerformanceDragRange(null);
-                        }}
-                        className={`rounded-md border px-2 py-1 transition-colors ${
-                          activeTimeframe === period
-                            ? 'border-foreground bg-foreground text-background'
-                            : 'border-border bg-background text-muted-foreground hover:bg-muted/20 hover:text-foreground'
-                        }`}
-                      >
-                        {period}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="inline-flex rounded-md border border-border bg-background p-1 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => setValueChartStyle('area')}
-                      className={`rounded px-2 py-1 transition-colors ${
-                        valueChartStyle === 'area'
-                          ? 'bg-foreground text-background'
-                          : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
-                      }`}
-                    >
-                      Area
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setValueChartStyle('line')}
-                      className={`rounded px-2 py-1 transition-colors ${
-                        valueChartStyle === 'line'
-                          ? 'bg-foreground text-background'
-                          : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
-                      }`}
-                    >
-                      Line
-                    </button>
-                  </div>
-                </div>
-              )}
-            </CardHeader>
-
-            <CardContent className="flex flex-1 flex-col pt-4">
-              {showMobileChartSummary ? (
-                <div className="mb-2.5 rounded-md border border-border bg-background px-2.5 py-2 text-[10px] text-foreground">
-                  <div className="grid grid-cols-3 items-center gap-1.5 text-center">
-                    <div>
-                      <div className="text-muted-foreground">
-                        {formatShortDate(mobileSummaryStartPoint!.date)}
-                      </div>
-                      <div className="font-semibold">
-                        {formatMoney(mobileSummaryStartPoint!.value, baseCurrency, 2, 2)}
-                      </div>
-                    </div>
-                    <div className="rounded border border-border bg-background py-1">
-                      <div className={`font-semibold leading-tight ${metricTone(mobileSummaryPct)}`}>
-                        {formatPercent(mobileSummaryPct)}
-                      </div>
-                      <div className={`font-semibold leading-tight ${metricTone(mobileSummaryPnl)}`}>
-                        {formatSignedMoney(mobileSummaryPnl, baseCurrency)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">
-                        {formatShortDate(mobileSummaryEndPoint!.date)}
-                      </div>
-                      <div className="font-semibold">
-                        {formatMoney(mobileSummaryEndPoint!.value, baseCurrency, 2, 2)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-              <div
-                className={`relative min-h-[18rem] w-full flex-1 overflow-hidden rounded-xl bg-background p-0 sm:min-h-[22rem] ${
-                  isMobile && activeChart === 'value' ? 'touch-none' : ''
-                }`}
-              >
-                <ChartContainer
-                  config={
-                    activeChart === 'dividends'
-                      ? { amount: { label: 'Dividends', color: 'hsl(var(--chart-2))' } }
-                      : { value: { label: 'Value', color: '#3b82f6' } }
-                  }
-                  className="h-full w-full"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    {activeChart === 'dividends' ? (
-                      <BarChartComponent
-                        data={filteredDividendHistory}
-                        margin={{ top: 4, right: 6, left: 8, bottom: 4 }}
-                      >
-                        <XAxis
-                          dataKey="date"
-                          tickFormatter={(date: string | number) =>
-                            new Date(date).toLocaleDateString(undefined, { month: 'short' })
-                          }
-                        />
-                        <YAxis
-                          width={72}
-                          axisLine={false}
-                          tickLine={false}
-                          tickFormatter={(value: string | number) =>
-                            formatMoney(Number(value), baseCurrency, 0, 0)
-                          }
-                        />
-                        <Tooltip
-                          content={({ active, payload }) => {
-                            if (!active || !payload || !payload.length) return null;
-                            const item: any = payload[0].payload;
-                            return (
-                              <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground">
-                                <div>{new Date(item.date).toLocaleDateString()}</div>
-                                <div className="font-semibold">{formatMoney(item.amount, baseCurrency)}</div>
-                              </div>
-                            );
-                          }}
-                        />
-                        <Bar dataKey="amount" fill="#f97316" radius={[3, 3, 0, 0]} />
-                      </BarChartComponent>
-                    ) : (
-                      <ComposedChart
-                        data={timeframePortfolioHistory}
-                        margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
-                        onMouseDown={handleChartDragStart}
-                        onMouseMove={handleChartDragMove}
-                        onMouseUp={handleChartDragEnd}
-                        onMouseLeave={handleChartDragEnd}
-                      >
-                        <XAxis dataKey="date" hide />
-                        <YAxis hide domain={[chartDomainMin, chartDomainMax]} />
-                        {activeSelectionRange && (
-                          <ReferenceArea
-                            x1={activeSelectionRange.start}
-                            x2={activeSelectionRange.end}
-                            strokeOpacity={0}
-                            fill="#71717a"
-                            fillOpacity={dragOverlayRange ? 0.14 : 0.08}
-                          />
-                        )}
-                        {activeSelectionRange && (
-                          <>
-                            <ReferenceLine
-                              x={activeSelectionRange.start}
-                              stroke="#a1a1aa"
-                              strokeDasharray="2 2"
-                              strokeWidth={1}
-                              strokeOpacity={0.8}
-                            />
-                            <ReferenceLine
-                              x={activeSelectionRange.end}
-                              stroke="#a1a1aa"
-                              strokeDasharray="2 2"
-                              strokeWidth={1}
-                              strokeOpacity={0.8}
-                            />
-                          </>
-                        )}
-                        {selectedRangeStartPoint && (
-                          <ReferenceDot
-                            x={selectedRangeStartPoint.date}
-                            y={selectedRangeStartPoint.value}
-                            r={4}
-                            fill="#111827"
-                            stroke="#f8fafc"
-                            strokeWidth={2}
-                          />
-                        )}
-                        {selectedRangeEndPoint && (
-                          <ReferenceDot
-                            x={selectedRangeEndPoint.date}
-                            y={selectedRangeEndPoint.value}
-                            r={4}
-                            fill="#111827"
-                            stroke="#f8fafc"
-                            strokeWidth={2}
-                          />
-                        )}
-                        <Tooltip
-                          content={({ active, payload }) => {
-                            if (!active || !payload || !payload.length) return null;
-                            const item: any = payload[0].payload;
-                            if (isMobile && mobileSummaryStartPoint && mobileSummaryEndPoint) {
-                              return null;
-                            }
-                            if (activeSelectionRange && selectedRangeStartPoint && selectedRangeEndPoint) {
-                              return (
-                                <div className="w-[min(90vw,370px)] rounded-md border border-border bg-background px-2.5 py-1.5 text-[10px] text-foreground sm:text-[11px]">
-                                  <div className="grid grid-cols-3 items-center gap-1.5 text-center">
-                                    <div>
-                                      <div className="text-muted-foreground">
-                                        {formatShortDate(selectedRangeStartPoint.date)}
-                                      </div>
-                                      <div className="font-semibold">
-                                        {formatMoney(selectedRangeStartPoint.value, baseCurrency, 2, 2)}
-                                      </div>
-                                    </div>
-                                    <div className="rounded border border-border bg-background py-1">
-                                      <div className={`font-semibold leading-tight ${metricTone(selectedRangePct)}`}>
-                                        {formatPercent(selectedRangePct)}
-                                      </div>
-                                      <div className={`font-semibold leading-tight ${metricTone(selectedRangePnl)}`}>
-                                        {formatSignedMoney(selectedRangePnl, baseCurrency)}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-zinc-400">
-                                        {formatShortDate(selectedRangeEndPoint.date)}
-                                      </div>
-                                      <div className="font-semibold">
-                                        {formatMoney(selectedRangeEndPoint.value, baseCurrency, 2, 2)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return (
-                              <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground">
-                                <div>{new Date(item.date).toLocaleDateString()}</div>
-                                <div className="font-semibold">{formatMoney(item.value, baseCurrency)}</div>
-                              </div>
-                            );
-                          }}
-                        />
-                        {valueChartStyle === 'area' ? (
-                          <Area
-                            type="monotone"
-                            dataKey="value"
-                            stroke="#d4d4d8"
-                            strokeWidth={1.5}
-                            fillOpacity={1}
-                            fill="rgba(212, 212, 216, 0.14)"
-                            isAnimationActive={false}
-                          />
-                        ) : (
-                          <Line
-                            type="monotone"
-                            dataKey="value"
-                            stroke="#e5e7eb"
-                            strokeWidth={2}
-                            dot={false}
-                            isAnimationActive={false}
-                          />
-                        )}
-                      </ComposedChart>
-                    )}
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
-            </CardContent>
-          </Card>
+          <PerformanceChartCard
+            activeChart={activeChart}
+            activeTimeframe={activeTimeframe}
+            allDividendYears={allDividendYears}
+            baseCurrency={baseCurrency}
+            dividendYear={dividendYear}
+            filteredDividendHistory={filteredDividendHistory}
+            isMobile={isMobile}
+            onActiveChartChange={setActiveChart}
+            onDividendYearChange={setDividendYear}
+            onTimeframeChange={setActiveTimeframe}
+            onValueChartStyleChange={setValueChartStyle}
+            timeframePortfolioHistory={timeframePortfolioHistory}
+            valueChartStyle={valueChartStyle}
+          />
 
           <Card className="overflow-hidden rounded-xl border border-border bg-background xl:col-span-5">
             <CardHeader className="border-b border-border bg-transparent pb-4 pt-5">

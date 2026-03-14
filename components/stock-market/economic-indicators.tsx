@@ -63,6 +63,8 @@ type LegacyPayload = {
 };
 
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
+const LIVE_ENDPOINT = '/api/economic-indicators';
+const SNAPSHOT_ENDPOINT = '/economic-indicators.json';
 
 const METRIC_COLUMNS: Array<{
   key: keyof CountryMetrics;
@@ -346,21 +348,37 @@ export default function EconomicIndicators() {
     setError(null);
 
     try {
-      const response = await fetch('/api/economic-indicators', { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`Failed to load macro data (${response.status})`);
+      let lastError: Error | null = null;
+
+      for (const endpoint of [LIVE_ENDPOINT, SNAPSHOT_ENDPOINT]) {
+        try {
+          const response = await fetch(endpoint, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`Failed to load macro data (${response.status})`);
+          }
+
+          const rawPayload = await response.json();
+          const payload = normalizePayload(rawPayload);
+          if (!payload || !Array.isArray(payload.countries) || payload.countries.length === 0) {
+            throw new Error('Macro data payload is missing country snapshots');
+          }
+
+          setData(payload);
+          if (payload.error) {
+            setError(payload.error);
+          } else if (endpoint === SNAPSHOT_ENDPOINT) {
+            setError('Showing build snapshot because the live macro endpoint is unavailable.');
+          }
+          return;
+        } catch (requestError) {
+          lastError =
+            requestError instanceof Error
+              ? requestError
+              : new Error('Unable to load economic indicators right now.');
+        }
       }
 
-      const rawPayload = await response.json();
-      const payload = normalizePayload(rawPayload);
-      if (!payload || !Array.isArray(payload.countries) || payload.countries.length === 0) {
-        throw new Error('Macro data payload is missing country snapshots');
-      }
-
-      setData(payload);
-      if (payload.error) {
-        setError(payload.error);
-      }
+      throw lastError ?? new Error('Unable to load economic indicators right now.');
     } catch (requestError) {
       const message =
         requestError instanceof Error

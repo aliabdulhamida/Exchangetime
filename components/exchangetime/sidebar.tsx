@@ -70,6 +70,7 @@ import {
   CalendarClock,
   Briefcase,
   Info,
+  LayoutGrid,
   Clock,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -169,6 +170,15 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
   const navPillTransition: Transition = prefersReducedMotion
     ? { duration: 0 }
     : { type: 'spring', stiffness: 520, damping: 40, mass: 0.58 };
+  const totalMobileModuleCount = mobileModuleGroups.reduce(
+    (count, group) => count + group.items.length,
+    0,
+  );
+  const visibleMobileModuleCount = mobileModuleGroups.reduce(
+    (count, group) =>
+      count + group.items.filter((item) => visibleModules.includes(item.module)).length,
+    0,
+  );
 
   // Sicheres Abrufen des gespeicherten Zustands aus dem localStorage beim Mounten der Komponente
   useEffect(() => {
@@ -1612,17 +1622,31 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
             transition={mobilePanelTransition}
           >
             <div className="et-mobile-panel-header">
-              <p className="et-mobile-panel-title">
-                {mobilePanel === 'modules' ? 'Quick Modules' : 'Help & Legal'}
-              </p>
-              <button
-                type="button"
-                onClick={handleNavigation}
-                className="et-module-action h-7 w-7"
-                aria-label="Close mobile panel"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="et-mobile-panel-header-copy">
+                <p className="et-mobile-panel-title">
+                  {mobilePanel === 'modules' ? 'Quick Modules' : 'Help & Legal'}
+                </p>
+                <p className="et-mobile-panel-subtitle">
+                  {mobilePanel === 'modules'
+                    ? 'Open a module directly or restore the full layout'
+                    : 'About, policy, and contact links'}
+                </p>
+              </div>
+              <div className="et-mobile-panel-header-actions">
+                <span className="et-mobile-panel-meta">
+                  {mobilePanel === 'modules'
+                    ? `${visibleMobileModuleCount}/${totalMobileModuleCount}`
+                    : '5'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNavigation}
+                  className="et-module-action et-mobile-panel-close h-7 w-7"
+                  aria-label="Close mobile panel"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <div className="et-scrollbar max-h-[56vh] overflow-y-auto p-3">
               {mobilePanel === 'modules' ? (
@@ -1637,40 +1661,63 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                       handleNavigation();
                     }}
                   >
-                    <span className="et-quick-modules-cta-title">Show All Modules</span>
+                    <span className="et-quick-modules-cta-icon" aria-hidden="true">
+                      <LayoutGrid className="h-4 w-4" />
+                    </span>
+                    <span className="et-quick-modules-cta-copy">
+                      <span className="et-quick-modules-cta-title">Show All Modules</span>
+                      <span className="et-quick-modules-cta-subtitle">
+                        Restore the full dashboard view
+                      </span>
+                    </span>
                   </button>
-                  {mobileModuleGroups.map((group) => (
-                    <div key={group.title} className="et-quick-modules-group">
-                      <h3 className="et-quick-modules-group-title">{group.title}</h3>
-                      <div className="et-quick-modules-group-body">
-                        {group.items.map((item) => {
-                          const isVisible = visibleModules.includes(item.module);
-                          const Icon = item.icon;
+                  {mobileModuleGroups.map((group) => {
+                    const visibleCount = group.items.filter((item) =>
+                      visibleModules.includes(item.module),
+                    ).length;
 
-                          return (
-                            <button
-                              key={item.module}
-                              type="button"
-                              className={`et-quick-module-item ${isVisible ? 'et-quick-module-item-active' : ''}`}
-                              onClick={() => {
-                                if (!isVisible) {
-                                  showModule(item.module);
-                                }
-                                focusModule(item.module, isVisible);
-                                handleNavigation();
-                              }}
-                            >
-                              <span className="et-quick-module-item-icon" aria-hidden="true">
-                                <Icon className="h-4 w-4 flex-shrink-0" />
-                              </span>
-                              <span className="et-quick-module-item-label">{item.label}</span>
-                              {isVisible && <span className="et-quick-module-item-status">On</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                    return (
+                      <section key={group.title} className="et-quick-modules-group">
+                        <div className="et-quick-modules-group-heading">
+                          <h3 className="et-quick-modules-group-title">{group.title}</h3>
+                          <span className="et-quick-modules-group-count">
+                            {visibleCount}/{group.items.length}
+                          </span>
+                        </div>
+                        <div className="et-quick-modules-group-body">
+                          {group.items.map((item) => {
+                            const isVisible = visibleModules.includes(item.module);
+                            const Icon = item.icon;
+
+                            return (
+                              <button
+                                key={item.module}
+                                type="button"
+                                className={`et-quick-module-item ${isVisible ? 'et-quick-module-item-active' : ''}`}
+                                onClick={() => {
+                                  if (!isVisible) {
+                                    showModule(item.module);
+                                  }
+                                  focusModule(item.module, isVisible);
+                                  handleNavigation();
+                                }}
+                              >
+                                <span className="et-quick-module-item-icon" aria-hidden="true">
+                                  <Icon className="h-4 w-4 flex-shrink-0" />
+                                </span>
+                                <span className="et-quick-module-item-label">{item.label}</span>
+                                <span
+                                  className={`et-quick-module-item-status ${isVisible ? 'et-quick-module-item-status-active' : ''}`}
+                                >
+                                  {isVisible ? 'On' : 'Open'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="space-y-1">

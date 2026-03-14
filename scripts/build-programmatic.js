@@ -2,6 +2,7 @@
 /* Programmatic Next.js build with non-interactive TTY and safe writes */
 // Preload hardening for stdout/stderr/fs/crypto to avoid ERR_INVALID_ARG_TYPE during build
 require('./patch-stdio.js');
+const childProcess = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -29,7 +30,21 @@ fs.writeFile = (p, d, ...r) => ow(p, coerce(d), ...r);
 (async () => {
   const cwd = process.cwd();
   const buildIdFile = path.join(cwd, '.next', 'BUILD_ID');
+  const snapshotScript = path.join(cwd, 'scripts', 'generate-economic-indicators-snapshot.mjs');
+  const snapshotFile = path.join(cwd, 'public', 'economic-indicators.json');
   try {
+    try {
+      childProcess.execFileSync(process.execPath, [snapshotScript], {
+        cwd,
+        stdio: 'inherit',
+      });
+    } catch (snapshotErr) {
+      if (!fs.existsSync(snapshotFile)) {
+        throw snapshotErr;
+      }
+      console.warn('⚠️ Economic indicators snapshot refresh failed, using existing snapshot.');
+    }
+
     const nextBuild = require('next/dist/build').default;
     await nextBuild(cwd);
     if (!fs.existsSync(buildIdFile)) {

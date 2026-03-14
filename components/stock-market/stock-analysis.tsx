@@ -1273,7 +1273,7 @@ export default function StockAnalysis() {
                 <div className={sectionClass}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 self-center">
-                      <div className="flex items-start gap-2.5">
+                      <div className="flex items-center gap-2.5">
                         <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-border/70 bg-zinc-50">
                           <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-zinc-500">
                             {selectedStock.symbol.slice(0, 2)}
