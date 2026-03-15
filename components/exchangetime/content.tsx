@@ -19,6 +19,7 @@ import {
   type ContributionTiming,
 } from '@/lib/compound-interest';
 
+import PersonalBudgetCalculator from '../personal-budget-calculator';
 import TaxCalculator from '../tax-calculator';
 import BacktestTool from '../stock-market/backtest-tool';
 import CurrencyConverter from '../stock-market/currency-converter';
@@ -122,8 +123,9 @@ const DEFAULT_VISIBLE_MODULES = [
   'CurrencyConverter',
   'MarketScreener',
   'CompoundInterest',
-  'PersonalBudget',
+  'OptionsPayoffLab',
   'TaxCalculator',
+  'PersonalBudget',
   'EconomicIndicators',
   'EarningsCalendar',
   'DividendCalendar',
@@ -476,12 +478,11 @@ export default function Content(props: ContentProps) {
 
         {/* Sixth Row - Options Payoff Lab */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
-          {/* Options Payoff Lab */}
-          {modules.includes('PersonalBudget') && (
+          {modules.includes('OptionsPayoffLab') && (
             <ModuleWrapper
-              moduleKey="PersonalBudget"
-              onClose={() => hideModule('PersonalBudget')}
-              onSolo={() => showOnlyModule('PersonalBudget')}
+              moduleKey="OptionsPayoffLab"
+              onClose={() => hideModule('OptionsPayoffLab')}
+              onSolo={() => showOnlyModule('OptionsPayoffLab')}
               className="h-full"
             >
               <div className="flex h-full flex-col">
@@ -507,10 +508,24 @@ export default function Content(props: ContentProps) {
               </div>
             </ModuleWrapper>
           )}
-
-          {/* DCF removed from this row to render below the Tax Calculator */}
         </div>
-        {/* Render DCF below Tax Calculator as a new full-width row */}
+
+        {modules.includes('PersonalBudget') && (
+          <div className="grid grid-cols-1 gap-4 sm:gap-6">
+            <ModuleWrapper
+              moduleKey="PersonalBudget"
+              onClose={() => hideModule('PersonalBudget')}
+              onSolo={() => showOnlyModule('PersonalBudget')}
+              className="h-full"
+            >
+              <div className="flex h-full flex-col">
+                <PersonalBudgetCalculator />
+              </div>
+            </ModuleWrapper>
+          </div>
+        )}
+
+        {/* Render DCF below Tax Calculator and Personal Budget as a new full-width row */}
         {modules.includes('DCFCalculator') && (
           <div className="grid grid-cols-1 gap-4 sm:gap-6">
             <ModuleWrapper

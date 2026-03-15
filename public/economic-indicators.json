@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-03-14T12:24:36.661Z",
+  "fetchedAt": "2026-03-14T12:35:08.627Z",
   "source": "FRED",
   "countries": [
     {
@@ -493,6 +493,204 @@
           "series": [
             "FRACPIALLMINMEI",
             "LRHUTTTTFRM156S"
+          ]
+        }
+      }
+    },
+    {
+      "code": "IT",
+      "name": "Italy",
+      "metrics": {
+        "gdp": {
+          "label": "GDP (Current US$)",
+          "value": 2.38082507724359,
+          "unit": "usdT",
+          "date": "2024-01-01",
+          "series": [
+            "MKTGDPITA646NWDB"
+          ]
+        },
+        "interestRate": {
+          "label": "Short-Term Rate (3M)",
+          "value": 2.0277272727,
+          "unit": "%",
+          "date": "2026-01-01",
+          "series": [
+            "IR3TIB01ITM156N"
+          ]
+        },
+        "inflationYoY": {
+          "label": "Inflation (CPI YoY)",
+          "value": 1.9134775374376016,
+          "unit": "%",
+          "date": "2025-03-01",
+          "series": [
+            "ITACPIALLMINMEI"
+          ]
+        },
+        "unemploymentRate": {
+          "label": "Unemployment Rate",
+          "value": 5.366667,
+          "unit": "%",
+          "date": "2025-10-01",
+          "series": [
+            "LRHUTTTTITQ156N"
+          ]
+        },
+        "tenYearYield": {
+          "label": "10Y Government Yield",
+          "value": 3.492,
+          "unit": "%",
+          "date": "2026-01-01",
+          "series": [
+            "IRLTLT01ITM156N"
+          ]
+        },
+        "realInterestRate": {
+          "label": "Real Interest Rate",
+          "value": 0.11424973526239834,
+          "unit": "%",
+          "date": "2025-03-01",
+          "series": [
+            "IR3TIB01ITM156N",
+            "ITACPIALLMINMEI"
+          ]
+        },
+        "yieldCurveSlope": {
+          "label": "Yield Curve Slope (10Y - Short)",
+          "value": 1.4642727273,
+          "unit": "pp",
+          "date": "2026-01-01",
+          "series": [
+            "IRLTLT01ITM156N",
+            "IR3TIB01ITM156N"
+          ]
+        },
+        "inflationTargetGap": {
+          "label": "Inflation Gap vs 2% Target",
+          "value": -0.08652246256239837,
+          "unit": "pp",
+          "date": "2025-03-01",
+          "series": [
+            "ITACPIALLMINMEI"
+          ]
+        },
+        "unemploymentChange12m": {
+          "label": "Unemployment Change (12M)",
+          "value": -0.733333,
+          "unit": "pp",
+          "date": "2025-10-01",
+          "series": [
+            "LRHUTTTTITQ156N"
+          ]
+        },
+        "miseryIndex": {
+          "label": "Misery Index (Inflation + Unemployment)",
+          "value": 7.280144537437601,
+          "unit": "index",
+          "date": "2025-03-01",
+          "series": [
+            "ITACPIALLMINMEI",
+            "LRHUTTTTITQ156N"
+          ]
+        }
+      }
+    },
+    {
+      "code": "JP",
+      "name": "Japan",
+      "metrics": {
+        "gdp": {
+          "label": "GDP (Current US$)",
+          "value": 4.02759752355058,
+          "unit": "usdT",
+          "date": "2024-01-01",
+          "series": [
+            "MKTGDPJPA646NWDB"
+          ]
+        },
+        "interestRate": {
+          "label": "Short-Term Rate (3M)",
+          "value": 1.12,
+          "unit": "%",
+          "date": "2026-01-01",
+          "series": [
+            "IR3TIB01JPM156N"
+          ]
+        },
+        "inflationYoY": {
+          "label": "Inflation (CPI YoY)",
+          "value": -0.40047077192633246,
+          "unit": "%",
+          "date": "2021-06-01",
+          "series": [
+            "JPNCPIALLMINMEI"
+          ]
+        },
+        "unemploymentRate": {
+          "label": "Unemployment Rate",
+          "value": 2.6,
+          "unit": "%",
+          "date": "2025-12-01",
+          "series": [
+            "LRHUTTTTJPM156S"
+          ]
+        },
+        "tenYearYield": {
+          "label": "10Y Government Yield",
+          "value": 2.24,
+          "unit": "%",
+          "date": "2026-01-01",
+          "series": [
+            "IRLTLT01JPM156N"
+          ]
+        },
+        "realInterestRate": {
+          "label": "Real Interest Rate",
+          "value": 1.5204707719263326,
+          "unit": "%",
+          "date": "2021-06-01",
+          "series": [
+            "IR3TIB01JPM156N",
+            "JPNCPIALLMINMEI"
+          ]
+        },
+        "yieldCurveSlope": {
+          "label": "Yield Curve Slope (10Y - Short)",
+          "value": 1.12,
+          "unit": "pp",
+          "date": "2026-01-01",
+          "series": [
+            "IRLTLT01JPM156N",
+            "IR3TIB01JPM156N"
+          ]
+        },
+        "inflationTargetGap": {
+          "label": "Inflation Gap vs 2% Target",
+          "value": -2.4004707719263325,
+          "unit": "pp",
+          "date": "2021-06-01",
+          "series": [
+            "JPNCPIALLMINMEI"
+          ]
+        },
+        "unemploymentChange12m": {
+          "label": "Unemployment Change (12M)",
+          "value": 0.10000000000000009,
+          "unit": "pp",
+          "date": "2025-12-01",
+          "series": [
+            "LRHUTTTTJPM156S"
+          ]
+        },
+        "miseryIndex": {
+          "label": "Misery Index (Inflation + Unemployment)",
+          "value": 2.1995292280736676,
+          "unit": "index",
+          "date": "2021-06-01",
+          "series": [
+            "JPNCPIALLMINMEI",
+            "LRHUTTTTJPM156S"
           ]
         }
       }

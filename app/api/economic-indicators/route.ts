@@ -123,6 +123,26 @@ const COUNTRY_CONFIGS: CountryConfig[] = [
     unemploymentSeries: 'LRHUTTTTFRM156S',
     tenYearYieldSeries: 'IRLTLT01FRM156N',
   },
+  {
+    code: 'IT',
+    name: 'Italy',
+    gdpSeries: 'MKTGDPITA646NWDB',
+    interestRateSeries: 'IR3TIB01ITM156N',
+    interestRateLabel: 'Short-Term Rate (3M)',
+    cpiSeries: 'ITACPIALLMINMEI',
+    unemploymentSeries: 'LRHUTTTTITQ156N',
+    tenYearYieldSeries: 'IRLTLT01ITM156N',
+  },
+  {
+    code: 'JP',
+    name: 'Japan',
+    gdpSeries: 'MKTGDPJPA646NWDB',
+    interestRateSeries: 'IR3TIB01JPM156N',
+    interestRateLabel: 'Short-Term Rate (3M)',
+    cpiSeries: 'JPNCPIALLMINMEI',
+    unemploymentSeries: 'LRHUTTTTJPM156S',
+    tenYearYieldSeries: 'IRLTLT01JPM156N',
+  },
 ];
 
 const globalIndicatorsCache = globalThis as typeof globalThis & {

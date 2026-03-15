@@ -120,10 +120,11 @@ const mobileModuleGroups: MobileModuleGroup[] = [
       { module: 'CurrencyConverter', icon: ArrowLeftRight, label: 'Currency Converter' },
       { module: 'MarketScreener', icon: TrendingUp, label: 'Market Screener' },
       { module: 'TaxCalculator', icon: Calculator, label: 'Tax Calculator' },
+      { module: 'PersonalBudget', icon: PiggyBank, label: 'Personal Budget' },
       { module: 'DCFCalculator', icon: Calculator, label: 'DCF Calculator' },
+      { module: 'OptionsPayoffLab', icon: Folder, label: 'Options Payoff Lab' },
       { module: 'EconomicIndicators', icon: LineChart, label: 'Economic Indicators' },
       { module: 'CompoundInterest', icon: PiggyBank, label: 'Compound Interest' },
-      { module: 'PersonalBudget', icon: Folder, label: 'Options Payoff Lab' },
       { module: 'TechnicalAnalysis', icon: BarChart2, label: 'Technical Analysis' },
     ],
   },
@@ -1481,7 +1482,13 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                   />
                   <ModuleButton module="MarketScreener" icon={TrendingUp} label="Market Screener" />
                   <ModuleButton module="TaxCalculator" icon={Calculator} label="Tax Calculator" />
+                  <ModuleButton module="PersonalBudget" icon={PiggyBank} label="Personal Budget" />
                   <ModuleButton module="DCFCalculator" icon={Calculator} label="DCF Calculator" />
+                  <ModuleButton
+                    module="OptionsPayoffLab"
+                    icon={Folder}
+                    label="Options Payoff Lab"
+                  />
                   <ModuleButton
                     module="EconomicIndicators"
                     icon={LineChart}
@@ -1492,7 +1499,6 @@ export default function Sidebar({ visibleModules, showModule }: SidebarProps) {
                     icon={PiggyBank}
                     label="Compound Interest"
                   />
-                  <ModuleButton module="PersonalBudget" icon={Folder} label="Options Payoff Lab" />
                   <ModuleButton
                     module="TechnicalAnalysis"
                     icon={BarChart2}
