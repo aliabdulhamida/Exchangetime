@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { rankWorkspaceCommand } from './workspace-search';
 
 describe('workspace command ranking', () => {

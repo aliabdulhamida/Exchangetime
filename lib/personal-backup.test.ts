@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { exportBackup, readBackup, restoreBackup } from './personal-backup';
 
 function storage(initial: Record<string, string>) {

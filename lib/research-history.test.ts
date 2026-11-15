@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { filterChartPointsByRange, formatQuote, priceCsv } from './research-history';
 
 describe('research price history', () => {

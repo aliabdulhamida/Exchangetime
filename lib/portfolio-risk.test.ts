@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { portfolioReturnIndex, portfolioRisk } from './portfolio-risk';
 
 describe('portfolio risk and return', () => {

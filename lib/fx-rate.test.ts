@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+
 import { getSeriesFxRate } from './fx-rate';
 
 it('never uses a later FX observation or invents a missing rate', () => {

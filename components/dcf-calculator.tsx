@@ -1,8 +1,7 @@
 "use client";
 import { Info } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { parseDcfNumber } from '@/lib/dcf';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip as ReTooltip, CartesianGrid } from 'recharts';
 
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import { ToastAction } from '@/components/ui/toast';
 import { Toggle } from '@/components/ui/toggle';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from '@/components/ui/use-toast';
+import { parseDcfNumber } from '@/lib/dcf';
 
 function parseNumber(v: any, cur: string) {
   return parseDcfNumber(v, cur);

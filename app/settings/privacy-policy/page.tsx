@@ -1,4 +1,5 @@
 import React from 'react';
+
 import Layout from '@/components/exchangetime/layout';
 
 export default function PrivacyPolicyPage() {

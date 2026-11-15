@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { afterEach, expect, it, vi } from 'vitest';
+
 import handler from '../pages/api/news';
 
 afterEach(() => vi.unstubAllGlobals());

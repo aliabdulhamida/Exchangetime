@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import {
   Area,
@@ -21,15 +22,14 @@ import {
   YAxis,
 } from 'recharts';
 
+import PortfolioWelcome from '@/components/exchangetime/portfolio-welcome';
 import HoldingDetailsModal from '@/components/stock-market/holding-details-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer } from '@/components/ui/chart';
 import { useIsMobile } from '@/components/ui/use-mobile';
-import { portfolioReturnIndex, portfolioRisk } from '@/lib/portfolio-risk';
 import { getSeriesFxRate } from '@/lib/fx-rate';
-import { useSearchParams } from 'next/navigation';
-import PortfolioWelcome from '@/components/exchangetime/portfolio-welcome';
+import { portfolioReturnIndex, portfolioRisk } from '@/lib/portfolio-risk';
 
 interface StockDataPoint {
   date: string; // yyyy-mm-dd

@@ -1,12 +1,12 @@
 'use client';
 
-import { Suspense, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { Suspense, type ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 
-import TopNav from './top-nav';
-import TerminalNav from './terminal-nav';
 import Preferences from './preferences';
+import TerminalNav from './terminal-nav';
+import TopNav from './top-nav';
 
 export default function Layout({ children }: { children: ReactNode; sidebar?: ReactNode }) {
   return (

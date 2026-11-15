@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
 import { Download, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { z } from 'zod';
-import { useLocalRecords } from './use-local-records';
 
 import { tradeSchema } from '@/lib/record-schemas';
+
+import { useLocalRecords } from './use-local-records';
+
 type Trade = z.infer<typeof tradeSchema>[number];
 function profit(trade: Trade) {
   return (

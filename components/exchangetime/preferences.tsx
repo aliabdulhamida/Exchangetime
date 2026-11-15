@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { useEffect, useState } from 'react';
+
 import {
   Dialog,
   DialogContent,
@@ -9,8 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { workspaces } from './product-model';
+
 import PersonalBackup from './personal-backup';
+import { workspaces } from './product-model';
 
 export default function Preferences() {
   const { theme, setTheme } = useTheme();

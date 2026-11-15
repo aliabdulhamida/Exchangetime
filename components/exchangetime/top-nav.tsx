@@ -4,7 +4,7 @@ import { ArrowUpRight, BookOpen, ChevronRight, Plus, Search, Settings2, Star } f
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { rankWorkspaceCommand } from '@/lib/workspace-search';
+
 
 import {
   CommandDialog,
@@ -20,6 +20,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
+import { rankWorkspaceCommand } from '@/lib/workspace-search';
+
 import { workspaces, sections, workspaceUrl, workspaceDescriptions } from './product-model';
 
 const WatchlistMenu = dynamic(() => import('./watchlist-menu'), { ssr: false });

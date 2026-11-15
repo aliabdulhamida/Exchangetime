@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { Plus, Trash2, TrendingUp } from 'lucide-react';
-import { z } from 'zod';
+import { useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -12,9 +11,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useLocalRecords } from './use-local-records';
+import { z } from 'zod';
 
 import { balanceSchema, historySchema, goalSchema } from '@/lib/record-schemas';
+
+import { useLocalRecords } from './use-local-records';
+
 const currency = (value: number) =>
   new Intl.NumberFormat(undefined, {
     style: 'currency',

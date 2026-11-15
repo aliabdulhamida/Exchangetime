@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { balanceSchema, historySchema, goalSchema, tradeSchema } from './record-schemas';
 
 const amount = z.number().finite().nonnegative();

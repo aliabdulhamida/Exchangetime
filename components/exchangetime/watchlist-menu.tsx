@@ -1,15 +1,17 @@
 'use client';
 
 import { Pencil, RotateCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { workspaceUrl } from './product-model';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+import { workspaceUrl } from './product-model';
+
 
 
 interface WatchlistMenuProps {

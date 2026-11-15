@@ -14,9 +14,9 @@ import { z } from 'zod';
 
 import MarketChart, { Sparkline } from './market-chart';
 import MarketSessions from './market-sessions';
+import { workspaceUrl } from './product-model';
 import SectorPerformance, { sectors } from './sector-performance';
 import { useMarketSeries, seriesChange, signedPercent } from './use-market-series';
-import { workspaceUrl } from './product-model';
 
 const instruments = [
   { name: 'S&P 500', symbol: '^GSPC', region: 'United States', type: 'Index' },

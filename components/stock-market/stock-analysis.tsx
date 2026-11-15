@@ -12,10 +12,9 @@ import {
   Search,
   Users,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { workspaceUrl } from '@/components/exchangetime/product-model';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -28,14 +27,15 @@ import {
   YAxis,
 } from 'recharts';
 
+import { workspaceUrl } from '@/components/exchangetime/product-model';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ChartContainer } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { filterChartPointsByRange, formatQuote, priceCsv, type ChartRange } from '@/lib/research-history';
 
 import AnalystValuation from './AnalystValuation';
-import { filterChartPointsByRange, formatQuote, priceCsv, type ChartRange } from '@/lib/research-history';
 
 type MobilePanelTab = 'analysis' | 'insider' | 'news';
 type RightPanelTab = 'insider' | 'news';
@@ -1062,11 +1062,15 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
     }
   }
 
+  const searchHandler = useRef(handleSearch);
+  useEffect(() => {
+    searchHandler.current = handleSearch;
+  });
   useEffect(() => {
     if(requestedSymbol && requestedSymbol !== lastRequestedSymbol.current) {
       lastRequestedSymbol.current = requestedSymbol;
       setSearchSymbol(requestedSymbol.toUpperCase());
-      void handleSearch(requestedSymbol);
+      void searchHandler.current(requestedSymbol);
     }
   }, [requestedSymbol]);
 

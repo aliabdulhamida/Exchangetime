@@ -1,9 +1,7 @@
 'use client';
 
 import { AlertTriangle, Calendar, Play, Settings } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { runBacktestCalculation, computeXirrPercent } from '@/lib/backtest';
-import { portfolioReturnIndex, portfolioRisk } from '@/lib/portfolio-risk';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -21,6 +19,8 @@ import { Button } from '@/components/ui/button';
 import { ChartContainer } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { runBacktestCalculation, computeXirrPercent } from '@/lib/backtest';
+import { portfolioReturnIndex, portfolioRisk } from '@/lib/portfolio-risk';
 
 interface BacktestResult {
   initialValue: number;
@@ -248,9 +248,9 @@ async function fetchDividendData(stockSymbol: string, startDate: string, endDate
 export default function BacktestTool() {
   const [currency,setCurrency]=useState('USD');
   const [coverage,setCoverage]=useState<string[]>([]);
-  function formatCurrency(value:number,digits=2) {
+  const formatCurrency = useCallback((value:number,digits=2) => {
     return Number.isFinite(value)?value.toLocaleString(undefined,{style:'currency',currency,minimumFractionDigits:digits,maximumFractionDigits:digits}):'—';
-  }
+  }, [currency]);
   const [symbolsInput, setSymbolsInput] = useState('SPY');
   const [weightsInput, setWeightsInput] = useState('');
   const [initialAmount, setInitialAmount] = useState('10000');
@@ -333,7 +333,7 @@ export default function BacktestTool() {
         className: 'text-foreground',
       },
     ];
-  }, [activeSymbols.length, result, reinvestDividends]);
+  }, [activeSymbols.length, result, reinvestDividends, formatCurrency]);
   const portfolioStats = useMemo(() => {
     if (!portfolioHistory || portfolioHistory.length === 0) return null;
     const values = portfolioHistory

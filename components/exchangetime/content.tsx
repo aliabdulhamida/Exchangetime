@@ -1,8 +1,8 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
-import React, { Component, type ComponentType, type ReactNode, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import React, { Component, type ComponentType, type ReactNode, useMemo, useState } from 'react';
 import {
   AreaChart,
   Area,

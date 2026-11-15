@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { parseDcfNumber } from './dcf';
 
 describe('DCF numeric inputs', () => {

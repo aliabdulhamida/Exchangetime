@@ -1,8 +1,8 @@
 'use client';
 
-import { memo, useState } from 'react';
 import { ExternalLink, RotateCw } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { memo, useState } from 'react';
 
 const newsDocument = (theme) =>
   `<!DOCTYPE html><html><head><style>html,body{height:100%;margin:0;background:${theme === 'dark' ? '#000' : '#fff'};font-family:system-ui}.tradingview-widget-container{height:100%;width:100%}</style></head><body><div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" type="text/javascript" async>{"displayMode":"adaptive","feedMode":"all_symbols","colorTheme":"${theme}","isTransparent":true,"locale":"en","width":"100%","height":"100%"}</script></div></body></html>`;

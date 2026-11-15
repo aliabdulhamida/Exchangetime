@@ -1,10 +1,11 @@
 'use client';
 
+import { RotateCw } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { RotateCw } from 'lucide-react';
-import { useMarketSeries, seriesChange, signedPercent } from './use-market-series';
+
 import { workspaceUrl } from './product-model';
+import { useMarketSeries, seriesChange, signedPercent } from './use-market-series';
 
 export const sectors = [
   ['Technology', 'XLK'],

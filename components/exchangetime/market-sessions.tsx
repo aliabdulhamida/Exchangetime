@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
 import marketHours from '@/lib/exchangeinfo.js';
+
 import { workspaceUrl } from './product-model';
 
 type Schedule = {
