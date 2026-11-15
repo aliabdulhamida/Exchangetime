@@ -59,15 +59,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 		});
 		if (!response.ok) {
 			console.error('Yahoo news API error:', response.status);
-			return res.status(200).json([]); // Return empty array instead of error
+			return res.status(502).json({ error: 'News source unavailable' });
 		}
 
 		const data = await response.json();
-		const articles = Array.isArray(data?.news) ? data.news : [];
+		if (!Array.isArray(data?.news)) return res.status(502).json({ error: 'Invalid news response' });
+		const articles = data.news;
 
 		const transformed = articles
 			.map((item: any) => {
-				const ts = Number(item?.providerPublishTime) || Math.floor(Date.now() / 1000);
+				const ts = Number(item?.providerPublishTime);
 				return {
 					id: item?.uuid || item?.link || `${ticker}-${ts}`,
 					headline: item?.title || '',
@@ -80,6 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 				};
 			})
 			.filter((item: any) => {
+				if (!Number.isFinite(item.datetime) || item.datetime <= 0) return false;
 				if (fromTs !== null && item.datetime < fromTs) return false;
 				if (toTs !== null && item.datetime > toTs + 86399) return false;
 				return true;
@@ -89,7 +91,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 		res.status(200).json(transformed);
 	} catch (err: any) {
 		console.error('News fetch error:', err);
-		// Return empty array instead of error to prevent UI breakage
-		res.status(200).json([]);
+		res.status(502).json({ error: 'News source unavailable' });
 	}
 }

@@ -2,6 +2,8 @@
 
 import { AlertTriangle, Calendar, Play, Settings } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { runBacktestCalculation, computeXirrPercent } from '@/lib/backtest';
+import { portfolioReturnIndex, portfolioRisk } from '@/lib/portfolio-risk';
 import {
   Area,
   AreaChart,
@@ -24,9 +26,9 @@ interface BacktestResult {
   initialValue: number;
   finalValue: number;
   totalReturn: number;
-  annualizedReturn: number;
-  maxDrawdown: number;
-  sharpeRatio: number;
+  annualizedReturn: number | null;
+  maxDrawdown: number | null;
+  sharpeRatio: number | null;
   dividendsReinvested: number;
   totalShares: number;
 }
@@ -164,16 +166,9 @@ function dateToUnix(date: string) {
   return Math.floor(new Date(date).getTime() / 1000);
 }
 
-function formatCurrency(value: number, digits = 2) {
-  if (!Number.isFinite(value)) return '-';
-  return `$${value.toLocaleString('en-US', {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  })}`;
-}
 
-function formatPercent(value: number, digits = 2) {
-  if (!Number.isFinite(value)) return '-';
+function formatPercent(value: number | null, digits = 2) {
+  if (value===null || !Number.isFinite(value)) return '-';
   return `${value.toFixed(digits)}%`;
 }
 
@@ -198,62 +193,12 @@ function formatFullDate(value: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
-function calculateDividendHistory(
-  data: PricePoint[],
-  dividendData: DividendPoint[],
-  initialAmount: number,
-  monthlyAmount: number,
-  startDate: string,
-  endDate: string,
-  reinvestDividends = false,
-) {
-  let totalShares = 0;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const startPrice = data[0].close;
-
-  if (initialAmount > 0) {
-    totalShares += initialAmount / startPrice;
-  }
-
-  const nextInvestmentDate = new Date(start);
-  nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
-  nextInvestmentDate.setDate(1);
-
-  let dividendIndex = 0;
-  const dividendHistory: DividendHistoryPoint[] = [];
-
-  for (const day of data) {
-    const currentDay = new Date(day.date);
-
-    if (monthlyAmount > 0 && currentDay >= nextInvestmentDate && currentDay <= end) {
-      totalShares += monthlyAmount / day.close;
-      nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
-    }
-
-    while (
-      dividendIndex < dividendData.length &&
-      new Date(dividendData[dividendIndex].date) <= currentDay
-    ) {
-      const dividend = dividendData[dividendIndex];
-      const dividendAmount = totalShares * dividend.amount;
-      dividendHistory.push({ date: dividend.date, amount: dividendAmount });
-      if (reinvestDividends) {
-        totalShares += dividendAmount / day.close;
-      }
-      dividendIndex++;
-    }
-  }
-
-  return dividendHistory;
-}
-
 async function fetchStockData(stockSymbol: string, startDate: string, endDate: string) {
   try {
     const period1 = dateToUnix(startDate);
     const period2 = dateToUnix(endDate);
     const url = `/api/quote?symbol=${encodeURIComponent(stockSymbol)}&chart=1&period1=${period1}&period2=${period2}&interval=1d`;
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
     if (!response.ok) throw new Error('Network response was not ok');
 
     const data = await response.json();
@@ -263,12 +208,13 @@ async function fetchStockData(stockSymbol: string, startDate: string, endDate: s
 
     const timestamps = data.chart.result[0].timestamp;
     const closePrices = data.chart.result[0].indicators.quote[0].close;
-    return timestamps
+    const points: PricePoint[] = timestamps
       .map((timestamp: number, index: number) => ({
         date: new Date(timestamp * 1000).toISOString().split('T')[0],
         close: closePrices[index],
       }))
       .filter((item: PricePoint) => item.close !== null);
+    return {points,currency:data.chart.result[0].meta?.currency as string|undefined};
   } catch (error: unknown) {
     return { error: error instanceof Error ? error.message : 'Unknown error' };
   }
@@ -279,11 +225,11 @@ async function fetchDividendData(stockSymbol: string, startDate: string, endDate
     const startUnix = dateToUnix(startDate);
     const endUnix = dateToUnix(endDate);
     const url = `/api/quote?symbol=${encodeURIComponent(stockSymbol)}&chart=1&period1=${startUnix}&period2=${endUnix}&interval=1d&events=div`;
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
     if (!response.ok) throw new Error('Network response was not ok');
 
     const data = await response.json();
-    if (!data.chart || !data.chart.result || !data.chart.result[0]) return [];
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) throw new Error('Invalid dividend history');
 
     const result = data.chart.result[0];
     const dividends = result.events?.dividends
@@ -295,87 +241,25 @@ async function fetchDividendData(stockSymbol: string, startDate: string, endDate
       amount: div.amount,
     }));
   } catch {
-    return [];
+    return { error: 'Dividend history unavailable' };
   }
-}
-
-function calculateStockInvestment(
-  data: PricePoint[],
-  dividendData: DividendPoint[],
-  initialAmount: number,
-  monthlyAmount: number,
-  startDate: string,
-  endDate: string,
-  reinvestDividends = false,
-) {
-  let totalShares = 0;
-  let totalInvested = 0;
-  let totalDividends = 0;
-  let cashDividends = 0;
-
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const portfolioHistory: PortfolioPoint[] = [];
-
-  const startPrice = data[0].close;
-  if (initialAmount > 0) {
-    totalShares += initialAmount / startPrice;
-    totalInvested += initialAmount;
-  }
-
-  const nextInvestmentDate = new Date(start);
-  nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
-  nextInvestmentDate.setDate(1);
-
-  let dividendIndex = 0;
-
-  for (const day of data) {
-    const currentDay = new Date(day.date);
-
-    if (monthlyAmount > 0 && currentDay >= nextInvestmentDate && currentDay <= end) {
-      totalShares += monthlyAmount / day.close;
-      totalInvested += monthlyAmount;
-      nextInvestmentDate.setMonth(nextInvestmentDate.getMonth() + 1);
-    }
-
-    while (
-      dividendIndex < dividendData.length &&
-      new Date(dividendData[dividendIndex].date) <= currentDay
-    ) {
-      const dividend = dividendData[dividendIndex];
-      const dividendAmount = totalShares * dividend.amount;
-      totalDividends += dividendAmount;
-      if (reinvestDividends) {
-        totalShares += dividendAmount / day.close;
-      } else {
-        cashDividends += dividendAmount;
-      }
-      dividendIndex++;
-    }
-
-    portfolioHistory.push({ date: day.date, value: totalShares * day.close + cashDividends });
-  }
-
-  const finalPrice = data[data.length - 1].close;
-  const finalValue = totalShares * finalPrice + cashDividends;
-
-  return {
-    totalInvested,
-    finalValue,
-    totalShares,
-    totalDividends,
-    cashDividends,
-    portfolioHistory,
-  };
 }
 
 export default function BacktestTool() {
+  const [currency,setCurrency]=useState('USD');
+  const [coverage,setCoverage]=useState<string[]>([]);
+  function formatCurrency(value:number,digits=2) {
+    return Number.isFinite(value)?value.toLocaleString(undefined,{style:'currency',currency,minimumFractionDigits:digits,maximumFractionDigits:digits}):'—';
+  }
   const [symbolsInput, setSymbolsInput] = useState('SPY');
   const [weightsInput, setWeightsInput] = useState('');
   const [initialAmount, setInitialAmount] = useState('10000');
   const [monthlyAmount, setMonthlyAmount] = useState('0');
   const [startDate, setStartDate] = useState('2020-01-01');
   const [endDate, setEndDate] = useState(() => getTodayIsoLocalDate());
+  const [transactionFeePct,setTransactionFeePct]=useState('0');
+  const [slippagePct,setSlippagePct]=useState('0');
+  const [dividendTaxPct,setDividendTaxPct]=useState('0');
   const [reinvestDividends, setReinvestDividends] = useState(true);
   const [activeSymbols, setActiveSymbols] = useState<string[]>([]);
   const [result, setResult] = useState<BacktestResult | null>(null);
@@ -434,9 +318,9 @@ export default function BacktestTool() {
         className: result.totalReturn >= 0 ? 'text-emerald-300' : 'text-rose-300',
       },
       {
-        label: 'Annualized',
+        label: 'Annualized money-weighted',
         value: formatPercent(result.annualizedReturn),
-        className: result.annualizedReturn >= 0 ? 'text-emerald-300' : 'text-rose-300',
+        className: (result.annualizedReturn ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300',
       },
       {
         label: `Dividends ${reinvestDividends ? 'Reinvested' : 'Cash'}`,
@@ -691,6 +575,7 @@ export default function BacktestTool() {
     setPortfolioHistory(null);
     setDividendHistory(null);
     setActiveSymbols([]);
+    setCoverage([]);
 
     try {
       const symbols = parsedSymbols;
@@ -742,11 +627,11 @@ export default function BacktestTool() {
 
       const allData = await Promise.all(
         symbols.map(async (ticker) => {
-          const [stockData, dividendData] = await Promise.all([
+          const [quoteHistory, dividendData] = await Promise.all([
             fetchStockData(ticker, startDate, endDate),
             fetchDividendData(ticker, startDate, endDate),
           ]);
-          return { ticker, stockData, dividendData };
+          return { ticker, stockData:'points' in quoteHistory?quoteHistory.points:quoteHistory, currency:'currency' in quoteHistory?quoteHistory.currency:undefined, dividendData };
         }),
       );
 
@@ -757,30 +642,30 @@ export default function BacktestTool() {
         setError(`Error loading price data for: ${failedTickers.join(', ')}`);
         return;
       }
+      const incompatible=allData.filter(entry=>entry.currency!==currency);
+      if(incompatible.length) {
+        setError('Quote currency must match '+currency+'. '+incompatible.map(entry=>entry.ticker+': '+(entry.currency||'unknown')).join(', ')+'. Choose the matching currency or use assets quoted in the same currency.');
+        return;
+      }
+      const failedDividends=allData.filter(entry=>!Array.isArray(entry.dividendData)).map(entry=>entry.ticker);
+      if(failedDividends.length) {
+        setError('Dividend history unavailable for '+failedDividends.join(', ')+'. Retry when the provider is available.');
+        return;
+      }
 
       const perTickerResults = allData.map((entry, index) => {
         const stockData = entry.stockData as PricePoint[];
         const dividendData = Array.isArray(entry.dividendData) ? entry.dividendData : [];
         const initialPerTicker = initialAllocations[index] ?? 0;
         const monthlyPerTicker = monthlyAllocations[index] ?? 0;
-        const tickerDividendHistory = calculateDividendHistory(
-          stockData,
-          dividendData,
-          initialPerTicker,
-          monthlyPerTicker,
-          startDate,
-          endDate,
-          reinvestDividends,
-        );
-        const investment = calculateStockInvestment(
-          stockData,
-          dividendData,
-          initialPerTicker,
-          monthlyPerTicker,
-          startDate,
-          endDate,
-          reinvestDividends,
-        );
+        const outcome=runBacktestCalculation({
+          symbol:entry.ticker,startDate,endDate,initialAmount:initialPerTicker,monthlyAmount:monthlyPerTicker,
+          reinvestDividends,transactionFeePct:Number(transactionFeePct),slippagePct:Number(slippagePct),dividendTaxPct:Number(dividendTaxPct),
+        },stockData,dividendData);
+        if(!outcome.ok) throw new Error(outcome.error.message);
+        const calculation=outcome.result;
+        const tickerDividendHistory=calculation.dividendHistory;
+        const investment={...calculation,totalDividends:calculation.dividendsCash+calculation.dividendsReinvested,cashDividends:calculation.dividendsCash};
         return {
           ticker: entry.ticker,
           investment,
@@ -791,6 +676,7 @@ export default function BacktestTool() {
       const combinedPortfolioHistory = aggregatePortfolioHistories(
         perTickerResults.map((entry) => entry.investment.portfolioHistory),
       );
+      setCoverage(perTickerResults.map(entry=>entry.ticker+' · '+entry.investment.appliedWindow.start+' to '+entry.investment.appliedWindow.end));
       const combinedDividendHistory = aggregateDividendHistories(
         perTickerResults.map((entry) => entry.tickerDividendHistory),
       );
@@ -805,21 +691,22 @@ export default function BacktestTool() {
       const cashDividends = perTickerResults.reduce((sum, entry) => sum + entry.investment.cashDividends, 0);
 
       const totalReturn = totalInvested > 0 ? ((finalValue - totalInvested) / totalInvested) * 100 : 0;
-      const rangeMs = new Date(endDate).getTime() - new Date(startDate).getTime();
-      const years = Math.max(rangeMs / (365.25 * 24 * 60 * 60 * 1000), 1 / 365.25);
-      const annualizedReturn =
-        totalInvested > 0 && finalValue > 0 ? (Math.pow(finalValue / totalInvested, 1 / years) - 1) * 100 : 0;
-
+      const cashflows=perTickerResults.flatMap(item=>item.investment.cashflows).filter(flow=>flow.type!=='dividend_cash');
+      const annualizedReturn=computeXirrPercent(cashflows);
+      const flowAdjustedIndex=portfolioReturnIndex(combinedPortfolioHistory,cashflows.filter(flow=>flow.type==='initial_investment'||flow.type==='monthly_contribution').map(flow=>({date:flow.date,amount:-flow.amount})));
+      const risk=portfolioRisk(flowAdjustedIndex);
       setResult({
         initialValue: totalInvested,
         finalValue,
         totalReturn,
         annualizedReturn,
-        maxDrawdown: 0,
-        sharpeRatio: 0,
+        maxDrawdown: risk.maxDrawdownPct,
+        sharpeRatio: risk.sharpe,
         dividendsReinvested: reinvestDividends ? totalDividends : cashDividends,
         totalShares,
       });
+    } catch(error) {
+      setError(error instanceof Error?error.message:'The backtest could not complete.');
     } finally {
       setIsRunning(false);
     }
@@ -834,11 +721,10 @@ export default function BacktestTool() {
 
   return (
     <div className={shellClass}>
-      <div className={`${panelClass} px-3 py-3 pr-14 sm:px-3.5 sm:py-3.5 sm:pr-16`}>
-        <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-[1.4rem]">
-          Backtest Tool
-        </h2>
-      </div>
+      <p className="terminal-note mb-4">Buy-and-hold / DCA simulation · No rebalancing · Monthly purchases on the next available price observation · Dividends use provider event dates · Purchase costs and dividend withholding apply to each asset · All assets must use the selected quote currency.</p>
+      {!result&&<label className="terminal-label mb-4 max-w-48">Simulation currency<select className="terminal-input" value={currency} onChange={event=>setCurrency(event.target.value)}>{['USD','EUR','GBP','CHF','JPY'].map(code=><option key={code}>{code}</option>)}</select></label>}
+      {coverage.length>0&&<details className="terminal-note mb-4"><summary>Data coverage · Yahoo Finance · Daily bars</summary>{coverage.map(item=><p className="mt-2" key={item}>{item}</p>)}</details>}
+      {result && <div className="flex flex-wrap gap-6 border-y border-border py-3 text-xs"><span>Flow-adjusted maximum drawdown <strong>{formatPercent(result.maxDrawdown ?? 0)}</strong></span><span>Sharpe (0% risk-free) <strong>{result.sharpeRatio?.toFixed(2) ?? '—'}</strong></span><span>Dividends held in cash remain in final value.</span></div>}
 
       {error && (
         <Alert
@@ -953,6 +839,13 @@ export default function BacktestTool() {
                   placeholder="0"
                   className="mt-1 h-8 rounded-lg border-border bg-background/80 text-sm"
                 />
+              </div>
+              <div className="grid grid-cols-3 gap-3 sm:col-span-2">
+                {[
+                  ['Transaction fee · %',transactionFeePct,setTransactionFeePct],
+                  ['Buy slippage · %',slippagePct,setSlippagePct],
+                  ['Dividend tax · %',dividendTaxPct,setDividendTaxPct],
+                ].map(([label,value,setter])=><label key={String(label)} className="terminal-label">{String(label)}<input className="terminal-input" type="number" min="0" max="99" step="0.01" value={String(value)} onChange={event=>(setter as typeof setTransactionFeePct)(event.target.value)}/></label>)}
               </div>
               <div className="grid grid-cols-2 gap-2.5 sm:col-span-2">
                 <div className="min-w-0">

@@ -1,8 +1,9 @@
 import React from 'react';
+import Layout from '@/components/exchangetime/layout';
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="max-w-3xl mx-auto py-10 px-4">
+    <Layout><div className="max-w-3xl mx-auto py-6 px-4">
       <h1 className="text-3xl font-bold mb-6">PRIVACY POLICY</h1>
       <div className="prose prose-neutral dark:prose-invert">
         <p className="text-sm text-gray-500">Last updated March 07, 2025</p>
@@ -752,6 +753,6 @@ export default function PrivacyPolicyPage() {
           a data subject access request.
         </p>
       </div>
-    </div>
+    </div></Layout>
   );
 }

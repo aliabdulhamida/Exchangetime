@@ -35,6 +35,9 @@ export type BacktestInput = {
   initialAmount: number;
   monthlyAmount: number;
   reinvestDividends: boolean;
+  transactionFeePct?: number;
+  slippagePct?: number;
+  dividendTaxPct?: number;
 };
 
 export type BacktestErrorKind = 'input' | 'data' | 'calculation';
@@ -60,6 +63,7 @@ export type BacktestResult = {
   twrPct: number | null;
   portfolioHistory: PortfolioPoint[];
   cashflows: CashflowPoint[];
+  dividendHistory: DividendPoint[];
 };
 
 export type BacktestOutcome =
@@ -153,7 +157,7 @@ function roundTo(value: number, decimals = 6): number {
   return Math.round(value * power) / power;
 }
 
-function computeXirrPercent(cashflows: CashflowPoint[]): number | null {
+export function computeXirrPercent(cashflows: CashflowPoint[]): number | null {
   if (cashflows.length < 2) return null;
 
   const firstTs = dateToTs(cashflows[0].date);
@@ -299,6 +303,20 @@ export function runBacktestCalculation(
   const initialAmount = normalizeNonNegativeNumber(input.initialAmount);
   const monthlyAmount = normalizeNonNegativeNumber(input.monthlyAmount);
   const reinvestDividends = Boolean(input.reinvestDividends);
+  const feePct = input.transactionFeePct ?? 0;
+  const slippagePct = input.slippagePct ?? 0;
+  const dividendTaxPct = input.dividendTaxPct ?? 0;
+  if (
+    [feePct, slippagePct, dividendTaxPct].some(
+      (value) => !Number.isFinite(value) || value < 0 || value >= 100,
+    )
+  ) {
+    return inputError(
+      'INVALID_COSTS',
+      'Cost and dividend tax assumptions must be between 0 and 100 percent.',
+    );
+  }
+  const purchaseFactor = (1 - feePct / 100) / (1 + slippagePct / 100);
 
   let totalShares = 0;
   let totalInvested = 0;
@@ -310,10 +328,11 @@ export function runBacktestCalculation(
 
   const portfolioHistory: PortfolioPoint[] = [];
   const cashflows: CashflowPoint[] = [];
+  const dividendHistory: DividendPoint[] = [];
 
   const firstPrice = pricesInWindow[0];
   if (initialAmount > 0) {
-    totalShares += initialAmount / firstPrice.close;
+    totalShares += (initialAmount * purchaseFactor) / firstPrice.close;
     totalInvested += initialAmount;
     cashflows.push({
       date: firstPrice.date,
@@ -323,8 +342,12 @@ export function runBacktestCalculation(
   }
 
   for (const point of pricesInWindow) {
-    while (monthlyAmount > 0 && point.ts >= nextMonthlyContributionTs && nextMonthlyContributionTs <= targetEndTs) {
-      totalShares += monthlyAmount / point.close;
+    while (
+      monthlyAmount > 0 &&
+      point.ts >= nextMonthlyContributionTs &&
+      nextMonthlyContributionTs <= targetEndTs
+    ) {
+      totalShares += (monthlyAmount * purchaseFactor) / point.close;
       totalInvested += monthlyAmount;
       cashflows.push({
         date: point.date,
@@ -334,12 +357,15 @@ export function runBacktestCalculation(
       nextMonthlyContributionTs = addMonth(nextMonthlyContributionTs);
     }
 
-    while (dividendIndex < normalizedDividends.length && normalizedDividends[dividendIndex].ts <= point.ts) {
+    while (
+      dividendIndex < normalizedDividends.length &&
+      normalizedDividends[dividendIndex].ts <= point.ts
+    ) {
       const dividend = normalizedDividends[dividendIndex];
-      const payout = totalShares * dividend.amount;
+      const payout = totalShares * dividend.amount * (1 - dividendTaxPct / 100);
       if (payout > 0 && Number.isFinite(payout)) {
         if (reinvestDividends) {
-          totalShares += payout / point.close;
+          totalShares += (payout * purchaseFactor) / point.close;
           dividendsReinvested += payout;
         } else {
           cashDividendBalance += payout;
@@ -351,6 +377,7 @@ export function runBacktestCalculation(
           });
         }
       }
+      if (payout > 0) dividendHistory.push({ date: dividend.date, amount: payout });
       dividendIndex += 1;
     }
 
@@ -360,8 +387,12 @@ export function runBacktestCalculation(
     });
   }
 
-  const finalValue = portfolioHistory.length > 0 ? portfolioHistory[portfolioHistory.length - 1].value : 0;
-  const finalDate = portfolioHistory.length > 0 ? portfolioHistory[portfolioHistory.length - 1].date : appliedWindow.end;
+  const finalValue =
+    portfolioHistory.length > 0 ? portfolioHistory[portfolioHistory.length - 1].value : 0;
+  const finalDate =
+    portfolioHistory.length > 0
+      ? portfolioHistory[portfolioHistory.length - 1].date
+      : appliedWindow.end;
 
   cashflows.push({
     date: finalDate,
@@ -369,7 +400,7 @@ export function runBacktestCalculation(
     type: 'terminal_value',
   });
 
-  const xirrPct = computeXirrPercent(cashflows);
+  const xirrPct = computeXirrPercent(cashflows.filter((flow) => flow.type !== 'dividend_cash'));
   const twrPct =
     totalInvested > 0 ? roundTo(((finalValue - totalInvested) / totalInvested) * 100, 6) : null;
 
@@ -387,6 +418,7 @@ export function runBacktestCalculation(
       dividendsCash: roundTo(dividendsCash, 6),
       dividendsReinvested: roundTo(dividendsReinvested, 6),
       xirrPct,
+      dividendHistory,
       twrPct,
       portfolioHistory: portfolioHistory.map((entry) => ({
         date: entry.date,

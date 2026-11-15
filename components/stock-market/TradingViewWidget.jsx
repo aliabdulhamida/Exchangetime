@@ -11,6 +11,8 @@ import {
   WandSparkles,
 } from 'lucide-react';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useTheme } from 'next-themes';
 
 import {
   Sheet,
@@ -260,7 +262,12 @@ function normalizeSymbol(raw) {
   const cleaned = String(raw || '')
     .replace(/\s+/g, '')
     .toUpperCase();
-  return cleaned || DEFAULT_SYMBOL;
+  const aliases = {
+    '^GSPC': 'SP:SPX', '^NDX': 'NASDAQ:NDX', '^DJI': 'DJ:DJI', '^GDAXI': 'XETR:DAX',
+    '^STOXX50E': 'TVC:SX5E', '^FTSE': 'TVC:UKX', '^N225': 'TVC:NI225', '^HSI': 'HSI:HSI',
+    'BTC-USD': 'BITSTAMP:BTCUSD', 'GC=F': 'COMEX:GC1!', 'EURUSD=X': 'FX:EURUSD',
+  };
+  return aliases[cleaned] || cleaned || DEFAULT_SYMBOL;
 }
 
 function uniqueSymbols(values) {
@@ -534,7 +541,7 @@ function makeAlertComposer(typeKey = 'price_above') {
   };
 }
 
-function buildWidgetConfig(pane, studies, timezone) {
+function buildWidgetConfig(pane, studies, timezone, theme) {
   return JSON.stringify({
     allow_symbol_change: false,
     calendar: pane.showCalendar,
@@ -550,19 +557,22 @@ function buildWidgetConfig(pane, studies, timezone) {
     style: pane.chartStyle,
     studies,
     symbol: pane.symbol,
-    theme: 'dark',
+    theme,
     timezone: pane.useLocalTimezone ? timezone : 'Etc/UTC',
     withdateranges: pane.showDateRanges,
     watchlist: [],
     compareSymbols: [],
     autosize: true,
     load_last_chart: true,
-    backgroundColor: 'rgba(0, 0, 0, 1)',
-    gridColor: pane.showGrid ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0)',
+    backgroundColor: theme==='dark' ? '#000000' : '#ffffff',
+    gridColor: pane.showGrid ? (theme==='dark'?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.05)') : 'rgba(0,0,0,0)',
   });
 }
 
 function TradingViewWidget() {
+  const { resolvedTheme } = useTheme();
+  const chartTheme = resolvedTheme==='dark'?'dark':'light';
+  const requestedSymbol = useSearchParams()?.get('symbol');
   const shellRef = useRef(null);
   const leftContainerRef = useRef(null);
   const rightContainerRef = useRef(null);
@@ -628,13 +638,13 @@ function TradingViewWidget() {
   );
 
   const widgetConfigLeft = useMemo(
-    () => buildWidgetConfig(panes.left, studiesByPane.left, localTimezone),
-    [localTimezone, panes.left, studiesByPane.left],
+    () => buildWidgetConfig(panes.left, studiesByPane.left, localTimezone, chartTheme),
+    [localTimezone, panes.left, studiesByPane.left, chartTheme],
   );
 
   const widgetConfigRight = useMemo(
-    () => buildWidgetConfig(panes.right, studiesByPane.right, localTimezone),
-    [localTimezone, panes.right, studiesByPane.right],
+    () => buildWidgetConfig(panes.right, studiesByPane.right, localTimezone, chartTheme),
+    [localTimezone, panes.right, studiesByPane.right, chartTheme],
   );
 
   const setPaneState = useCallback((paneKey, updater) => {
@@ -944,9 +954,12 @@ function TradingViewWidget() {
       setRecents((current) => uniqueSymbols([next, ...current]).slice(0, MAX_RECENTS));
     };
 
+    if (requestedSymbol && /^[A-Z0-9^][A-Z0-9.:=^-]{0,19}$/i.test(requestedSymbol)) {
+      onSymbolSelected({ detail: { symbol: requestedSymbol, applyToBoth: true } });
+    }
     window.addEventListener('portfolio-symbol-selected', onSymbolSelected);
     return () => window.removeEventListener('portfolio-symbol-selected', onSymbolSelected);
-  }, [setPaneState]);
+  }, [setPaneState, requestedSymbol]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

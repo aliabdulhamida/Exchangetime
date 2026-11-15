@@ -255,11 +255,31 @@ export async function GET(req: NextRequest) {
     const count = normalizeCount(url.searchParams.get('count'));
     const start = normalizeStart(url.searchParams.get('start'));
 
+    const unavailable: ScreenerBaseKey[] = [];
     const entries = await Promise.all(
-      SCREENER_CONFIGS.map(
-        async (config) => [config.key, await fetchList(config, count, start)] as const,
-      ),
+      SCREENER_CONFIGS.map(async (config) => {
+        try {
+          return [config.key, await fetchList(config, count, start)] as const;
+        } catch {
+          unavailable.push(config.key);
+          return [
+            config.key,
+            {
+              title: config.fallbackTitle,
+              description: config.fallbackDescription,
+              asOf: null,
+              rows: [],
+            },
+          ] as const;
+        }
+      }),
     );
+    if (unavailable.length === SCREENER_CONFIGS.length) {
+      return NextResponse.json(
+        { error: 'Yahoo Finance screener feeds are temporarily unavailable.' },
+        { status: 502 },
+      );
+    }
 
     const lists = Object.fromEntries(entries) as Record<ScreenerBaseKey, ScreenerList>;
     const movers = buildMovers(lists, count);
@@ -268,6 +288,7 @@ export async function GET(req: NextRequest) {
       {
         fetchedAt: new Date().toISOString(),
         source: 'yahoo',
+        unavailable,
         lists: {
           gainers: lists.gainers,
           losers: lists.losers,

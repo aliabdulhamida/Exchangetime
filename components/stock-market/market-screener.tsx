@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { workspaceUrl } from '@/components/exchangetime/product-model';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -31,6 +33,7 @@ type ScreenerList = {
 };
 
 type ScreenerPayload = {
+  unavailable?: ScreenerKey[];
   fetchedAt: string;
   source: 'yahoo';
   lists: Record<ScreenerKey, ScreenerList>;
@@ -138,10 +141,53 @@ function isPayload(value: any): value is ScreenerPayload {
   );
 }
 
+type Screen = {
+  name: string;
+  tab: ScreenerKey;
+  query: string;
+  volume: string;
+  relative: string;
+  order: string;
+};
+function validScreen(value: unknown): value is Screen {
+  if (!value || typeof value !== 'object') return false;
+  const screen = value as Partial<Screen>;
+  return (
+    typeof screen.name === 'string' &&
+    typeof screen.query === 'string' &&
+    TAB_ORDER.includes(screen.tab as ScreenerKey) &&
+    ['0', '1000000', '10000000'].includes(screen.volume ?? '') &&
+    ['0', '1', '2', '3'].includes(screen.relative ?? '') &&
+    ['provider', 'volume', 'move'].includes(screen.order ?? '')
+  );
+}
 export default function MarketScreener() {
   const [payload, setPayload] = useState<ScreenerPayload | null>(null);
   const [activeTab, setActiveTab] = useState<ScreenerKey>('gainers');
   const [query, setQuery] = useState('');
+  const [minVolume, setMinVolume] = useState('0');
+  const [minRelative, setMinRelative] = useState('0');
+  const [order, setOrder] = useState('provider');
+  const [saved, setSaved] = useState<Screen[]>([]);
+  const [name, setName] = useState('');
+  const [notice, setNotice] = useState('');
+  useEffect(() => {
+    try {
+      const entries: unknown = JSON.parse(localStorage.getItem('et.screens.v1') || '[]');
+      if (Array.isArray(entries)) setSaved(entries.filter(validScreen));
+    } catch {
+      setNotice('Saved screens could not be loaded.');
+    }
+  }, []);
+  function persist(entries: Screen[]) {
+    try {
+      localStorage.setItem('et.screens.v1', JSON.stringify(entries));
+      setSaved(entries);
+      setNotice('Saved screens updated.');
+    } catch {
+      setNotice('Unable to save on this device.');
+    }
+  }
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,41 +240,29 @@ export default function MarketScreener() {
   const filteredRows = useMemo(() => {
     if (!activeList) return [];
     const needle = query.trim().toLowerCase();
-    if (!needle) return activeList.rows;
-    return activeList.rows.filter((row) => {
-      return row.symbol.toLowerCase().includes(needle) || row.name.toLowerCase().includes(needle);
+    const matches = activeList.rows.filter((row) => {
+      const relative =
+        row.averageVolume && row.volume !== null ? row.volume / row.averageVolume : 0;
+      return (
+        (row.symbol.toLowerCase().includes(needle) || row.name.toLowerCase().includes(needle)) &&
+        (row.volume ?? 0) >= Number(minVolume) &&
+        (relative ?? 0) >= Number(minRelative)
+      );
     });
-  }, [activeList, query]);
+    if (order === 'volume')
+      matches.sort((left, right) => (right.volume ?? -1) - (left.volume ?? -1));
+    if (order === 'move')
+      matches.sort(
+        (left, right) => Math.abs(right.changePercent ?? 0) - Math.abs(left.changePercent ?? 0),
+      );
+    return matches;
+  }, [activeList, query, minVolume, minRelative, order]);
 
   const fetchedAtText = formatFetchedAt(payload?.fetchedAt || null);
   const asOfText = formatAsOf(activeList?.asOf || null);
 
-  const handleTickerClick = useCallback((symbol: string) => {
-    const next = String(symbol || '')
-      .trim()
-      .toUpperCase();
-    if (!next || typeof window === 'undefined') return;
-
-    window.dispatchEvent(
-      new CustomEvent('portfolio-symbol-selected', {
-        detail: {
-          symbol: next,
-          applyToBoth: true,
-          source: 'market-screener',
-        },
-      }),
-    );
-    window.dispatchEvent(new CustomEvent('focusModule', { detail: 'TechnicalAnalysis' }));
-  }, []);
-
   return (
-    <div className="rounded-xl px-3 pb-4 pt-2 sm:px-4 sm:pb-5">
-      <div className="mb-4">
-        <div>
-          <h2 className="text-lg font-bold text-foreground sm:text-xl">Stock Market Screener</h2>
-        </div>
-      </div>
-
+    <div className="screener-workspace terminal-panel p-5">
       <div className="mb-3 overflow-x-auto pb-1">
         <div className="flex w-max min-w-full gap-2">
           {TAB_ORDER.map((key) => {
@@ -241,7 +275,7 @@ export default function MarketScreener() {
                 onClick={() => setActiveTab(key)}
                 className={`whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition sm:px-3 sm:text-sm ${
                   isActive
-                    ? 'border-sky-400/70 bg-sky-500/15 text-sky-200'
+                    ? 'border-foreground bg-foreground text-background'
                     : 'border-border/70 bg-background/50 text-foreground hover:border-border hover:bg-muted/40'
                 }`}
               >
@@ -255,7 +289,7 @@ export default function MarketScreener() {
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-xs text-muted-foreground">
           <p>
-            {asOfText} • {fetchedAtText}
+            Yahoo Finance · Refresh every 3 min · May be delayed · {asOfText} · {fetchedAtText}
           </p>
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
@@ -280,11 +314,121 @@ export default function MarketScreener() {
         </div>
       </div>
 
+      <div className="mb-4 flex flex-wrap items-end gap-3 border-y py-3 text-xs">
+        <label>
+          Minimum volume
+          <select
+            className="et-tool-select"
+            value={minVolume}
+            onChange={(event) => setMinVolume(event.target.value)}
+          >
+            <option value="0">Any volume</option>
+            <option value="1000000">1M shares</option>
+            <option value="10000000">10M shares</option>
+          </select>
+        </label>
+        <label>
+          Relative volume
+          <select
+            className="et-tool-select"
+            value={minRelative}
+            onChange={(event) => setMinRelative(event.target.value)}
+          >
+            {['0', '1', '2', '3'].map((value) => (
+              <option key={value} value={value}>
+                {value === '0' ? 'Any ratio' : value + '× or higher'}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Sort by
+          <select
+            className="et-tool-select"
+            value={order}
+            onChange={(event) => setOrder(event.target.value)}
+          >
+            <option value="provider">Provider rank</option>
+            <option value="volume">Highest volume</option>
+            <option value="move">Largest absolute move</option>
+          </select>
+        </label>
+        <span aria-live="polite">
+          {activeList && filteredRows.length + ' of ' + activeList.rows.length + ' stocks'}
+        </span>
+      </div>
+      <details className="mb-3 text-sm">
+        <summary className="cursor-pointer">Saved screens ({saved.length})</summary>
+        <form
+          className="my-3 flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const title = name.trim();
+            if (!title) return;
+            persist([
+              ...saved.filter((item) => item.name !== title),
+              {
+                name: title,
+                tab: activeTab,
+                query,
+                volume: minVolume,
+                relative: minRelative,
+                order,
+              },
+            ]);
+          }}
+        >
+          <Input
+            aria-label="Screen name"
+            placeholder="Screen name"
+            maxLength={64}
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+          <Button type="submit" disabled={!name.trim()}>
+            {saved.some((item) => item.name === name.trim()) ? 'Update' : 'Save'}
+          </Button>
+        </form>
+        {saved.map((item) => (
+          <div className="flex justify-between border-t py-2" key={item.name}>
+            <button
+              onClick={() => {
+                setActiveTab(item.tab);
+                setQuery(item.query);
+                setMinVolume(item.volume);
+                setMinRelative(item.relative);
+                setOrder(item.order);
+                setName(item.name);
+                setNotice('Applied ' + item.name);
+              }}
+            >
+              {item.name}
+            </button>
+            <button
+              aria-label={'Remove ' + item.name}
+              onClick={() => persist(saved.filter((entry) => entry.name !== item.name))}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <p role="status">{notice}</p>
+      </details>
+      {!!payload?.unavailable?.length && (
+        <p role="status" className="mb-3 text-sm text-amber-300">
+          Unavailable feeds: {payload.unavailable.map((key) => payload.lists[key].title).join(', ')}
+          . Movers includes available feeds only.
+        </p>
+      )}
       {error && (
         <Alert variant="destructive" className="mb-3">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
-            <span className="text-sm">{error}</span>
+            <span className="text-sm">
+              {payload ? 'Refresh failed. Showing the last successful snapshot. ' : ''}
+              {error}
+            </span>
           </div>
         </Alert>
       )}
@@ -310,15 +454,18 @@ export default function MarketScreener() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => handleTickerClick(row.symbol)}
+                    <Link
+                      href={
+                        workspaceUrl('TechnicalAnalysis') +
+                        '&symbol=' +
+                        encodeURIComponent(row.symbol)
+                      }
                       className="text-sm font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:underline"
                       title="Load in Technical Analysis"
                       aria-label={`Load ${row.symbol} in Technical Analysis`}
                     >
                       {row.symbol}
-                    </button>
+                    </Link>
                     <p className="mt-0.5 line-clamp-1 text-xs text-foreground">{row.name}</p>
                     <p className="mt-0.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
                       {row.exchange || '-'}
@@ -420,15 +567,18 @@ export default function MarketScreener() {
                     className="border-b border-border/60 transition-colors hover:bg-muted/25"
                   >
                     <td className="px-3 py-2 font-semibold text-foreground">
-                      <button
-                        type="button"
-                        onClick={() => handleTickerClick(row.symbol)}
+                      <Link
+                        href={
+                          workspaceUrl('TechnicalAnalysis') +
+                          '&symbol=' +
+                          encodeURIComponent(row.symbol)
+                        }
                         className="font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:underline"
                         title="Load in Technical Analysis"
                         aria-label={`Load ${row.symbol} in Technical Analysis`}
                       >
                         {row.symbol}
-                      </button>
+                      </Link>
                       <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
                         {row.exchange || '-'}
                       </p>

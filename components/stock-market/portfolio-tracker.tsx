@@ -26,6 +26,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer } from '@/components/ui/chart';
 import { useIsMobile } from '@/components/ui/use-mobile';
+import { portfolioReturnIndex, portfolioRisk } from '@/lib/portfolio-risk';
+import { getSeriesFxRate } from '@/lib/fx-rate';
+import { useSearchParams } from 'next/navigation';
+import PortfolioWelcome from '@/components/exchangetime/portfolio-welcome';
 
 interface StockDataPoint {
   date: string; // yyyy-mm-dd
@@ -285,6 +289,7 @@ function formatMoney(
   minimumFractionDigits = 2,
   maximumFractionDigits = 2,
 ): string {
+  if (!Number.isFinite(value)) return '—';
   return value.toLocaleString(undefined, {
     style: 'currency',
     currency,
@@ -1086,11 +1091,6 @@ function getPriceOnOrAfter(series: StockDataPoint[], date: string): number | nul
   return null;
 }
 
-function getSeriesFxRate(series: StockDataPoint[] | null | undefined, date?: string): number | null {
-  if (!series?.length) return null;
-  if (!date) return series[series.length - 1]?.close ?? null;
-  return getPriceOnOrAfter(series, date) ?? getPriceOnOrBefore(series, date);
-}
 
 function getTimeframeCutoff(timeframe: Timeframe): number | null {
   const daysMap: Record<Exclude<Timeframe, 'ALL'>, number> = {
@@ -1287,6 +1287,9 @@ export async function fetchStockData(
 }
 
 export default function PortfolioTracker() {
+  const requestedSymbol = useSearchParams()?.get('symbol');
+  const [benchmarkSymbol,setBenchmarkSymbol] = useState('SPY');
+  const [riskFreePct,setRiskFreePct] = useState(0);
   const isMobile = useIsMobile();
   const [stockData, setStockData] = useState<Record<string, StockDataPoint[]>>(() => {
     if (typeof window === 'undefined') return {};
@@ -1394,6 +1397,9 @@ export default function PortfolioTracker() {
   const [holdingsSort, setHoldingsSort] = useState<HoldingsSort>('weight');
   const [holdingsFilter, setHoldingsFilter] = useState<HoldingsFilter>('all');
   const [search, setSearch] = useState('');
+  useEffect(()=>{
+    if(requestedSymbol && /^[A-Z0-9][A-Z0-9.-]{0,14}$/i.test(requestedSymbol)) setSearch(requestedSymbol.toUpperCase());
+  },[requestedSymbol]);
   const [transactionSide, setTransactionSide] = useState<TransactionSide>('BUY');
   const [transactionValue, setTransactionValue] = useState('');
   const [fillPrice, setFillPrice] = useState('');
@@ -1569,13 +1575,13 @@ export default function PortfolioTracker() {
         fetchAndCacheDividends(symbol);
       }
     });
-    if (!stockData.SPY) {
-      fetchAndCacheStock('SPY');
+    if (!stockData[benchmarkSymbol]) {
+      fetchAndCacheStock(benchmarkSymbol);
     }
-  }, [trackedSymbols, stockData, transactions, dividendData, fetchAndCacheStock, fetchAndCacheDividends]);
+  }, [trackedSymbols, stockData, transactions, dividendData, fetchAndCacheStock, fetchAndCacheDividends, benchmarkSymbol]);
 
   const requiredFxPairs = useMemo(() => {
-    const set = new Set<SupportedCurrency>([baseCurrency]);
+    const set = new Set<SupportedCurrency>(transactions.length ? [baseCurrency, 'USD'] : [baseCurrency]);
     transactions.forEach((tx) => set.add(tx.currency));
     trackedSymbols.forEach((symbol) => set.add(stockCurrencyForSymbol(symbol)));
     return Array.from(set)
@@ -1618,10 +1624,7 @@ export default function PortfolioTracker() {
     (from: SupportedCurrency, to: SupportedCurrency, date?: string): number | null => {
       if (from === to) return 1;
       const series = fxData[fxKey(from, to)] || [];
-      if (!series.length) return null;
-      if (!date) return series[series.length - 1]?.close ?? null;
-      const rate = getPriceOnOrAfter(series, date) ?? getPriceOnOrBefore(series, date);
-      return rate ?? null;
+      return getSeriesFxRate(series, date);
     },
     [fxData, fxKey],
   );
@@ -1629,7 +1632,7 @@ export default function PortfolioTracker() {
   const convertToBase = useCallback(
     (amount: number, fromCurrency: SupportedCurrency, date?: string): number => {
       const rate = getFxRate(fromCurrency, baseCurrency, date);
-      if (rate === null) return amount;
+      if (rate === null) return Number.NaN;
       return amount * rate;
     },
     [baseCurrency, getFxRate],
@@ -2556,18 +2559,28 @@ export default function PortfolioTracker() {
     return monthlyDividendHistory.filter((entry) => new Date(entry.date).getFullYear() === dividendYear);
   }, [monthlyDividendHistory, activeChart, dividendYear]);
 
-  const totalReturnPctForRange = useMemo(
-    () => computeSeriesReturnPct(filteredPortfolioHistory.map((point) => point.value)),
-    [filteredPortfolioHistory],
-  );
+  const returnIndex = useMemo(() => {
+    const flows=sortedTransactions.map(tx=>{
+      const price=resolveTxPrice(tx);
+      const amount=tx.side==='BUY'?tx.shares*price+tx.fees+tx.taxes:-(tx.shares*price-tx.fees-tx.taxes);
+      return {date:tx.date,amount:convertToBase(amount,tx.currency,tx.date)};
+    });
+    return portfolioReturnIndex(portfolioHistory,flows,dividendCashEvents.map(event=>({date:event.date,amount:event.netAmount})));
+  }, [portfolioHistory,sortedTransactions,resolveTxPrice,convertToBase,dividendCashEvents]);
+  const timeframeReturnIndex = useMemo(()=>{
+    const cutoff=getTimeframeCutoff(activeTimeframe);
+    return cutoff?returnIndex.filter(point=>new Date(point.date).getTime()>=cutoff):returnIndex;
+  },[returnIndex,activeTimeframe]);
+  const riskMetrics = useMemo(()=>portfolioRisk(timeframeReturnIndex,riskFreePct),[timeframeReturnIndex,riskFreePct]);
+  const totalReturnPctForRange = riskMetrics.totalReturnPct;
 
   const benchmarkHistory = useMemo(() => {
-    const spy = stockData.SPY || [];
+    const spy = stockData[benchmarkSymbol] || [];
     return spy.map((point) => ({
       date: point.date,
       value: convertToBase(point.close, 'USD', point.date),
     }));
-  }, [stockData, convertToBase]);
+  }, [stockData, convertToBase, benchmarkSymbol]);
 
   const timeframeBenchmarkHistory = useMemo(() => {
     if (!benchmarkHistory.length) return [];
@@ -2584,10 +2597,10 @@ export default function PortfolioTracker() {
   );
 
   const insightsComparisonChartData = useMemo(() => {
-    if (filteredPortfolioHistory.length < 2 || filteredBenchmarkHistory.length < 2) return [];
-    const portfolioByDate = new Map(filteredPortfolioHistory.map((point) => [point.date, point.value]));
+    if (timeframeReturnIndex.length < 2 || filteredBenchmarkHistory.length < 2) return [];
+    const portfolioByDate = new Map(timeframeReturnIndex.map((point) => [point.date, point.value]));
     const benchmarkByDate = new Map(filteredBenchmarkHistory.map((point) => [point.date, point.value]));
-    const commonDates = filteredPortfolioHistory
+    const commonDates = timeframeReturnIndex
       .map((point) => point.date)
       .filter((date) => benchmarkByDate.has(date));
     if (commonDates.length < 2) return [];
@@ -2615,7 +2628,7 @@ export default function PortfolioTracker() {
         benchmark: ((benchmarkPoint ?? safeFirstBenchmark) / safeFirstBenchmark) * 100,
       };
     });
-  }, [filteredPortfolioHistory, filteredBenchmarkHistory]);
+  }, [timeframeReturnIndex, filteredBenchmarkHistory]);
 
   const excessVsBenchmark = useMemo(() => {
     if (totalReturnPctForRange === null || benchmarkReturnPctForRange === null) return null;
@@ -2813,42 +2826,10 @@ export default function PortfolioTracker() {
     stockCurrencyForSymbol,
   ]);
 
-  const maxDrawdownPct = useMemo(
-    () => computeMaxDrawdownPct(portfolioHistory.map((point) => point.value)),
-    [portfolioHistory],
-  );
-
-  const largestHoldingWeight = holdingSnapshots[0]?.weightPct ?? 0;
-
-  const timeWeightedReturnPct = useMemo(() => {
-    if (portfolioHistory.length < 2) return null;
-    const flowByDate = new Map<string, number>();
-    sortedTransactions.forEach((tx) => {
-      const px = resolveTxPrice(tx);
-      const nativeAmount =
-        tx.side === 'BUY'
-          ? tx.shares * px + tx.fees + tx.taxes
-          : tx.shares * px - tx.fees - tx.taxes;
-      const amountBase = convertToBase(nativeAmount, tx.currency, tx.date);
-      const contribution = tx.side === 'BUY' ? amountBase : -amountBase;
-      flowByDate.set(tx.date, (flowByDate.get(tx.date) || 0) + contribution);
-    });
-
-    let factor = 1;
-    let validPeriods = 0;
-    for (let i = 1; i < portfolioHistory.length; i += 1) {
-      const prev = portfolioHistory[i - 1].value;
-      const current = portfolioHistory[i].value;
-      if (prev <= 0) continue;
-      const cashFlow = flowByDate.get(portfolioHistory[i].date) || 0;
-      const periodReturn = (current - prev - cashFlow) / prev;
-      if (!Number.isFinite(periodReturn)) continue;
-      factor *= 1 + periodReturn;
-      validPeriods += 1;
-    }
-    if (!validPeriods) return null;
-    return (factor - 1) * 100;
-  }, [portfolioHistory, sortedTransactions, resolveTxPrice, convertToBase]);
+  const fullHistoryRisk=useMemo(()=>portfolioRisk(returnIndex),[returnIndex]);
+  const maxDrawdownPct=fullHistoryRisk.maxDrawdownPct;
+  const largestHoldingWeight=holdingSnapshots[0]?.weightPct??0;
+  const timeWeightedReturnPct=fullHistoryRisk.totalReturnPct;
 
   const moneyWeightedReturnPct = useMemo(() => {
     if (!sortedTransactions.length) return null;
@@ -3010,12 +2991,29 @@ export default function PortfolioTracker() {
 
   return (
     <div className="min-h-[52vh] w-full text-sm">
-      <div className="mb-2">
-        <h2 className="text-xl font-semibold text-foreground">Portfolio Tracker</h2>
-      </div>
+      {requiredFxPairs.some(({from,to}) => getFxRate(from,to,sortedTransactions[0]?.date) === null) ? (
+        <section role="status" className="terminal-panel space-y-3 p-5">
+          <h2>Portfolio valuation incomplete</h2>
+          <p>Historical exchange rates are missing for {requiredFxPairs.filter(({from,to}) => getFxRate(from,to,sortedTransactions[0]?.date) === null).map(({from,to}) => from + '/' + to).join(', ')}. Totals are withheld rather than assuming a 1:1 conversion. Your transactions are unchanged.</p>
+          <button className="terminal-button" onClick={() => requiredFxPairs.forEach(({from,to}) => void fetchAndCacheFx(from,to,true))}>Retry exchange rates</button>
+          <select aria-label="Base currency" className="terminal-input" value={baseCurrency} onChange={event => setBaseCurrency(normalizeCurrency(event.target.value))}>{SUPPORTED_CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select>
+        </section>
+      ) : <>
+      {holdingSnapshots.length>0 ? <section className="mb-6 space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3"><h2 className="font-semibold">Portfolio risk & performance</h2><div className="flex gap-3"><label className="terminal-label">Benchmark<select className="terminal-input" value={benchmarkSymbol} onChange={event=>setBenchmarkSymbol(event.target.value)}><option value="SPY">S&P 500 · SPY</option><option value="URTH">MSCI World · URTH</option><option value="ACWI">MSCI ACWI · ACWI</option><option value="EWG">Germany · EWG</option></select></label><label className="terminal-label">Risk-free assumption · %<input className="terminal-input max-w-40" type="number" min="-5" max="30" step="0.1" value={riskFreePct} onChange={event=>setRiskFreePct(Number(event.target.value))}/></label></div></div>
+        <div className="terminal-metrics">{[
+          ['Time-weighted return',formatPercent(riskMetrics.totalReturnPct)],
+          ['Annualized return',formatPercent(riskMetrics.cagrPct)],
+          ['Annualized volatility',formatPercent(riskMetrics.volatilityPct)],
+          ['Maximum drawdown',formatPercent(riskMetrics.maxDrawdownPct)],
+        ].map(([label,value])=><div className="terminal-metric" key={label}><p>{label}</p><strong>{value}</strong></div>)}</div>
+        <div className="flex flex-wrap gap-x-8 gap-y-2 text-xs"><span>Sharpe <strong>{riskMetrics.sharpe?.toFixed(2)??'—'}</strong></span><span>Sortino <strong>{riskMetrics.sortino?.toFixed(2)??'—'}</strong></span><span>Largest holding <strong>{largestHoldingWeight.toFixed(1)}%</strong></span><span>{riskMetrics.observations} return observations · {activeTimeframe}</span></div>
+        {largestHoldingWeight>25&&<p className="rounded border border-amber-300/25 bg-amber-300/5 p-3 text-xs text-amber-200">Concentration alert · Your largest holding represents {largestHoldingWeight.toFixed(1)}% of portfolio value.</p>}
+        <details className="terminal-note"><summary>Return and risk methodology</summary><p className="mt-2">Returns remove net trade cash flows and include net cash dividends using an end-of-period cash-flow convention. Volatility uses sample standard deviation annualized from observation frequency. Sharpe and Sortino use the selected risk-free assumption. Annualized metrics require at least 20 returns. Benchmarks are ETF price returns converted to your base currency and exclude ETF distributions. Price histories and missing FX observations can affect comparability.</p></details>
+      </section> : sortedTransactions.length === 0 ? <PortfolioWelcome onAdd={() => setShowAddForm(true)} /> : <section className="mb-7 flex flex-wrap items-end justify-between gap-5 border-b border-border pb-6"><div><p className="text-xs text-muted-foreground">Portfolio value</p><strong className="mt-2 block text-4xl font-semibold tabular-nums">{formatMoney(currentPortfolioValue,baseCurrency,2,2)}</strong></div><button className="terminal-button primary" onClick={()=>setShowAddForm(true)}><Plus size={14}/>Add transaction</button></section>}
       <main className="w-full space-y-6 py-1 sm:py-2">
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-          <PerformanceChartCard
+        <div className={sortedTransactions.length ? 'grid grid-cols-1 gap-5 xl:grid-cols-12' : 'hidden'}>
+          {portfolioHistory.length>1 ? <PerformanceChartCard
             activeChart={activeChart}
             activeTimeframe={activeTimeframe}
             allDividendYears={allDividendYears}
@@ -3029,7 +3027,7 @@ export default function PortfolioTracker() {
             onValueChartStyleChange={setValueChartStyle}
             timeframePortfolioHistory={timeframePortfolioHistory}
             valueChartStyle={valueChartStyle}
-          />
+          /> : <section className="min-h-[260px] rounded-lg border border-border p-5 xl:col-span-7"><h2 className="text-base font-semibold">Performance</h2><div className="flex min-h-[220px] flex-col items-center justify-center gap-2 text-center"><p className="font-medium">No performance history yet</p><p className="text-xs text-muted-foreground">Add a transaction to see your portfolio over time.</p></div></section>}
 
           <Card className="overflow-hidden rounded-xl border border-border bg-background xl:col-span-5">
             <CardHeader className="border-b border-border bg-transparent pb-4 pt-5">
@@ -3169,7 +3167,7 @@ export default function PortfolioTracker() {
                       : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
                   }`}
                 >
-                  Recent Transactions
+                  Transactions
                 </button>
                 <button
                   type="button"
@@ -3180,7 +3178,7 @@ export default function PortfolioTracker() {
                       : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
                   }`}
                 >
-                  KPIs & Analytics
+                  Risk
                 </button>
                 <button
                   type="button"
@@ -3191,7 +3189,7 @@ export default function PortfolioTracker() {
                       : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
                   }`}
                 >
-                  Insights
+                  Allocation
                 </button>
               </div>
 
@@ -3670,7 +3668,7 @@ export default function PortfolioTracker() {
                             <ChartContainer
                               config={{
                                 portfolio: { label: 'Portfolio', color: '#e5e7eb' },
-                                benchmark: { label: 'SPY', color: '#71717a' },
+                                benchmark: { label: benchmarkSymbol, color: '#71717a' },
                               }}
                               className="h-full w-full"
                             >
@@ -3708,7 +3706,7 @@ export default function PortfolioTracker() {
                                             </span>
                                           </div>
                                           <div className="flex items-center justify-between gap-4">
-                                            <span className="text-muted-foreground">SPY</span>
+                                            <span className="text-muted-foreground">{benchmarkSymbol}</span>
                                             <span className={`font-semibold ${metricTone(item.benchmark - 100)}`}>
                                               {formatPercent(item.benchmark - 100, 1)}
                                             </span>
@@ -3839,7 +3837,7 @@ export default function PortfolioTracker() {
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">SPY ({activeTimeframe})</span>
+                            <span className="text-muted-foreground">{benchmarkSymbol} ({activeTimeframe})</span>
                             <span className={`font-semibold ${metricTone(benchmarkReturnPctForRange)}`}>
                               {formatPercent(benchmarkReturnPctForRange)}
                             </span>
@@ -3861,6 +3859,7 @@ export default function PortfolioTracker() {
           </Card>
         </div>
       </main>
+      </>}
 
       <HoldingDetailsModal
         open={holdingModalOpen}

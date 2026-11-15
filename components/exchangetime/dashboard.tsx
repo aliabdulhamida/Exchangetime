@@ -1,77 +1,75 @@
 'use client';
-import { useState, useEffect } from 'react';
 
-import Content from './content';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
 import Layout from './layout';
-import Sidebar from './sidebar';
+import MarketOverview from './market-overview';
+import { workspaces, workspaceUrl, workspaceDescriptions } from './product-model';
 
-const MODULES = [
-  'TechnicalAnalysis',
-  'ExchangeTimes',
-  'StockAnalysis',
-  'BacktestTool',
-  'PortfolioTracker',
-  'CurrencyConverter',
-  'MarketScreener',
-  'FearGreedIndex',
-  'EarningsCalendar',
-  'DividendCalendar',
-  'HolidayCalendar',
-  'CompoundInterest',
-  'DCFCalculator',
-  'EconomicIndicators',
-  'OptionsPayoffLab',
-  'PersonalBudget',
-  'TaxCalculator',
-  'EconomicCalendar', // EconomicCalendar immer als Standardmodul
-];
+const Content = dynamic(() => import('./content'), {
+  ssr: false,
+  loading: () => <div role="status" className="h-72 animate-pulse rounded bg-muted/30" />,
+});
 
-export default function Dashboard() {
-  // EconomicCalendar immer beim ersten Laden sichtbar
-  const [visibleModules, setVisibleModules] = useState<string[]>([...MODULES]);
-
-  function showModule(module: string) {
-    setVisibleModules((prev) => (prev.includes(module) ? prev : [...prev, module]));
-  }
-  function hideModule(module: string) {
-    // EconomicCalendar kann ausgeblendet werden, aber nicht dauerhaft entfernt werden
-    if (module === 'EconomicCalendar') {
-      setVisibleModules((prev) => prev.filter((m) => m !== module));
-    } else {
-      setVisibleModules((prev) => prev.filter((m) => m !== module));
-    }
-  }
-
-  // Event-Listener für "Nur dieses Modul anzeigen"
+export default function Dashboard({ view }: { view?: string }) {
+  const router = useRouter();
+  const current = workspaces.find((item) => item.key === view) ?? workspaces[0];
   useEffect(() => {
-    const handler = (e: Event) => {
-      const customEvent = e as CustomEvent<string>;
-      if (customEvent.detail === 'ALL') {
-        // EconomicCalendar immer mit anzeigen, wenn alle angezeigt werden
-        setVisibleModules([...MODULES]);
-      } else if (customEvent.detail && MODULES.includes(customEvent.detail)) {
-        setVisibleModules([customEvent.detail]);
-      }
-    };
-    window.addEventListener('showOnlyModule', handler);
-    return () => window.removeEventListener('showOnlyModule', handler);
-  }, []);
-
-  // EconomicCalendar beim Reload immer wieder anzeigen, falls es ausgeblendet wurde
-  useEffect(() => {
-    if (!visibleModules.includes('EconomicCalendar')) {
-      setVisibleModules((prev) => [...prev, 'EconomicCalendar']);
+    if (!view) {
+      try {
+        const saved = localStorage.getItem('et-landing');
+        if (saved && saved !== 'MarketOverview' && workspaces.some((item) => item.key === saved))
+          router.replace(workspaceUrl(saved));
+      } catch {}
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+    function select(event: Event) {
+      const key = (event as CustomEvent<string>).detail;
+      if (workspaces.some((item) => item.key === key)) router.push(workspaceUrl(key));
+    }
+    window.addEventListener('showOnlyModule', select);
+    return () => window.removeEventListener('showOnlyModule', select);
+  }, [router, view]);
   return (
-    <Layout
-      sidebar={
-        <Sidebar visibleModules={visibleModules} showModule={showModule} hideModule={hideModule} />
-      }
-    >
-      <Content visibleModules={visibleModules} hideModule={hideModule} />
+    <Layout>
+      <div className="terminal-heading">
+        <div>
+          <h1>
+            {current.key === 'MarketOverview'
+              ? 'Market overview'
+              : current.key === 'PortfolioTracker'
+                ? 'Portfolio'
+                : current.label}
+          </h1>
+          <p>
+            {current.key === 'MarketOverview'
+              ? 'Global indices, market conditions, and sector performance.'
+              : workspaceDescriptions[current.key]}
+          </p>
+        </div>
+      </div>
+      {workspaces.filter((item) => item.section === current.section).length > 1 && (
+        <nav aria-label={current.section + ' workspaces'} className="terminal-tabs">
+          {workspaces
+            .filter((item) => item.section === current.section)
+            .map((item) => (
+              <Link
+                key={item.key}
+                href={workspaceUrl(item.key)}
+                aria-current={item.key === current.key ? 'page' : undefined}
+              >
+                {item.label}
+              </Link>
+            ))}
+        </nav>
+      )}
+      {current.key === 'MarketOverview' ? (
+        <MarketOverview />
+      ) : (
+        <Content key={current.key} visibleModules={[current.key]} />
+      )}
     </Layout>
   );
 }

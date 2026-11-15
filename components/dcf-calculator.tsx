@@ -1,10 +1,12 @@
 "use client";
 import { Info } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { parseDcfNumber } from '@/lib/dcf';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip as ReTooltip, CartesianGrid } from 'recharts';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { ToastAction } from '@/components/ui/toast';
@@ -13,14 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { toast } from '@/components/ui/use-toast';
 
 function parseNumber(v: any, cur: string) {
-  let s = String(v).trim();
-  const isUSLike = cur === 'USD' || cur === 'GBP';
-  if (isUSLike) {
-    s = s.replace(/,/g, '');
-  } else {
-    s = s.replace(/\./g, '').replace(/,/g, '.');
-  }
-  return Number(s);
+  return parseDcfNumber(v, cur);
 }
 
 function numeric(v: any, cur: string) {
@@ -62,6 +57,7 @@ function decisionToneClasses(tone: 'positive' | 'neutral' | 'negative') {
 }
 
 export default function DcfCalculator() {
+  const requestedTicker = useSearchParams()?.get('symbol');
   const [mobilePanel, setMobilePanel] = useState<'inputs' | 'results'>('inputs');
   const [desktopPanel, setDesktopPanel] = useState<'inputs' | 'results'>('inputs');
   const [discountRate, setDiscountRate] = useState(10);
@@ -82,7 +78,7 @@ export default function DcfCalculator() {
   const [debt, setDebt] = useState(0);
   const [fcfList, setFcfList] = useState<number[]>([100_000_000, 110_000_000, 121_000_000, 133_100_000, 146_410_000]);
   const [preset, setPreset] = useState<'conservative' | 'base' | 'aggressive' | null>('base');
-  const [showSensitivity, setShowSensitivity] = useState(false);
+  const [showSensitivity, setShowSensitivity] = useState(true);
   // Automated FCF generation mode: 'manual' | 'constant' | 'per-year'
   const [fcfMode, setFcfMode] = useState<'manual' | 'constant' | 'per-year'>('constant');
   const [fcfStart, setFcfStart] = useState<number | string>(fcfList[0] ?? 0);
@@ -293,7 +289,7 @@ export default function DcfCalculator() {
           setFcfGrowths(Array.isArray(obj.fcfGrowths) ? obj.fcfGrowths : fcfGrowths);
           setCurrency(obj.currency ?? currency);
           setDisplayScale(obj.displayScale ?? displayScale);
-          setTicker(obj.ticker ?? ticker);
+          setTicker(requestedTicker || obj.ticker || ticker);
           setMarginOfSafetyPct(obj.marginOfSafetyPct ?? marginOfSafetyPct);
           // Keep discounting convention fixed in the simplified UI.
         }
@@ -303,6 +299,13 @@ export default function DcfCalculator() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if(requestedTicker && /^[A-Z0-9][A-Z0-9.-]{0,14}$/i.test(requestedTicker)) {
+      setTicker(requestedTicker.toUpperCase());
+      void fetchMarketPrice(requestedTicker);
+    }
+  }, [requestedTicker]);
 
   useEffect(() => {
     try {
@@ -1143,11 +1146,6 @@ export default function DcfCalculator() {
 
   return (
     <Card className="border-0 bg-transparent shadow-none">
-      <CardHeader className="p-0 pb-4 pr-16 sm:pr-20">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-lg sm:text-xl">Discounted Cash Flow Calculator</CardTitle>
-        </div>
-      </CardHeader>
       <CardContent className="p-0">
         <TooltipProvider delayDuration={100}>
           <div className="mb-3 md:hidden">

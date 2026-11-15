@@ -7,11 +7,15 @@ import {
   Calendar,
   Dot,
   ExternalLink,
+  Link2,
   Newspaper,
   Search,
   Users,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { workspaceUrl } from '@/components/exchangetime/product-model';
 import {
   Area,
   AreaChart,
@@ -31,18 +35,20 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import AnalystValuation from './AnalystValuation';
+import { filterChartPointsByRange, formatQuote, priceCsv, type ChartRange } from '@/lib/research-history';
 
-type ChartRange = '1M' | '3M' | '6M' | '1Y' | 'YTD' | '52W';
 type MobilePanelTab = 'analysis' | 'insider' | 'news';
 type RightPanelTab = 'insider' | 'news';
 
 interface StockData {
   symbol: string;
   name: string;
+  currency?: string;
+  observedAt?: number;
   logoUrl?: string;
   price: number;
-  change: number;
-  changePercent: number;
+  change: number | null;
+  changePercent: number | null;
   dcf?: number;
   pe?: number;
   peg?: number;
@@ -104,7 +110,7 @@ type FullChartPoint = {
 type ChartPoint = {
   name: string;
   price: number;
-  date?: Date;
+  date: Date;
 };
 
 type QuoteSnapshot = {
@@ -278,14 +284,6 @@ function formatBillions(value?: number, digits = 2): string {
   })}B`;
 }
 
-function formatCompactCurrency(value: number, digits = 2): string {
-  if (!Number.isFinite(value)) return '-';
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
-  if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
-  return `$${value.toFixed(digits)}`;
-}
 
 function formatCompactNumber(value: number | null | undefined, digits = 2): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
@@ -358,14 +356,17 @@ function metricSignalTone(field: MetricField, value: number | undefined): Signal
 
   switch (field) {
     case 'pe':
+      if (value <= 0) return 'negative';
       if (value <= 25) return 'positive';
       if (value <= 40) return 'neutral';
       return 'negative';
     case 'peg':
+      if (value <= 0) return 'negative';
       if (value <= 1.5) return 'positive';
       if (value <= 2.5) return 'neutral';
       return 'negative';
     case 'pb':
+      if (value <= 0) return 'negative';
       if (value <= 4) return 'positive';
       if (value <= 8) return 'neutral';
       return 'negative';
@@ -388,11 +389,12 @@ function metricSignalTone(field: MetricField, value: number | undefined): Signal
       if (value >= 0) return 'neutral';
       return 'negative';
     case 'debtEquity':
+      if (value < 0) return 'negative';
       if (value < 1) return 'positive';
       if (value <= 2) return 'neutral';
       return 'negative';
     case 'currentRatio':
-      if (value >= 1.5 && value <= 3) return 'positive';
+      if (value >= 1.5) return 'positive';
       if (value >= 1 && value < 1.5) return 'neutral';
       return 'negative';
     case 'freeCashFlow':
@@ -410,27 +412,30 @@ function calcPercentChange(points: FullChartPoint[]): number | null {
   return ((last - first) / first) * 100;
 }
 
-function getRangeDays(range: ChartRange): number {
-  switch (range) {
-    case '1M':
-      return 31;
-    case '3M':
-      return 93;
-    case '6M':
-      return 186;
-    case '1Y':
-      return 365;
-    case 'YTD': {
-      const now = new Date();
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      return Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-    }
-    case '52W':
-      return 365;
-    default:
-      return 31;
-  }
+function FundamentalScore({ stock }: { stock: StockData }) {
+  const scoringSections = [
+    ...METRIC_SECTIONS.slice(0,3),
+    {title:'Balance sheet',rows:METRIC_SECTIONS[3].rows.slice(0,2)},
+    {title:'Cash flow',rows:METRIC_SECTIONS[3].rows.slice(2)},
+  ];
+  const scoreValue={positive:100,neutral:50,negative:0};
+  const groups=scoringSections.map(section=>{
+    const scores=section.rows.flatMap(row=>{
+      const tone=metricSignalTone(row.field,stock[row.field]);
+      return tone==='none'?[]:[scoreValue[tone]];
+    });
+    return {...section,score:scores.length?Math.round(scores.reduce((sum,value)=>sum+value,0)/scores.length):null,coverage:scores.length};
+  });
+  const available=groups.filter(group=>group.score!==null);
+  const coverage=groups.reduce((sum,group)=>sum+group.coverage,0);
+  const total=available.length>=3&&coverage>=6?Math.round(available.reduce((sum,group)=>sum+(group.score||0),0)/available.length):null;
+  return <section className="my-4 border-y border-border py-4">
+    <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-sm font-semibold">Fundamental score</h3><strong className="font-mono text-xl text-emerald-200">{total===null?'Insufficient coverage':total+' / 100'}</strong></div>
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">{groups.map(group=><details key={group.title}><summary className="cursor-pointer text-xs text-muted-foreground">{group.title}<strong className="mt-2 block font-mono text-lg text-foreground">{group.score??'—'}</strong></summary><ul className="mt-3 space-y-2 text-xs">{group.rows.map(row=><li key={row.field}>{row.label} · {formatMetricValue(stock[row.field],row.kind)} · {metricSignalTone(row.field,stock[row.field])}</li>)}</ul></details>)}</div>
+    <details className="terminal-note mt-4"><summary>Score thresholds & coverage · {coverage} / 12 metrics</summary><p className="mt-2">Each metric receives 100, 50, or 0 points. Available metrics are equally weighted within each group, then available groups are equally weighted. The overall score requires six metrics across three groups. Missing data is excluded.</p><p className="mt-2">100-point thresholds: P/E ≤25, PEG ≤1.5, P/B ≤4 with positive ratios. ROE and net margin ≥15%, ROIC ≥12%. Growth ≥10%. Debt/equity between 0 and 1, current ratio ≥1.5, positive FCF. 50-point ranges: P/E ≤40, PEG ≤2.5, P/B ≤8, ROE and margin ≥8%, ROIC ≥6%, growth ≥0%, debt/equity ≤2, current ratio ≥1. Remaining observations score 0. Thresholds are fixed and sector-agnostic.</p></details>
+  </section>;
 }
+
 
 function formatChartLabel(date: Date, range: ChartRange): string {
   if (['1M', '3M', '6M'].includes(range)) {
@@ -439,19 +444,6 @@ function formatChartLabel(date: Date, range: ChartRange): string {
   return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
-function filterChartPointsByRange(points: FullChartPoint[], range: ChartRange): FullChartPoint[] {
-  if (!points.length) return [];
-  if (range === 'YTD') {
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    return points.filter((point) => point.date >= startOfYear && point.date <= now);
-  }
-  if (range === '52W') {
-    return points.slice(-Math.min(points.length, 365));
-  }
-  const days = getRangeDays(range);
-  return points.slice(-Math.min(points.length, days));
-}
 
 function formatShortDate(value: string): string {
   const date = new Date(value);
@@ -531,7 +523,37 @@ function normalizeNewsItem(raw: any, fallbackSymbol: string): StockNewsItem | nu
   };
 }
 
+function ShareResearch({ symbol }: { symbol: string }) {
+  const [copied, setCopied] = useState(false);
+  const [manualLink, setManualLink] = useState('');
+  async function copy() {
+    const url = new URL(workspaceUrl('StockAnalysis'), window.location.origin);
+    url.searchParams.set('symbol', symbol);
+    try {
+      await navigator.clipboard.writeText(url.href);
+      setCopied(true);
+      setManualLink('');
+    } catch {
+      setManualLink(url.href);
+    }
+  }
+  return <>
+    <button type="button" className="terminal-button" onClick={copy}>
+      <Link2 size={14} aria-hidden="true" /><span aria-live="polite">{copied ? 'Link copied' : 'Copy link'}</span>
+    </button>
+    {manualLink && <label className="w-full text-sm">Copy this research link
+      <Input readOnly value={manualLink} onFocus={event => event.target.select()} />
+    </label>}
+  </>;
+}
+
 export default function StockAnalysis() {
+  const symbol = useSearchParams()?.get('symbol')?.trim().toUpperCase() || '';
+  return <ResearchWorkspace key={symbol ? 'asset' : 'start'} requestedSymbol={symbol} />;
+}
+
+function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
+  const lastRequestedSymbol = useRef('');
   const [loading, setLoading] = useState(false);
   const [mobilePanelTab, setMobilePanelTab] = useState<MobilePanelTab>('analysis');
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('insider');
@@ -545,6 +567,7 @@ export default function StockAnalysis() {
   const [newsError, setNewsError] = useState<string | null>(null);
   const [newsItems, setNewsItems] = useState<StockNewsItem[]>([]);
   const [newsPage, setNewsPage] = useState(1);
+  const [feedPending, setFeedPending] = useState({ insider: false, news: false });
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [fullChartData, setFullChartData] = useState<FullChartPoint[]>([]);
   const [chartRange, setChartRange] = useState<ChartRange>('1M');
@@ -552,14 +575,12 @@ export default function StockAnalysis() {
   const [insiderCompanyName, setInsiderCompanyName] = useState('');
   const [insiderTrades, setInsiderTrades] = useState<InsiderTrade[]>([]);
   const [selectedTradeIndexes, setSelectedTradeIndexes] = useState<number[]>([]);
-  const [logoCandidateIndex, setLogoCandidateIndex] = useState(0);
 
   const chartCacheRef = useRef<Record<string, ChartCacheEntry>>({});
   const fundamentalsCacheRef = useRef<Record<string, FundamentalsCacheEntry>>({});
   const insiderCacheRef = useRef<Record<string, InsiderCacheEntry>>({});
   const newsCacheRef = useRef<Record<string, NewsCacheEntry>>({});
   const requestSequenceRef = useRef(0);
-  const chartRangeSequenceRef = useRef(0);
 
   const ytdData = useMemo(() => {
     if (!selectedStock) return [];
@@ -570,7 +591,7 @@ export default function StockAnalysis() {
 
   const week52Data = useMemo(() => {
     if (!selectedStock || fullChartData.length < 2) return [];
-    return fullChartData.slice(-Math.min(fullChartData.length, 365));
+    return filterChartPointsByRange(fullChartData, '52W');
   }, [fullChartData, selectedStock]);
 
   const ytdChange = useMemo(() => calcPercentChange(ytdData), [ytdData]);
@@ -580,20 +601,6 @@ export default function StockAnalysis() {
       METRIC_SECTIONS.find((section) => section.title === activeSectionTitle) ?? METRIC_SECTIONS[0],
     [activeSectionTitle],
   );
-  const logoCandidates = useMemo(() => {
-    if (!selectedStock) return [] as string[];
-    const fromMetrics = selectedStock.logoUrl;
-    const bySymbol = `https://financialmodelingprep.com/image-stock/${encodeURIComponent(
-      selectedStock.symbol,
-    )}.png`;
-    return Array.from(
-      new Set([fromMetrics, bySymbol].filter((value): value is string => Boolean(value))),
-    );
-  }, [selectedStock]);
-  const activeLogoUrl =
-    logoCandidateIndex >= 0 && logoCandidateIndex < logoCandidates.length
-      ? logoCandidates[logoCandidateIndex]
-      : undefined;
   const newsTotalPages = useMemo(
     () => Math.max(1, Math.ceil(newsItems.length / NEWS_PAGE_SIZE)),
     [newsItems.length],
@@ -602,10 +609,6 @@ export default function StockAnalysis() {
     () => newsItems.slice((newsPage - 1) * NEWS_PAGE_SIZE, newsPage * NEWS_PAGE_SIZE),
     [newsItems, newsPage],
   );
-
-  useEffect(() => {
-    setLogoCandidateIndex(0);
-  }, [selectedStock?.symbol, selectedStock?.logoUrl]);
 
   useEffect(() => {
     if (newsPage > newsTotalPages) {
@@ -792,7 +795,7 @@ export default function StockAnalysis() {
           date: new Date(ts * 1000),
           price: closes[idx],
         }))
-        .filter((point) => typeof point.price === 'number' && !Number.isNaN(point.price));
+        .filter((point) => Number.isFinite(point.date.getTime()) && typeof point.price === 'number' && Number.isFinite(point.price));
     }
 
     const latestClose = points.length ? points[points.length - 1].price : null;
@@ -835,7 +838,8 @@ export default function StockAnalysis() {
       typeof payload?.company === 'string' && payload.company.trim()
         ? payload.company.trim()
         : symbol;
-    const rows: any[] = Array.isArray(payload?.trades) ? payload.trades : [];
+    if (!Array.isArray(payload?.trades)) throw new Error('Insider filings could not be read.');
+    const rows: any[] = payload.trades;
     const trades = rows
       .map((row: any) => normalizeInsiderTrade(row, symbol, company))
       .filter((trade: InsiderTrade) => trade.date && trade.insider)
@@ -876,7 +880,8 @@ export default function StockAnalysis() {
     }
 
     const payload = await response.json();
-    const rows = Array.isArray(payload) ? payload : [];
+    if (!Array.isArray(payload)) throw new Error('News stories could not be read.');
+    const rows = payload;
     const items = rows
       .map((row: any) => normalizeNewsItem(row, symbol))
       .filter((item: StockNewsItem | null): item is StockNewsItem => item !== null);
@@ -889,16 +894,59 @@ export default function StockAnalysis() {
     return items;
   }
 
+  async function loadFeed(tab: RightPanelTab, symbol: string, requestId: number) {
+    setFeedPending(previous => ({ ...previous, [tab]: true }));
+    try {
+      if (tab === 'news') {
+        const items = await fetchNewsSnapshot(symbol);
+        if (requestId !== requestSequenceRef.current) return;
+        setNewsItems(items);
+        setNewsError(null);
+      } else {
+        const { company, trades } = await fetchInsiderSnapshot(symbol);
+        if (requestId !== requestSequenceRef.current) return;
+        setInsiderCompanyName(company || symbol);
+        setInsiderTrades(trades);
+        setInsiderError(null);
+        setInsiderEmptyState(trades.length ? null : 'No recent insider filings found for ' + symbol + '.');
+      }
+    } catch {
+      if (requestId !== requestSequenceRef.current) return;
+      if (tab === 'news') setNewsError('News is unavailable for ' + symbol + '.');
+      else setInsiderError('Insider filings are unavailable for ' + symbol + '.');
+    } finally {
+      if (requestId === requestSequenceRef.current) {
+        setFeedPending(previous => ({ ...previous, [tab]: false }));
+      }
+    }
+  }
+
   function selectRightPanelTab(tab: RightPanelTab) {
     setRightPanelTab(tab);
     setMobilePanelTab(tab);
   }
 
-  async function handleSearch() {
-    const symbol = searchSymbol.trim().toUpperCase();
-    if (!symbol) return;
-
+  function openSymbol(value: string) {
+    const symbol = value.trim().toUpperCase();
     if (!SYMBOL_PATTERN.test(symbol)) {
+      setValidationError('Please enter a valid ticker symbol.');
+      return;
+    }
+    if (symbol === requestedSymbol) {
+      setSearchSymbol(symbol);
+      void handleSearch(symbol);
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('symbol', symbol);
+    window.history.pushState(null, '', url);
+  }
+
+  async function handleSearch(symbol: string) {
+    if (!SYMBOL_PATTERN.test(symbol)) {
+      requestSequenceRef.current++;
+      setLoading(false);
+      setActiveSymbol('');
       setValidationError('Please enter a valid ticker symbol.');
       setSelectedStock(null);
       setChartData([]);
@@ -916,7 +964,6 @@ export default function StockAnalysis() {
     }
 
     const requestId = ++requestSequenceRef.current;
-    chartRangeSequenceRef.current += 1;
 
     setActiveSymbol(symbol);
     setValidationError(null);
@@ -934,15 +981,12 @@ export default function StockAnalysis() {
     setInsiderCompanyName('');
     setLoading(true);
 
+    void loadFeed('insider', symbol, requestId);
+    void loadFeed('news', symbol, requestId);
     try {
-      const [chartResult, fundamentalsResult, insiderResult, newsResult] = await Promise.allSettled(
-        [
-          fetchChartSnapshot(symbol),
-          fetchFundamentals(symbol),
-          fetchInsiderSnapshot(symbol),
-          fetchNewsSnapshot(symbol),
-        ],
-      );
+      const [chartResult, fundamentalsResult] = await Promise.allSettled([
+        fetchChartSnapshot(symbol), fetchFundamentals(symbol),
+      ]);
 
       if (requestId !== requestSequenceRef.current) return;
 
@@ -961,15 +1005,17 @@ export default function StockAnalysis() {
         const hasValidPrice = typeof price === 'number' && Number.isFinite(price);
         const hasPreviousClose =
           typeof previousClose === 'number' && Number.isFinite(previousClose);
-        const change = hasValidPrice && hasPreviousClose ? price - previousClose : 0;
+        const change = hasValidPrice && hasPreviousClose ? price - previousClose : null;
         const changePercent =
-          hasValidPrice && hasPreviousClose && previousClose !== 0
+          change !== null && hasPreviousClose && previousClose > 0
             ? (change / previousClose) * 100
-            : 0;
+            : null;
 
         if (hasValidPrice) {
           setSelectedStock({
             symbol,
+            currency: typeof meta.currency==='string'?meta.currency:undefined,
+            observedAt: typeof meta.regularMarketTime==='number'?meta.regularMarketTime*1000:undefined,
             name: fundamentals.metrics?.companyName || meta?.longName || meta?.shortName || symbol,
             logoUrl: toSafeHttpUrl(fundamentals.metrics?.logoUrl),
             price,
@@ -1003,63 +1049,26 @@ export default function StockAnalysis() {
         setAnalysisError('Error fetching stock analysis data.');
       }
 
-      if (insiderResult.status === 'fulfilled') {
-        const payload = insiderResult.value;
-        setInsiderCompanyName(payload.company || symbol);
-        setInsiderTrades(payload.trades);
-        setInsiderError(null);
-
-        if (!payload.trades.length) {
-          setInsiderEmptyState(
-            `No recent insider filings found for ${symbol}. Try another symbol or check again later.`,
-          );
-        }
-      } else {
-        setInsiderTrades([]);
-        setInsiderCompanyName(symbol);
-        setInsiderEmptyState(null);
-        setInsiderError(
-          insiderResult.reason instanceof Error
-            ? insiderResult.reason.message
-            : 'Error fetching insider trades.',
-        );
-      }
-
-      if (newsResult.status === 'fulfilled') {
-        setNewsItems(newsResult.value);
-        setNewsError(null);
-        setNewsPage(1);
-      } else {
-        setNewsItems([]);
-        setNewsPage(1);
-        setNewsError(
-          newsResult.status === 'rejected' && newsResult.reason instanceof Error
-            ? newsResult.reason.message
-            : 'Error fetching news.',
-        );
-      }
-    } catch (err: unknown) {
+    } catch {
       if (requestId !== requestSequenceRef.current) return;
-
-      setAnalysisError('Unknown error while fetching stock data.');
-      setInsiderError(
-        err instanceof Error ? err.message : 'Unknown error while fetching insider data.',
-      );
+      setAnalysisError('Unable to load stock analysis.');
       setSelectedStock(null);
       setChartData([]);
       setFullChartData([]);
-      setInsiderTrades([]);
-      setInsiderCompanyName(symbol);
-      setInsiderEmptyState(null);
-      setNewsItems([]);
-      setNewsPage(1);
-      setNewsError(err instanceof Error ? err.message : 'Unknown error while fetching news.');
     } finally {
       if (requestId === requestSequenceRef.current) {
         setLoading(false);
       }
     }
   }
+
+  useEffect(() => {
+    if(requestedSymbol && requestedSymbol !== lastRequestedSymbol.current) {
+      lastRequestedSymbol.current = requestedSymbol;
+      setSearchSymbol(requestedSymbol.toUpperCase());
+      void handleSearch(requestedSymbol);
+    }
+  }, [requestedSymbol]);
 
   function toggleSelectTrade(index: number) {
     setSelectedTradeIndexes((prev) =>
@@ -1068,10 +1077,10 @@ export default function StockAnalysis() {
   }
 
   const shellClass = 'mx-auto w-full max-w-[72rem] space-y-2 sm:space-y-3';
-  const panelClass = 'rounded-2xl border border-border/70 bg-card/70';
-  const sectionClass = `${panelClass} p-3 sm:p-3.5`;
+  const panelClass = 'border-b border-border';
+  const sectionClass = `${panelClass} py-4`;
   const captionClass =
-    'text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px]';
+    'text-sm font-semibold text-foreground';
   const metricRowClass =
     'flex items-center justify-between border-b border-border/60 py-1 text-xs sm:text-sm last:border-b-0';
   const tradeContainerClass = 'et-scrollbar max-h-[260px] overflow-y-auto pr-1 sm:max-h-[300px]';
@@ -1089,27 +1098,30 @@ export default function StockAnalysis() {
   return (
     <div className={shellClass}>
       <div
-        className={`${panelClass} bg-gradient-to-b from-card/90 to-card/60 px-3 py-3 pr-14 sm:px-3.5 sm:py-3.5 sm:pr-16`}
+        className={`${panelClass} py-3`}
       >
-        <h2 className="text-lg font-semibold leading-none tracking-tight text-foreground sm:text-[1.4rem]">
-          Stock Analysis
-        </h2>
         <form
           className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
-            handleSearch();
+            openSymbol(searchSymbol);
           }}
         >
           <Input
-            placeholder="Enter ticker"
+            aria-label="Asset ticker"
+            aria-invalid={Boolean(validationError)}
+            aria-describedby={validationError ? 'research-validation' : undefined}
+            placeholder="Ticker symbol, e.g. AAPL or SAP.DE"
             value={searchSymbol}
-            onChange={(event) => setSearchSymbol(event.target.value.toUpperCase())}
+            onChange={(event) => {
+              setSearchSymbol(event.target.value.toUpperCase());
+              setValidationError(null);
+            }}
             className="h-9 min-w-0 rounded-xl border-border/80 bg-background/70 text-sm placeholder:text-muted-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/20"
           />
           <Button
             type="submit"
-            disabled={loading}
+            disabled={!searchSymbol.trim() || (loading && activeSymbol === searchSymbol.trim())}
             className="h-9 w-11 rounded-xl border border-border/80 bg-background/80 px-0 text-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.02)] hover:bg-secondary/70"
           >
             <Search className="h-4 w-4" />
@@ -1124,11 +1136,21 @@ export default function StockAnalysis() {
           className="flex items-start gap-2 rounded-2xl border border-rose-500/40 bg-rose-900/20 px-3 py-2.5 text-rose-200"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
-          <span className="text-sm">{validationError}</span>
+          <span id="research-validation" className="text-sm">{validationError}</span>
         </Alert>
       )}
+      {selectedStock&&<header className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
+        <div><p className="terminal-eyebrow">{selectedStock.currency||'Asset'} · Research</p><h2 className="text-2xl font-semibold">{selectedStock.symbol}<span className="ml-3 text-sm font-normal text-muted-foreground">{selectedStock.name}</span></h2></div>
+        <div className="text-right"><strong className="text-2xl">{selectedStock.currency&&/^[A-Z]{3}$/.test(selectedStock.currency)?selectedStock.price.toLocaleString(undefined,{style:'currency',currency:selectedStock.currency}):selectedStock.price.toLocaleString()}</strong><p className={'mt-1 font-mono text-xs '+(selectedStock.changePercent===null?'text-muted-foreground':selectedStock.changePercent>=0?'text-emerald-300':'text-rose-300')}>{selectedStock.changePercent === null ? 'Daily change unavailable' : (selectedStock.changePercent >= 0 ? '+' : '') + selectedStock.changePercent.toFixed(2) + '% · Daily'}</p></div>
+        <p className="terminal-note w-full">Price source Yahoo Finance · {selectedStock.observedAt?'Observed '+new Date(selectedStock.observedAt).toLocaleString():'Observation time unavailable'} · May be delayed</p>
+      </header>}
+      {resolvedSymbol && <nav aria-label="Asset tools" className="flex flex-wrap gap-2 pb-2">
+        {[['TechnicalAnalysis','Chart'],['DCFCalculator','Valuation'],['OptionsPayoffLab','Options'],['PortfolioTracker','Portfolio']].map(([key,label])=><Link className="terminal-button" key={key} href={workspaceUrl(key)+'&symbol='+encodeURIComponent(resolvedSymbol)}>{label}<ArrowUpRight size={12}/></Link>)}
+        <ShareResearch key={resolvedSymbol} symbol={resolvedSymbol} />
+      </nav>}
+      {selectedStock && <FundamentalScore stock={selectedStock}/>}
 
-      <div className={`${panelClass} p-1 md:hidden`}>
+      {(loading || hasResultState) && <div className={`${panelClass} p-1 md:hidden`}>
         <div className="grid grid-cols-3 gap-1">
           <button
             type="button"
@@ -1164,7 +1186,7 @@ export default function StockAnalysis() {
             News
           </button>
         </div>
-      </div>
+      </div>}
 
       {loading ? (
         <div className="grid grid-cols-1 items-start gap-2.5 sm:gap-3 xl:grid-cols-2">
@@ -1270,55 +1292,6 @@ export default function StockAnalysis() {
 
             {selectedStock ? (
               <>
-                <div className={sectionClass}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 self-center">
-                      <div className="flex items-center gap-2.5">
-                        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-border/70 bg-zinc-50">
-                          <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-zinc-500">
-                            {selectedStock.symbol.slice(0, 2)}
-                          </span>
-                          {activeLogoUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={activeLogoUrl}
-                              alt={`${selectedStock.name} logo`}
-                              className="absolute inset-0 h-full w-full object-contain"
-                              loading="lazy"
-                              onError={() => {
-                                setLogoCandidateIndex((current) => {
-                                  const next = current + 1;
-                                  return next < logoCandidates.length
-                                    ? next
-                                    : logoCandidates.length;
-                                });
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="truncate text-[1.2rem] font-semibold leading-tight text-foreground sm:text-[1.35rem]">
-                            {selectedStock.name}
-                          </h3>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="shrink-0 text-right">
-                      <p className="tabular-nums text-[1.45rem] font-semibold leading-none tracking-tight text-foreground sm:text-[1.6rem]">
-                        ${selectedStock.price.toFixed(2)}
-                      </p>
-                      <p
-                        className={`mt-1 text-[0.95rem] font-semibold leading-none tabular-nums sm:text-[1rem] ${
-                          selectedStock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                        }`}
-                      >
-                        {selectedStock.changePercent >= 0 ? '+' : ''}
-                        {selectedStock.changePercent.toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
 
                 <div className={sectionClass}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1400,28 +1373,36 @@ export default function StockAnalysis() {
 
                 <div className={sectionClass}>
                   <div className="mb-2.5 flex flex-wrap items-end justify-between gap-2">
-                    <div>
-                      <p className={captionClass}>Price Action</p>
+                    <div><h3 className={captionClass}>Price history</h3>
+                      <p className="terminal-note">{chartRange} · Daily closes{selectedStock.currency && ' · ' + selectedStock.currency}</p>
                     </div>
+                    <button className="terminal-button" disabled={!chartData.length} onClick={() => {
+                      const url = URL.createObjectURL(new Blob([priceCsv(chartData, selectedStock.currency)], { type: 'text/csv;charset=utf-8' }));
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = selectedStock.symbol + '-' + chartRange + '.csv';
+                      link.click();
+                      setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    }}>Export CSV</button>
                   </div>
                   {chartSummary && (
                     <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
-                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                      <div className="py-1">
                         <span className="text-muted-foreground">Low</span>
                         <div className="mt-0.5 font-semibold tabular-nums text-foreground">
-                          {formatCompactCurrency(chartSummary.low)}
+                          {formatQuote(chartSummary.low, selectedStock.currency)}
                         </div>
                       </div>
-                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                      <div className="py-1">
                         <span className="text-muted-foreground">High</span>
                         <div className="mt-0.5 font-semibold tabular-nums text-foreground">
-                          {formatCompactCurrency(chartSummary.high)}
+                          {formatQuote(chartSummary.high, selectedStock.currency)}
                         </div>
                       </div>
-                      <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                      <div className="py-1">
                         <span className="text-muted-foreground">Last</span>
                         <div className="mt-0.5 font-semibold tabular-nums text-foreground">
-                          {formatCompactCurrency(chartSummary.last)}
+                          {formatQuote(chartSummary.last, selectedStock.currency)}
                         </div>
                       </div>
                     </div>
@@ -1453,7 +1434,7 @@ export default function StockAnalysis() {
                         />
                         <YAxis
                           tick={{ fill: '#a1a1aa', fontSize: 10 }}
-                          tickFormatter={(value: number) => formatCompactCurrency(value, 1)}
+                          tickFormatter={(value: number) => formatQuote(value, selectedStock.currency, true)}
                           axisLine={false}
                           tickLine={false}
                           width={44}
@@ -1490,7 +1471,7 @@ export default function StockAnalysis() {
                                     : label}
                                 </div>
                                 <div className="mt-0.5 tabular-nums text-xs font-semibold text-foreground">
-                                  {priceValue !== null ? `$${priceValue.toFixed(2)}` : '-'}
+                                  {priceValue !== null ? formatQuote(priceValue, selectedStock.currency) : '-'}
                                 </div>
                               </div>
                             );
@@ -1531,25 +1512,10 @@ export default function StockAnalysis() {
                               ? 'border-foreground bg-foreground text-background'
                               : 'border-border bg-background text-muted-foreground hover:text-foreground'
                           }`}
-                          onClick={async () => {
-                            if (chartRange === range) return;
-
-                            const symbol = selectedStock.symbol;
-                            const searchSequence = requestSequenceRef.current;
-                            const rangeSequence = ++chartRangeSequenceRef.current;
-
+                          aria-pressed={chartRange === range}
+                          onClick={() => {
                             setChartRange(range);
-                            const snapshot = await fetchChartSnapshot(symbol);
-
-                            if (
-                              !snapshot ||
-                              searchSequence !== requestSequenceRef.current ||
-                              rangeSequence !== chartRangeSequenceRef.current
-                            ) {
-                              return;
-                            }
-
-                            applyChartRange(snapshot.points, range);
+                            applyChartRange(fullChartData, range);
                           }}
                         >
                           {range}
@@ -1623,14 +1589,14 @@ export default function StockAnalysis() {
           >
             <div className="hidden px-0 py-0 md:block">
               <div className="flex items-center justify-between gap-3">
-                <div className="grid w-full max-w-[13.5rem] grid-cols-2 gap-1 rounded-lg border border-border p-1">
+                <div className="flex w-full gap-5 border-b border-border">
                   <button
                     type="button"
                     onClick={() => selectRightPanelTab('insider')}
-                    className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`border-b-2 py-2 text-sm font-medium transition-colors ${
                       rightPanelTab === 'insider'
-                        ? 'bg-foreground text-background'
-                        : 'text-muted-foreground hover:text-foreground'
+                        ? 'border-foreground text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     Insider
@@ -1638,10 +1604,10 @@ export default function StockAnalysis() {
                   <button
                     type="button"
                     onClick={() => selectRightPanelTab('news')}
-                    className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`border-b-2 py-2 text-sm font-medium transition-colors ${
                       rightPanelTab === 'news'
-                        ? 'bg-foreground text-background'
-                        : 'text-muted-foreground hover:text-foreground'
+                        ? 'border-foreground text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     News
@@ -1650,7 +1616,11 @@ export default function StockAnalysis() {
               </div>
             </div>
 
-            {rightPanelTab === 'insider' ? (
+            {feedPending[rightPanelTab] ? (
+              <p role="status" className="terminal-note py-4">
+                {rightPanelTab === 'news' ? 'Loading news' : 'Loading insider filings'} for {activeSymbol}…
+              </p>
+            ) : rightPanelTab === 'insider' ? (
               <>
                 {insiderError && (
                   <Alert
@@ -1659,6 +1629,7 @@ export default function StockAnalysis() {
                   >
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
                     <span className="text-sm">{insiderError}</span>
+                    <button className="ml-auto underline" onClick={() => void loadFeed('insider', activeSymbol, requestSequenceRef.current)}>Retry</button>
                   </Alert>
                 )}
 
@@ -1682,7 +1653,7 @@ export default function StockAnalysis() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             Net Flow
                           </p>
                           <p
@@ -1699,7 +1670,7 @@ export default function StockAnalysis() {
                           <Users className="h-3 w-3" aria-hidden="true" />
                         </div>
                         <div>
-                          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             Active Insiders
                           </p>
                           <p className="mt-0.5 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
@@ -1712,7 +1683,7 @@ export default function StockAnalysis() {
                           <Calendar className="h-3 w-3" aria-hidden="true" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             Latest Filing
                           </p>
                           <p className="mt-0.5 truncate text-xs font-semibold tabular-nums text-foreground sm:text-sm">
@@ -1724,7 +1695,7 @@ export default function StockAnalysis() {
 
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       <div className={`${panelClass} px-2.5 py-2`}>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Buy Trades
                         </p>
                         <p className="mt-1 text-xs font-semibold tabular-nums text-emerald-300 sm:text-sm">
@@ -1732,7 +1703,7 @@ export default function StockAnalysis() {
                         </p>
                       </div>
                       <div className={`${panelClass} px-2.5 py-2`}>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Sell Trades
                         </p>
                         <p className="mt-1 text-xs font-semibold tabular-nums text-rose-300 sm:text-sm">
@@ -1740,7 +1711,7 @@ export default function StockAnalysis() {
                         </p>
                       </div>
                       <div className={`${panelClass} px-2.5 py-2`}>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Buy Volume
                         </p>
                         <p className="mt-1 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
@@ -1748,7 +1719,7 @@ export default function StockAnalysis() {
                         </p>
                       </div>
                       <div className={`${panelClass} px-2.5 py-2`}>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Sell Volume
                         </p>
                         <p className="mt-1 text-xs font-semibold tabular-nums text-foreground sm:text-sm">
@@ -1760,19 +1731,19 @@ export default function StockAnalysis() {
                     <div className={sectionClass}>
                       {insiderChartStats && (
                         <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
-                          <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                          <div className="py-1">
                             <span className="text-muted-foreground">Peak Buy</span>
                             <div className="mt-0.5 font-semibold tabular-nums text-foreground">
                               ${formatCompactNumber(insiderChartStats.peakBuy, 2)}
                             </div>
                           </div>
-                          <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                          <div className="py-1">
                             <span className="text-muted-foreground">Peak Sell</span>
                             <div className="mt-0.5 font-semibold tabular-nums text-foreground">
                               ${formatCompactNumber(insiderChartStats.peakSell, 2)}
                             </div>
                           </div>
-                          <div className="rounded-md border border-border/80 bg-background/70 px-1.5 py-1">
+                          <div className="py-1">
                             <span className="text-muted-foreground">Avg Net</span>
                             <div
                               className={`mt-0.5 font-semibold tabular-nums ${
@@ -1975,7 +1946,7 @@ export default function StockAnalysis() {
 
                               <div className="mt-2 grid grid-cols-3 gap-1.5">
                                 <div>
-                                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                  <p className="text-xs text-muted-foreground">
                                     Price
                                   </p>
                                   <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
@@ -1983,7 +1954,7 @@ export default function StockAnalysis() {
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                  <p className="text-xs text-muted-foreground">
                                     Shares
                                   </p>
                                   <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
@@ -1991,7 +1962,7 @@ export default function StockAnalysis() {
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                  <p className="text-xs text-muted-foreground">
                                     Value
                                   </p>
                                   <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
@@ -2045,6 +2016,7 @@ export default function StockAnalysis() {
                   >
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
                     <span className="text-sm">{newsError}</span>
+                    <button className="ml-auto underline" onClick={() => void loadFeed('news', activeSymbol, requestSequenceRef.current)}>Retry</button>
                   </Alert>
                 )}
 
@@ -2123,25 +2095,18 @@ export default function StockAnalysis() {
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/60 px-3 py-2.5">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4 text-muted-foreground"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <span className="text-xs font-normal text-muted-foreground">
-            Search a ticker to load stock analysis, insider activity, and news in one view.
-          </span>
-        </div>
+        <section className="space-y-3 py-4" aria-label="Research examples">
+          <h2 className="text-sm font-semibold">Explore an asset</h2>
+          <p className="text-sm text-muted-foreground">Choose a company to see its fundamentals, price history and latest filings.</p>
+          <div className="grid gap-x-6 sm:grid-cols-3">
+            {[['AAPL', 'Apple'], ['SAP.DE', 'SAP'], ['TM', 'Toyota Motor']].map(([symbol, name]) => (
+              <button key={symbol} type="button" className="flex items-center justify-between gap-2 border-b border-border py-3 text-left hover:underline" onClick={() => openSymbol(symbol)}>
+                <span><strong className="block text-sm">{name}</strong><span className="text-xs text-muted-foreground">{symbol}</span></span>
+                <ArrowUpRight size={15} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

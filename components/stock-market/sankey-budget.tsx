@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   CartesianGrid,
   Line,
@@ -199,6 +200,9 @@ function applyModelDefaultsToPresetLegs(
 }
 
 export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () => void }) {
+  const requestedSymbol=useSearchParams()?.get('symbol');
+  const [spotMessage,setSpotMessage]=useState('');
+  const [loadingSpot,setLoadingSpot]=useState(false);
   const [mobilePanel, setMobilePanel] = useState<'inputs' | 'results'>('inputs');
   const [desktopPanel, setDesktopPanel] = useState<'inputs' | 'results'>('inputs');
   const [showMobileAdvancedResults, setShowMobileAdvancedResults] = useState(false);
@@ -963,6 +967,21 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
     setLegs(presetLegs);
   };
 
+  async function loadUnderlying() {
+    if(!requestedSymbol) return;
+    setLoadingSpot(true);
+    try {
+      const response=await fetch('/api/quote?symbol='+encodeURIComponent(requestedSymbol),{signal:AbortSignal.timeout(15000)});
+      const quote=await response.json();
+      if(!response.ok||typeof quote.price!=='number'||quote.price<=0) throw new Error('Spot quote unavailable.');
+      if(quote.currency!=='USD') throw new Error('This lab uses USD. Enter the converted underlying price manually.');
+      setSpot(quote.price);
+      setExpiryPrice(quote.price);
+      setSpotMessage(requestedSymbol+' spot loaded from Yahoo Finance. Review strikes, premiums, volatility, and expiration for this underlying.');
+    } catch(error) { setSpotMessage(error instanceof Error?error.message:'Quote unavailable.'); }
+    finally { setLoadingSpot(false); }
+  }
+
   const setLegPatch = (index: number, patch: Partial<OptionLeg>, markAsCustom = true): void => {
     setLegs((prev) =>
       prev.map((leg, legIndex) => {
@@ -1037,9 +1056,7 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
 
   return (
     <div className="w-full max-w-full" id="options-payoff-lab-container">
-      <div className="px-4 pb-0 pt-0 pr-16 sm:px-5 sm:pr-20">
-        <h2 className="text-lg font-semibold text-foreground">Options Payoff Lab</h2>
-      </div>
+      {requestedSymbol && <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-border pb-4"><button className="terminal-button" disabled={loadingSpot} onClick={loadUnderlying}>{loadingSpot?'Loading quote…':'Load '+requestedSymbol+' spot'}</button><p role="status" className="terminal-note">{spotMessage||'Load the underlying quote, then review the strategy inputs.'}</p></div>}
 
       <div className="space-y-4 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
         <div className="md:hidden">

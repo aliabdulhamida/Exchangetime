@@ -1,7 +1,8 @@
 'use client';
-/* eslint-disable import/order */
-import { ChevronDown, X } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+
+import { ChevronDown } from 'lucide-react';
+import React, { Component, type ComponentType, type ReactNode, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   AreaChart,
   Area,
@@ -19,529 +20,113 @@ import {
   type ContributionTiming,
 } from '@/lib/compound-interest';
 
-import PersonalBudgetCalculator from '../personal-budget-calculator';
-import TaxCalculator from '../tax-calculator';
-import BacktestTool from '../stock-market/backtest-tool';
-import CurrencyConverter from '../stock-market/currency-converter';
-import DcfCalculator from '../dcf-calculator';
-import DividendCalendar from '../stock-market/dividend-calendar';
-import EarningsCalendar from '../stock-market/earnings-calendar';
-import ExchangeTimes from '../stock-market/exchange-times';
-import HolidayCalendar from '../stock-market/holiday-calendar';
-import MarketScreener from '../stock-market/market-screener';
-import PortfolioTracker from '../stock-market/portfolio-tracker';
-import OptionsPayoffLab from '../stock-market/sankey-budget';
-import StockAnalysis from '../stock-market/stock-analysis';
-import EconomicIndicators from '../stock-market/economic-indicators';
-import TradingviewEcCalendar from '../stock-market/TradingviewEc-Calendar.jsx';
-import TradingViewWidget from '../stock-market/TradingViewWidget';
+const loading = () => (
+  <div role="status" className="space-y-4 py-6">
+    <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+    <div className="h-64 animate-pulse rounded bg-muted/40" />
+    <p className="text-xs text-muted-foreground">Loading workspace…</p>
+  </div>
+);
+const tools: Record<string, ComponentType> = {
+  PersonalBudget: dynamic(() => import('../personal-budget-calculator'), { loading, ssr: false }),
+  TaxCalculator: dynamic(() => import('../tax-calculator'), { loading, ssr: false }),
+  BacktestTool: dynamic(() => import('../stock-market/backtest-tool'), { loading, ssr: false }),
+  CurrencyConverter: dynamic(() => import('../stock-market/currency-converter'), {
+    loading,
+    ssr: false,
+  }),
+  DCFCalculator: dynamic(() => import('../dcf-calculator'), { loading, ssr: false }),
+  DividendCalendar: dynamic(() => import('../stock-market/dividend-calendar'), {
+    loading,
+    ssr: false,
+  }),
+  EarningsCalendar: dynamic(() => import('../stock-market/earnings-calendar'), {
+    loading,
+    ssr: false,
+  }),
+  ExchangeTimes: dynamic(() => import('../stock-market/exchange-times'), { loading, ssr: false }),
+  HolidayCalendar: dynamic(() => import('../stock-market/holiday-calendar'), {
+    loading,
+    ssr: false,
+  }),
+  MarketScreener: dynamic(() => import('../stock-market/market-screener'), { loading, ssr: false }),
+  PortfolioTracker: dynamic(() => import('../stock-market/portfolio-tracker'), {
+    loading,
+    ssr: false,
+  }),
+  OptionsPayoffLab: dynamic(() => import('../stock-market/sankey-budget'), { loading, ssr: false }),
+  StockAnalysis: dynamic(() => import('../stock-market/stock-analysis'), { loading, ssr: false }),
+  EconomicIndicators: dynamic(() => import('../stock-market/economic-indicators'), {
+    loading,
+    ssr: false,
+  }),
+  EconomicCalendar: dynamic(() => import('../stock-market/TradingviewEc-Calendar.jsx'), {
+    loading,
+    ssr: false,
+  }),
+  TechnicalAnalysis: dynamic(() => import('../stock-market/TradingViewWidget'), {
+    loading,
+    ssr: false,
+  }),
+  NetWorth: dynamic(() => import('./finance-planner').then((module) => module.NetWorth), {
+    loading,
+    ssr: false,
+  }),
+  FinancialGoals: dynamic(
+    () => import('./finance-planner').then((module) => module.FinancialGoals),
+    { loading, ssr: false },
+  ),
+  PositionSizing: dynamic(
+    () => import('./trading-workbench').then((module) => module.PositionSizing),
+    { loading, ssr: false },
+  ),
+  TradeJournal: dynamic(() => import('./trading-workbench').then((module) => module.TradeJournal), {
+    loading,
+    ssr: false,
+  }),
+  SectorAnalysis: dynamic(() => import('./sector-performance'), { loading, ssr: false }),
+  News: dynamic(() => import('../stock-market/TradingViewNews'), { loading, ssr: false }),
+};
 
-interface ContentProps {
-  visibleModules?: string[];
-  hideModule: (module: string) => void;
-}
-
-const moduleAnchorId = (moduleKey: string) => `et-module-${moduleKey}`;
-
-function ModuleWrapper({
-  children,
-  onClose,
-  onSolo,
-  moduleKey,
-  className,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-  onSolo?: () => void;
-  moduleKey: string;
-  className?: string;
-}) {
-  const alignHeaderActions = moduleKey === 'StockAnalysis' || moduleKey === 'BacktestTool';
-  const actionTopClass = alignHeaderActions ? 'top-4' : 'top-3';
-  const actionRightClass = alignHeaderActions ? 'right-4' : 'right-3';
-
-  return (
-    <div
-      id={moduleAnchorId(moduleKey)}
-      className={`et-module-card relative scroll-mt-20 p-3 sm:p-4 ${className ?? ''}`}
-      data-module-key={moduleKey}
-    >
-      <div
-        className={`absolute ${actionRightClass} ${actionTopClass} flex gap-1.5`}
-        style={{ zIndex: 10 }}
-      >
-        {onSolo && (
-          <button
-            onClick={onSolo}
-            className="et-module-action"
-            aria-label="Show only this module"
-            title="Show only this module"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-              />
-            </svg>
+class ToolBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
+  state = { error: false };
+  static getDerivedStateFromError() {
+    return { error: true };
+  }
+  render() {
+    if (this.state.error)
+      return (
+        <div role="alert" className="terminal-empty">
+          <p>This workspace could not render.</p>
+          <button className="terminal-button mt-4" onClick={() => this.setState({ error: false })}>
+            Try again
           </button>
-        )}
-        <button
-          onClick={onClose}
-          className="et-module-action et-module-action-danger"
-          aria-label="Close"
-          title="Close"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-      {children}
-    </div>
-  );
+        </div>
+      );
+    return this.props.children;
+  }
 }
 
-// Standardmäßig sichtbare Module, wenn keine explizite Steuerung erfolgt
-const DEFAULT_VISIBLE_MODULES = [
-  'TechnicalAnalysis',
-  'StockAnalysis',
-  'ExchangeTimes',
-  'BacktestTool',
-  'PortfolioTracker',
-  'CurrencyConverter',
-  'MarketScreener',
-  'CompoundInterest',
-  'OptionsPayoffLab',
-  'TaxCalculator',
-  'PersonalBudget',
-  'EconomicIndicators',
-  'EarningsCalendar',
-  'DividendCalendar',
-  'HolidayCalendar',
-  // ... weitere Standardmodule falls gewünscht
-];
-
-export default function Content(props: ContentProps) {
-  const { visibleModules, hideModule } = props;
-  // Wenn visibleModules nicht gesetzt oder leer ist, TechnicalAnalysis standardmäßig anzeigen
-  const modules =
-    !visibleModules || visibleModules.length === 0 ? DEFAULT_VISIBLE_MODULES : visibleModules;
-  const hasCompoundInterest = modules.includes('CompoundInterest');
-  const hasCurrencyConverter = modules.includes('CurrencyConverter');
-  const splitTradingToolsLayout = hasCompoundInterest && hasCurrencyConverter;
-  // Wenn nur ein Modul sichtbar ist, ist es "solo". Sonst nicht.
-  const isSolo = modules.length === 1 ? modules[0] : null;
-  // Toggle-Funktion: Solo oder alle anzeigen
-  const showOnlyModule = (module: string) => {
-    if (typeof window !== 'undefined' && (window as any).dispatchEvent) {
-      if (isSolo === module) {
-        // Wenn bereits solo, dann alle anzeigen
-        window.dispatchEvent(new CustomEvent('showOnlyModule', { detail: 'ALL' }));
-      } else {
-        // Sonst nur dieses anzeigen
-        window.dispatchEvent(new CustomEvent('showOnlyModule', { detail: module }));
-      }
-    }
-  };
-
-  useEffect(() => {
-    const onFocusModule = (event: Event) => {
-      const customEvent = event as CustomEvent<string>;
-      const moduleName = customEvent.detail;
-      if (typeof moduleName !== 'string' || moduleName.length === 0) return;
-
-      const moduleEl = document.getElementById(moduleAnchorId(moduleName));
-      if (!moduleEl) return;
-
-      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      moduleEl.scrollIntoView({
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-        block: 'start',
-        inline: 'nearest',
-      });
-    };
-
-    window.addEventListener('focusModule', onFocusModule as EventListener);
-    return () => window.removeEventListener('focusModule', onFocusModule as EventListener);
-  }, []);
-  // Kein flex-zentriertes Layout mehr, sondern immer nur space-y-6
+export default function Content({
+  visibleModules = [],
+}: {
+  visibleModules?: string[];
+  hideModule?: (module: string) => void;
+}) {
+  const key = visibleModules[0] || 'ExchangeTimes';
+  const Tool = key === 'CompoundInterest' ? CompoundInterestCalculator : tools[key];
   return (
-    <div className="space-y-4 pb-3 sm:space-y-6 sm:pb-4">
-      {/* Module-Rendering: Wenn nur ein Modul sichtbar ist, trotzdem Grid-Layout */}
-      {/* Das bisherige Grid-Layout bleibt immer erhalten */}
-      <>
-        {/* Top Row - Exchange Times */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6">
-          {modules.includes('ExchangeTimes') && (
-            <ModuleWrapper
-              moduleKey="ExchangeTimes"
-              onClose={() => hideModule('ExchangeTimes')}
-              onSolo={() => showOnlyModule('ExchangeTimes')}
-            >
-              <ExchangeTimes />
-            </ModuleWrapper>
-          )}
-        </div>
-
-        {/* Zweite Zeile: Merged Stock Analysis + Backtest Tool */}
-        {(modules.includes('StockAnalysis') || modules.includes('BacktestTool')) && (
-          <div
-            className={`grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 sm:gap-6 ${
-              modules.includes('StockAnalysis') && modules.includes('BacktestTool')
-                ? 'xl:grid-cols-3'
-                : 'xl:grid-cols-2'
-            }`}
-          >
-            {modules.includes('StockAnalysis') && (
-              <div
-                className={
-                  (modules.length === 1 ? 'w-full max-w-6xl mx-auto ' : '') +
-                  `flex h-full flex-col ${modules.includes('BacktestTool') ? 'xl:col-span-2' : ''}`
-                }
-              >
-                <div className="flex h-full flex-col min-h-0 sm:min-h-[300px]">
-                  <ModuleWrapper
-                    moduleKey="StockAnalysis"
-                    onClose={() => hideModule('StockAnalysis')}
-                    onSolo={() => showOnlyModule('StockAnalysis')}
-                    className="h-full"
-                  >
-                    <div className="flex h-full flex-col min-h-0 sm:min-h-[300px]">
-                      <StockAnalysis />
-                    </div>
-                  </ModuleWrapper>
-                </div>
-              </div>
-            )}
-            {/* Backtest Tool stays in the third column when merged Stock Analysis spans two columns */}
-            {modules.includes('BacktestTool') && (
-              <div
-                className={
-                  (modules.length === 1 ? 'w-full max-w-xl mx-auto ' : 'w-full ') + 'h-full'
-                }
-              >
-                <ModuleWrapper
-                  moduleKey="BacktestTool"
-                  onClose={() => hideModule('BacktestTool')}
-                  onSolo={() => showOnlyModule('BacktestTool')}
-                  className="h-full"
-                >
-                  <BacktestTool />
-                </ModuleWrapper>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Full-width Portfolio Tracker Row (same sizing as Exchange Times) */}
-        {modules.includes('PortfolioTracker') && (
-          <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            <ModuleWrapper
-              moduleKey="PortfolioTracker"
-              onClose={() => hideModule('PortfolioTracker')}
-              onSolo={() => showOnlyModule('PortfolioTracker')}
-              className="h-full"
-            >
-              <div className="flex h-full flex-col">
-                <PortfolioTracker />
-              </div>
-            </ModuleWrapper>
-          </div>
-        )}
-
-        {/* Neue Zeile: Technical Analysis */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6">
-          {modules.includes('TechnicalAnalysis') && (
-            <div className="min-h-[760px] md:h-[800px] lg:h-[900px]">
-              <ModuleWrapper
-                moduleKey="TechnicalAnalysis"
-                onClose={() => hideModule('TechnicalAnalysis')}
-                onSolo={() => showOnlyModule('TechnicalAnalysis')}
-                className="h-full"
-              >
-                <div className="flex h-full min-h-0 flex-col">
-                  <h2 className="mb-4 text-lg font-semibold text-foreground">Technical Analysis</h2>
-                  <div className="flex-1 min-h-0">
-                    <TradingViewWidget />
-                  </div>
-                </div>
-              </ModuleWrapper>
-            </div>
-          )}
-        </div>
-
-        {/* Third Row - Market Screener */}
-        {modules.includes('MarketScreener') && (
-          <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            <ModuleWrapper
-              moduleKey="MarketScreener"
-              onClose={() => hideModule('MarketScreener')}
-              onSolo={() => showOnlyModule('MarketScreener')}
-              className="h-full"
-            >
-              <div className="flex h-full flex-col">
-                <MarketScreener />
-              </div>
-            </ModuleWrapper>
-          </div>
-        )}
-
-        {/* Fourth Row - Trading Tools (Compound Interest + Currency Converter) */}
-        <div
-          className={`grid grid-cols-1 gap-4 sm:gap-6 ${
-            splitTradingToolsLayout ? 'xl:grid-cols-3' : ''
-          }`}
-        >
-          {modules.includes('CompoundInterest') && (
-            <div
-              id={moduleAnchorId('CompoundInterest')}
-              className={`et-module-card flex min-h-0 w-full min-w-0 flex-1 flex-col justify-center scroll-mt-20 md:mt-2 ${
-                splitTradingToolsLayout ? 'xl:col-span-2' : ''
-              }`}
-              data-module-key="CompoundInterest"
-            >
-              <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-0">
-                <h2 className="text-lg font-semibold text-foreground">Compound Interest</h2>
-                <div className="flex gap-2 items-center">
-                  {/* Augen-Button und X-Button aus ModuleWrapper */}
-                  <button
-                    onClick={() => showOnlyModule('CompoundInterest')}
-                    className="et-module-action"
-                    aria-label="Show only this module"
-                    title="Show only this module"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => hideModule('CompoundInterest')}
-                    className="et-module-action et-module-action-danger"
-                    aria-label="Close"
-                    title="Close"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="p-3 sm:p-4 flex flex-col h-full">
-                <div className="flex-1 flex flex-col justify-between">
-                  <CompoundInterestCalculator />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {modules.includes('CurrencyConverter') && (
-            <div className="mt-0 flex w-full min-w-0 flex-1 flex-col md:mt-2">
-              <ModuleWrapper
-                moduleKey="CurrencyConverter"
-                onClose={() => hideModule('CurrencyConverter')}
-                onSolo={() => showOnlyModule('CurrencyConverter')}
-              >
-                <div className="p-3 sm:p-4 flex flex-col h-full">
-                  <CurrencyConverter />
-                </div>
-              </ModuleWrapper>
-            </div>
-          )}
-        </div>
-
-        {/* Fourth Row - Market Data (Currency Converter moved above) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{/* MarketSummary removed */}</div>
-
-        {/* Fifth Row - Calendar und Holiday Info */}
-        <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4 sm:gap-6">
-          {/* Neues Modul links neben Earnings Calendar */}
-          {modules.includes('EconomicCalendar') && (
-            <div
-              className={
-                modules.length === 1
-                  ? 'h-[64vh] min-h-[460px] max-h-[760px] w-full max-w-xl mx-auto md:h-[680px] lg:h-[760px]'
-                  : 'h-[64vh] min-h-[460px] max-h-[760px] md:h-[680px] lg:h-[760px]'
-              }
-            >
-              <ModuleWrapper
-                moduleKey="EconomicCalendar"
-                onClose={() => hideModule('EconomicCalendar')}
-                onSolo={() => showOnlyModule('EconomicCalendar')}
-                className="h-full"
-              >
-                <div className="mt-1 flex h-full min-h-0 flex-col gap-3 px-1 pb-1 sm:mt-2 sm:px-2 sm:pb-2">
-                  <h2 className="pr-16 text-base font-semibold text-foreground sm:pr-20 sm:text-lg">
-                    Economic Calendar
-                  </h2>
-                  <TradingviewEcCalendar />
-                </div>
-              </ModuleWrapper>
-            </div>
-          )}
-          {modules.includes('EarningsCalendar') && (
-            <div
-              className={
-                modules.length === 1
-                  ? 'h-[64vh] min-h-[460px] max-h-[760px] w-full max-w-xl mx-auto md:h-[680px] lg:h-[760px]'
-                  : 'h-[64vh] min-h-[460px] max-h-[760px] md:h-[680px] lg:h-[760px]'
-              }
-            >
-              <ModuleWrapper
-                moduleKey="EarningsCalendar"
-                onClose={() => hideModule('EarningsCalendar')}
-                onSolo={() => showOnlyModule('EarningsCalendar')}
-                className="h-full"
-              >
-                <EarningsCalendar />
-              </ModuleWrapper>
-            </div>
-          )}
-          {modules.includes('DividendCalendar') && (
-            <div
-              className={
-                modules.length === 1
-                  ? 'h-[64vh] min-h-[460px] max-h-[760px] w-full max-w-xl mx-auto md:h-[680px] lg:h-[760px]'
-                  : 'h-[64vh] min-h-[460px] max-h-[760px] md:h-[680px] lg:h-[760px]'
-              }
-            >
-              <ModuleWrapper
-                moduleKey="DividendCalendar"
-                onClose={() => hideModule('DividendCalendar')}
-                onSolo={() => showOnlyModule('DividendCalendar')}
-                className="h-full"
-              >
-                <DividendCalendar />
-              </ModuleWrapper>
-            </div>
-          )}
-          {modules.includes('HolidayCalendar') && (
-            <div
-              className={
-                modules.length === 1
-                  ? 'h-[64vh] min-h-[460px] max-h-[760px] w-full max-w-xl mx-auto md:h-[680px] lg:h-[760px]'
-                  : 'h-[64vh] min-h-[460px] max-h-[760px] md:h-[680px] lg:h-[760px]'
-              }
-            >
-              <ModuleWrapper
-                moduleKey="HolidayCalendar"
-                onClose={() => hideModule('HolidayCalendar')}
-                onSolo={() => showOnlyModule('HolidayCalendar')}
-                className="h-full"
-              >
-                <HolidayCalendar />
-              </ModuleWrapper>
-            </div>
-          )}
-        </div>
-
-        {modules.includes('EconomicIndicators') && (
-          <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            <ModuleWrapper
-              moduleKey="EconomicIndicators"
-              onClose={() => hideModule('EconomicIndicators')}
-              onSolo={() => showOnlyModule('EconomicIndicators')}
-              className="h-full"
-            >
-              <div className="flex h-full flex-col">
-                <EconomicIndicators />
-              </div>
-            </ModuleWrapper>
-          </div>
-        )}
-
-        {/* Sixth Row - Options Payoff Lab */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6">
-          {modules.includes('OptionsPayoffLab') && (
-            <ModuleWrapper
-              moduleKey="OptionsPayoffLab"
-              onClose={() => hideModule('OptionsPayoffLab')}
-              onSolo={() => showOnlyModule('OptionsPayoffLab')}
-              className="h-full"
-            >
-              <div className="flex h-full flex-col">
-                <OptionsPayoffLab />
-              </div>
-            </ModuleWrapper>
-          )}
-        </div>
-
-        {/* Real Estate vs. Stocks Calculator removed */}
-
-        {/* Eighth Row - Tax Calculator */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6">
-          {modules.includes('TaxCalculator') && (
-            <ModuleWrapper
-              moduleKey="TaxCalculator"
-              onClose={() => hideModule('TaxCalculator')}
-              onSolo={() => showOnlyModule('TaxCalculator')}
-              className="h-full"
-            >
-              <div className="flex h-full flex-col">
-                <TaxCalculator />
-              </div>
-            </ModuleWrapper>
-          )}
-        </div>
-
-        {modules.includes('PersonalBudget') && (
-          <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            <ModuleWrapper
-              moduleKey="PersonalBudget"
-              onClose={() => hideModule('PersonalBudget')}
-              onSolo={() => showOnlyModule('PersonalBudget')}
-              className="h-full"
-            >
-              <div className="flex h-full flex-col">
-                <PersonalBudgetCalculator />
-              </div>
-            </ModuleWrapper>
-          </div>
-        )}
-
-        {/* Render DCF below Tax Calculator and Personal Budget as a new full-width row */}
-        {modules.includes('DCFCalculator') && (
-          <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            <ModuleWrapper
-              moduleKey="DCFCalculator"
-              onClose={() => hideModule('DCFCalculator')}
-              onSolo={() => showOnlyModule('DCFCalculator')}
-              className="h-full"
-            >
-              <div className="flex h-full flex-col">
-                <DcfCalculator />
-              </div>
-            </ModuleWrapper>
-          </div>
-        )}
-      </>
-    </div>
+    <ToolBoundary key={key}>
+      <div
+        className={
+          'terminal-workspace ' +
+          (['TechnicalAnalysis', 'News'].includes(key) ? 'h-[780px] min-h-[70vh]' : '')
+        }
+        data-workspace={key}
+      >
+        {Tool ? <Tool /> : <p className="terminal-empty">Choose a workspace from navigation.</p>}
+      </div>
+    </ToolBoundary>
   );
 }
 

@@ -22,6 +22,9 @@ function toMonthKey(d: Date): string {
 export default function BlogPage() {
   // Single month filter (YYYY-MM)
   const [month, setMonth] = useState<string>('');
+  const [query,setQuery] = useState('');
+  const [category,setCategory] = useState('');
+  const categories=useMemo(()=>Array.from(new Set(blogPosts.flatMap(post=>post.categories))).sort(),[]);
 
   // Sort posts by date desc once, then filter based on range
   const sortedPosts = useMemo(() => {
@@ -34,7 +37,7 @@ export default function BlogPage() {
     for (const p of blogPosts) {
       const d = safeDate(p.date);
       const key = toMonthKey(d); // e.g., 2025-08
-      const label = new Intl.DateTimeFormat(undefined, {
+      const label = new Intl.DateTimeFormat('en-GB', {
         month: 'long',
         year: 'numeric',
       }).format(d); // e.g., August 2025
@@ -47,16 +50,20 @@ export default function BlogPage() {
   }, []);
 
   const filteredPosts = useMemo(() => {
-    if (!month) return sortedPosts;
-    return sortedPosts.filter((post) => toMonthKey(safeDate(post.date)) === month);
-  }, [month, sortedPosts]);
+    const needle=query.trim().toLowerCase();
+    return sortedPosts.filter(post=>
+      (!month||toMonthKey(safeDate(post.date))===month)&&
+      (!category||post.categories.includes(category))&&
+      (!needle||(post.title+' '+post.excerpt).toLowerCase().includes(needle))
+    );
+  }, [month, sortedPosts, query, category]);
 
   return (
     <BlogLayout>
       <div className="blog-container">
         <div className="blog-header blog-header-minimal">
-          <p className="blog-header-kicker">Exchange Time Blog</p>
-          <h1 className="blog-header-title">Market Insights</h1>
+          <p className="blog-header-kicker">Research library</p>
+          <h1 className="blog-header-title">Market insights</h1>
           <p className="blog-header-subtitle">
             Actionable market analysis, practical trading strategies, and financial education to
             help you make smarter long-term investment decisions.
@@ -65,6 +72,8 @@ export default function BlogPage() {
 
         {/* Simple month dropdown */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <label className="terminal-label flex-1">Search articles<input className="terminal-input" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Company, topic, or strategy"/></label>
+          <label className="terminal-label">Topic<select className="terminal-input" value={category} onChange={event=>setCategory(event.target.value)}><option value="">All topics</option>{categories.map(item=><option key={item}>{item}</option>)}</select></label>
           <div>
             <label
               htmlFor="month"

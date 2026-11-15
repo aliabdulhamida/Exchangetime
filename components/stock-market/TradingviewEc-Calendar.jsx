@@ -56,6 +56,8 @@ function TradingviewEcCalendar() {
   const [query, setQuery] = useState('');
   const [events, setEvents] = useState([]);
   const [fetchedAt, setFetchedAt] = useState('');
+  const [source,setSource] = useState('');
+  const [stale,setStale] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
@@ -92,6 +94,8 @@ function TradingviewEcCalendar() {
         }
         setEvents(Array.isArray(payload.events) ? payload.events : []);
         setFetchedAt(payload.fetchedAt || '');
+        setSource(payload.source || 'Unknown');
+        setStale(Boolean(payload.stale));
       } catch (fetchError) {
         if (!active || fetchError?.name === 'AbortError') return;
         setError(fetchError instanceof Error ? fetchError.message : 'Failed to load calendar');
@@ -138,7 +142,7 @@ function TradingviewEcCalendar() {
               <span className="rounded bg-muted px-1 py-0 text-[10px]">{activeFilterCount}</span>
             )}
           </button>
-          <span>{fetchedAt ? `Updated ${new Date(fetchedAt).toLocaleTimeString()}` : 'Live feed'}</span>
+          <span>{source} · {fetchedAt ? `Updated ${new Date(fetchedAt).toLocaleString()}` : 'Awaiting feed'}</span>
           <button
             type="button"
             onClick={() => setReloadKey((current) => current + 1)}
@@ -246,9 +250,11 @@ function TradingviewEcCalendar() {
           {error}
         </div>
       )}
+      {stale && <p role="status" className="text-xs text-amber-300">Cached calendar data. Check the observation time before planning around an event.</p>}
+      <p className="text-[10px] text-muted-foreground">Timed events use your local timezone. Events without a timestamp show source time.</p>
 
       <div className="et-scrollbar min-h-[260px] flex-1 overflow-x-hidden overflow-y-auto overscroll-contain rounded-md border border-border/70 bg-background/60 pr-1 [webkit-overflow-scrolling:touch] sm:min-h-[360px] lg:min-h-0">
-        {visibleEvents.length === 0 && !loading ? (
+        {loading && visibleEvents.length===0 ? <div role="status" className="space-y-5 p-5">{Array.from({length:4},(_,index)=><div key={index} className="space-y-3 border-b border-border pb-5"><div className="h-3 w-32 animate-pulse rounded bg-muted"/><div className="h-4 w-2/3 animate-pulse rounded bg-muted"/></div>)}<span className="sr-only">Loading economic events</span></div> : visibleEvents.length === 0 && !loading ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             No events found.
           </div>
@@ -259,13 +265,13 @@ function TradingviewEcCalendar() {
                 key={`${event.url}-${index}`}
                 className="rounded-lg border border-border/70 bg-card/40 p-3 sm:p-4"
               >
-                <div className="space-y-3">
+                <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                         <span className="font-semibold tracking-wide text-foreground/90">{event.country}</span>
                         <span className="hidden h-1 w-1 rounded-full bg-border sm:inline-block" />
-                        <span>{formatSourceDate(event.date, event.time)}</span>
+                        <span>{typeof event.timestamp==='number' ? new Date(event.timestamp).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short'}) : formatSourceDate(event.date, event.time)}</span>
                       </div>
                       <p className="mt-2 break-words text-sm leading-5 text-foreground">
                         {event.title}

@@ -37,74 +37,74 @@ select {
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 96%;
-    --card: 0 0% 1%;
-    --card-foreground: 0 0% 96%;
-    --popover: 0 0% 1%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 0 0% 96%;
-    --primary-foreground: 0 0% 6%;
-    --secondary: 0 0% 3%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 0 0% 3%;
-    --muted-foreground: 0 0% 62%;
-    --accent: 0 0% 3%;
-    --accent-foreground: 0 0% 96%;
+    --background: 220 23% 97%;
+    --foreground: 210 10% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 10% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 10% 15%;
+    --primary: 210 10% 15%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 16% 96%;
+    --secondary-foreground: 240 4% 12%;
+    --muted: 210 16% 96%;
+    --muted-foreground: 214 7% 45%;
+    --accent: 240 5% 94%;
+    --accent-foreground: 240 4% 12%;
     --destructive: 0 68% 56%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 13%;
-    --input: 0 0% 13%;
-    --ring: 0 0% 86%;
-    --chart-1: 0 0% 85%;
-    --chart-2: 0 0% 72%;
-    --chart-3: 0 0% 60%;
-    --chart-4: 0 0% 48%;
-    --chart-5: 0 0% 36%;
+    --border: 210 14% 92%;
+    --input: 210 15% 88%;
+    --ring: 163 53% 28%;
+    --chart-1: 163 53% 40%;
+    --chart-2: 142 61% 36%;
+    --chart-3: 29 90% 52%;
+    --chart-4: 270 60% 55%;
+    --chart-5: 350 70% 55%;
     --radius: 0.625rem;
-    --sidebar-background: 0 0% 1%;
-    --sidebar-foreground: 0 0% 96%;
-    --sidebar-primary: 0 0% 96%;
-    --sidebar-primary-foreground: 0 0% 6%;
-    --sidebar-accent: 0 0% 3%;
-    --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 0 0% 13%;
-    --sidebar-ring: 0 0% 86%;
+    --sidebar-background: 240 8% 96%;
+    --sidebar-foreground: 240 4% 12%;
+    --sidebar-primary: 211 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 5% 90%;
+    --sidebar-accent-foreground: 240 4% 12%;
+    --sidebar-border: 240 5% 89%;
+    --sidebar-ring: 211 100% 50%;
   }
 
   .dark {
     --background: 0 0% 0%;
-    --foreground: 0 0% 96%;
-    --card: 0 0% 1%;
-    --card-foreground: 0 0% 96%;
-    --popover: 0 0% 1%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 0 0% 96%;
-    --primary-foreground: 0 0% 6%;
-    --secondary: 0 0% 3%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 0 0% 3%;
-    --muted-foreground: 0 0% 62%;
-    --accent: 0 0% 3%;
-    --accent-foreground: 0 0% 96%;
+    --foreground: 180 9% 94%;
+    --card: 0 0% 0%;
+    --card-foreground: 180 9% 94%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 180 9% 94%;
+    --primary: 180 9% 94%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 6%;
+    --secondary-foreground: 240 8% 96%;
+    --muted: 0 0% 6%;
+    --muted-foreground: 192 6% 65%;
+    --accent: 0 0% 9%;
+    --accent-foreground: 240 8% 96%;
     --destructive: 0 68% 56%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 13%;
-    --input: 0 0% 13%;
-    --ring: 0 0% 86%;
-    --chart-1: 0 0% 85%;
-    --chart-2: 0 0% 72%;
-    --chart-3: 0 0% 60%;
-    --chart-4: 0 0% 48%;
-    --chart-5: 0 0% 36%;
-    --sidebar-background: 0 0% 1%;
-    --sidebar-foreground: 0 0% 96%;
-    --sidebar-primary: 0 0% 96%;
-    --sidebar-primary-foreground: 0 0% 6%;
-    --sidebar-accent: 0 0% 3%;
-    --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 0 0% 13%;
-    --sidebar-ring: 0 0% 86%;
+    --input: 0 0% 20%;
+    --ring: 160 40% 68%;
+    --chart-1: 158 42% 62%;
+    --chart-2: 142 61% 36%;
+    --chart-3: 29 90% 52%;
+    --chart-4: 270 60% 55%;
+    --chart-5: 350 70% 55%;
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 240 8% 96%;
+    --sidebar-primary: 211 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 9%;
+    --sidebar-accent-foreground: 240 8% 96%;
+    --sidebar-border: 240 2% 24%;
+    --sidebar-ring: 211 100% 50%;
   }
 
   * {
@@ -118,9 +118,10 @@ select {
 
   body {
     @apply bg-background text-foreground;
-    color-scheme: dark;
+    color-scheme: inherit;
     font-family:
       var(--font-display),
+      -apple-system,
       ui-sans-serif,
       system-ui,
       -apple-system,

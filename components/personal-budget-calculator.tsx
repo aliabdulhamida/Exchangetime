@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +50,7 @@ interface PersistedBudgetState {
   incomeBasis: IncomeBasis;
   incomeSources: IncomeSourceItem[];
   reserveCash: number;
+  variableCosts?: number;
   reserveTargetMonths: number;
   targetInvestmentPct: number;
   income?: number;
@@ -96,6 +97,13 @@ const LEGACY_DEFAULT_FIXED_COSTS: FixedCostItem[] = [
 function sanitizeAmount(value: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, value);
+}
+
+function nextRowId(rows: { id: string }[], prefix: string) {
+  const used = new Set(rows.map(row => row.id));
+  let index = 1;
+  while (used.has(`${prefix}-${index}`)) index++;
+  return `${prefix}-${index}`;
 }
 
 function sanitizePercent(value: number, fallback = 60, min = 0, max = 100) {
@@ -221,8 +229,6 @@ function SummaryRow({
 
 export default function PersonalBudgetCalculator() {
   const isMobile = useIsMobile();
-  const nextIncomeIdRef = useRef(0);
-  const nextFixedCostIdRef = useRef(0);
 
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState<BudgetStep>('income');
@@ -234,6 +240,7 @@ export default function PersonalBudgetCalculator() {
   const [fixedCostTotal, setFixedCostTotal] = useState(0);
   const [fixedCosts, setFixedCosts] = useState<FixedCostItem[]>([]);
   const [reserveCash, setReserveCash] = useState(0);
+  const [variableCosts,setVariableCosts] = useState(0);
   const [reserveTargetMonths, setReserveTargetMonths] = useState(6);
   const [targetInvestmentPct, setTargetInvestmentPct] = useState(60);
 
@@ -296,10 +303,9 @@ export default function PersonalBudgetCalculator() {
       setFixedCostTotal(restoredFixedCostTotal);
       setFixedCosts(restoredFixedCosts);
       setReserveCash(sanitizeAmount(Number(parsed.reserveCash)));
+      setVariableCosts(sanitizeAmount(Number(parsed.variableCosts || 0)));
       setReserveTargetMonths(sanitizeMonths(Number(parsed.reserveTargetMonths)));
       setTargetInvestmentPct(sanitizePercent(Number(parsed.targetInvestmentPct)));
-      nextIncomeIdRef.current = Math.max(restoredIncomeSources.length, 0);
-      nextFixedCostIdRef.current = Math.max(restoredFixedCosts.length, 0);
     } catch (error) {
       console.error('Failed to restore personal budget state', error);
     } finally {
@@ -322,6 +328,7 @@ export default function PersonalBudgetCalculator() {
       incomeBasis,
       incomeSources,
       reserveCash: sanitizeAmount(reserveCash),
+      variableCosts: sanitizeAmount(variableCosts),
       reserveTargetMonths: sanitizeMonths(reserveTargetMonths),
       targetInvestmentPct: sanitizePercent(targetInvestmentPct),
     };
@@ -339,6 +346,7 @@ export default function PersonalBudgetCalculator() {
     incomeBasis,
     incomeSources,
     reserveCash,
+    variableCosts,
     reserveTargetMonths,
     targetInvestmentPct,
     totalFixedCosts,
@@ -377,7 +385,7 @@ export default function PersonalBudgetCalculator() {
     return incomeBasis === 'annual' ? totalIncome / 12 : totalIncome;
   }, [incomeBasis, incomeSources]);
 
-  const monthlyFreeCash = monthlyIncome - totalFixedCosts;
+  const monthlyFreeCash = monthlyIncome - totalFixedCosts - variableCosts;
   const positiveFreeCash = Math.max(0, monthlyFreeCash);
   const portfolioContribution = positiveFreeCash * (targetInvestmentPct / 100);
   const reserveBuildCash = Math.max(0, positiveFreeCash - portfolioContribution);
@@ -386,9 +394,15 @@ export default function PersonalBudgetCalculator() {
   const actualInvestRate = monthlyIncome > 0 ? portfolioContribution / monthlyIncome : 0;
   const savingsRate =
     monthlyIncome > 0 ? monthlyFreeCash / monthlyIncome : monthlyFreeCash < 0 ? -1 : 0;
-  const reserveTarget = totalFixedCosts * reserveTargetMonths;
+  const monthlySpending = totalFixedCosts + variableCosts;
+  const reserveTarget = monthlySpending * reserveTargetMonths;
   const reserveGap = Math.max(0, reserveTarget - reserveCash);
-  const reserveRunwayMonths = totalFixedCosts > 0 ? reserveCash / totalFixedCosts : 0;
+  const reserveRunwayMonths = monthlySpending > 0 ? reserveCash / monthlySpending : 0;
+  const cashflowHealth = monthlyIncome>0 ? Math.round(
+    40*Math.min(1,Math.max(0,savingsRate)/.2) +
+    40*(reserveTarget>0?Math.min(1,reserveCash/reserveTarget):1) +
+    20*Math.min(1,Math.max(0,1-monthlySpending/monthlyIncome)/.5)
+  ) : null;
   const reserveTimelineMonths =
     reserveGap > 0 && reserveBuildCash > 0 ? Math.ceil(reserveGap / reserveBuildCash) : null;
 
@@ -443,10 +457,9 @@ export default function PersonalBudgetCalculator() {
 
   function addIncomeSource(name = '', amount = 0) {
     if (incomeSources.length >= 12) return;
-    nextIncomeIdRef.current += 1;
     setIncomeSources((current) => [
       ...current,
-      { id: `income-${nextIncomeIdRef.current}`, name, amount },
+      { id: nextRowId(current, 'income'), name, amount },
     ]);
   }
 
@@ -473,10 +486,9 @@ export default function PersonalBudgetCalculator() {
 
   function addFixedCost(name = '', amount = 0) {
     if (fixedCosts.length >= 18) return;
-    nextFixedCostIdRef.current += 1;
     setFixedCosts((current) => [
       ...current,
-      { id: `fixed-cost-${nextFixedCostIdRef.current}`, name, amount },
+      { id: nextRowId(current, 'fixed-cost'), name, amount },
     ]);
   }
 
@@ -490,10 +502,9 @@ export default function PersonalBudgetCalculator() {
       if (current.length > 0 && sumAmounts(current) === sanitizeAmount(fixedCostTotal)) {
         return current;
       }
-      nextFixedCostIdRef.current += 1;
       return [
         {
-          id: `fixed-cost-${nextFixedCostIdRef.current}`,
+          id: nextRowId(current, 'fixed-cost'),
           name: fixedCostTotal > 0 ? 'Fixed costs' : '',
           amount: sanitizeAmount(fixedCostTotal),
         },
@@ -541,6 +552,7 @@ export default function PersonalBudgetCalculator() {
           />
           <SummaryRow label="Income / month" value={currencyFormatter.format(monthlyIncome)} />
           <SummaryRow label="Fixed costs" value={currencyFormatter.format(totalFixedCosts)} />
+          <SummaryRow label="Variable spending" value={currencyFormatter.format(variableCosts)} />
           <SummaryRow label="Savings rate" value={percentFormatter.format(savingsRate)} />
         </div>
       </div>
@@ -593,10 +605,13 @@ export default function PersonalBudgetCalculator() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-y border-border py-4">
+        <div><p className="terminal-note">Cash-flow health</p><strong className="text-2xl">{cashflowHealth===null?'—':cashflowHealth+' / 100'}</strong></div>
+        <details className="terminal-note max-w-xl"><summary>Score methodology</summary><p>Up to 40 points for a 20% savings rate, 40 for fully funding your chosen emergency reserve, and 20 for keeping spending at or below 50% of income. Based on the income and spending entered here.</p></details>
+      </div>
       <div className="pr-16 sm:pr-20">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground sm:text-xl">Personal Budget</h2>
             <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {currentStepCopy.label} of {STEP_ORDER.length}
             </div>
@@ -648,7 +663,7 @@ export default function PersonalBudgetCalculator() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
-        <div className="min-w-0 pb-40 lg:pb-0">
+        <div className="min-w-0 pb-20 lg:pb-0">
           {step === 'income' ? (
             <section className="space-y-6">
               <div className="space-y-3">
@@ -900,6 +915,7 @@ export default function PersonalBudgetCalculator() {
             </section>
           ) : null}
 
+          {step === 'costs' && <label className="terminal-label mt-4">Variable spending / month<input className="terminal-input" type="number" min="0" step="1" value={variableCosts} onChange={event=>setVariableCosts(sanitizeAmount(Number(event.target.value)))}/><span className="terminal-note">Groceries, transport, leisure, and other monthly spending outside fixed costs.</span></label>}
           {step === 'plan' ? (
             <section className="space-y-6">
               <div className="space-y-3">
@@ -1018,8 +1034,8 @@ export default function PersonalBudgetCalculator() {
         </aside>
       </div>
 
-      <div className="sticky bottom-0 z-10 -mx-3 mt-auto border-t border-border/70 bg-background/95 px-3 pb-3 pt-3 backdrop-blur sm:-mx-4 sm:px-4 lg:hidden">
-        <div className="grid grid-cols-3 gap-3">
+      <div data-budget-actions className="sticky bottom-0 z-10 -mx-3 mt-auto border-t border-border/70 bg-background/95 px-3 pb-3 pt-3 backdrop-blur sm:-mx-4 sm:px-4 lg:hidden">
+        <div className="hidden grid-cols-3 gap-3 sm:grid">
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Free cash
@@ -1044,9 +1060,9 @@ export default function PersonalBudgetCalculator() {
           </div>
         </div>
 
-        <p className="mt-3 text-xs leading-5 text-muted-foreground">{summaryMessage}</p>
+        <p className="mt-3 hidden text-xs leading-5 text-muted-foreground sm:block">{summaryMessage}</p>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:mt-3">
           <Button type="button" variant="outline" onClick={goBack} disabled={isFirstStep}>
             Back
           </Button>

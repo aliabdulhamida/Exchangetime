@@ -43,7 +43,10 @@ const NewsModal: React.FC<NewsModalProps> = ({ open, onOpenChange, ticker }) => 
     setError(null);
 
     fetch(`/api/news?ticker=${ticker}&from=${fromDate}&to=${toDate}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('News source unavailable');
+        return res.json();
+      })
       .then((data) => {
         if (Array.isArray(data)) {
           setNews(data);

@@ -1,7 +1,9 @@
 'use client';
 
 import { Pencil, RotateCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { workspaceUrl } from './product-model';
 
 import {
   DropdownMenu,
@@ -9,7 +11,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import { fetchStockData as fetchStockDataPortfolio } from '../stock-market/portfolio-tracker';
 
 interface WatchlistMenuProps {
   trigger: (state: { open: boolean }) => React.ReactElement;
@@ -342,88 +343,45 @@ export default function WatchlistMenu({
   const watchlist = activeWatchlist?.items ?? EMPTY_WATCHLIST;
   const activeWatchlistTitle = activeWatchlist?.title ?? 'Watchlist';
 
-  const fetchPrices = useCallback(async () => {
-    if (watchlist.length === 0) {
-      setPrices({});
-      setChanges({});
-      setDaySeries({});
-      return;
-    }
-
+  const requestSequence=useRef(0);
+  const [observed,setObserved]=useState<Record<string,string>>({});
+  const fetchPrices=useCallback(async()=>{
+    const sequence=++requestSequence.current;
     setLoading(true);
     setError(null);
-
-    const results: { [ticker: string]: string } = {};
-    const changesResult: { [ticker: string]: number | null } = {};
-    const daySeriesResult: { [ticker: string]: number[] } = {};
-
-    await Promise.allSettled(
-      watchlist.map(async (stock) => {
-        let dayChartRequest: Promise<Response> | null = null;
-        try {
-          dayChartRequest = fetch(
-            `/api/quote?symbol=${encodeURIComponent(stock.ticker)}&chart=1&range=1d&interval=5m&includePrePost=false`,
-            { cache: 'no-store' },
-          );
-        } catch (err) {
-          if (typeof window !== 'undefined') {
-            console.error('Day chart request init error', stock.ticker, err);
-          }
+    const nextPrices:Record<string,string>={};
+    const nextChanges:Record<string,number|null>={};
+    const nextSeries:Record<string,number[]>={};
+    const nextObserved:Record<string,string>={};
+    let failed=0;
+    await Promise.allSettled(watchlist.map(async stock=>{
+      const symbol=encodeURIComponent(stock.ticker);
+      const quoteRequest=fetch('/api/quote?symbol='+symbol,{cache:'no-store',signal:AbortSignal.timeout(15000)});
+      const chartRequest=fetch('/api/quote?symbol='+symbol+'&chart=1&range=1d&interval=5m&includePrePost=false',{signal:AbortSignal.timeout(15000)});
+      const [quoteResult,chartResult]=await Promise.allSettled([quoteRequest,chartRequest]);
+      try {
+        if(quoteResult.status!=='fulfilled'||!quoteResult.value.ok) throw new Error('Unavailable');
+        const quote=await quoteResult.value.json();
+        if(typeof quote.price!=='number'||!Number.isFinite(quote.price)) throw new Error('Unavailable');
+        const code=quote.currency;
+        nextPrices[stock.ticker]=typeof code==='string'&&/^[A-Z]{3}$/.test(code)
+          ? quote.price.toLocaleString(undefined,{style:'currency',currency:code})
+          : quote.price.toLocaleString()+(code?' '+code:'');
+        nextChanges[stock.ticker]=typeof quote.previousClose==='number'&&quote.previousClose>0?(quote.price/quote.previousClose-1)*100:null;
+        nextObserved[stock.ticker]=quote.meta?.regularMarketTime?new Date(quote.meta.regularMarketTime*1000).toLocaleString():'Time unavailable';
+      } catch { failed++;nextPrices[stock.ticker]='Unavailable';nextChanges[stock.ticker]=null; }
+      try {
+        if(chartResult.status==='fulfilled'&&chartResult.value.ok) {
+          const series=extractWatchlistSparklineSeries(await chartResult.value.json());
+          if(series.length>=2) nextSeries[stock.ticker]=series;
         }
-
-        try {
-          const data = await fetchStockDataPortfolio(stock.ticker);
-          if (Array.isArray(data) && data.length > 0) {
-            const last = data[data.length - 1];
-            results[stock.ticker] =
-              last && last.close !== null && last.close !== undefined
-                ? `$${last.close.toFixed(2)}`
-                : 'N/A';
-
-            if (data.length > 1 && last && last.close !== null && last.close !== undefined) {
-              const prev = data[data.length - 2];
-              if (prev && prev.close !== null && prev.close !== undefined && prev.close !== 0) {
-                changesResult[stock.ticker] = ((last.close - prev.close) / prev.close) * 100;
-              } else {
-                changesResult[stock.ticker] = null;
-              }
-            } else {
-              changesResult[stock.ticker] = null;
-            }
-          } else {
-            results[stock.ticker] = 'N/A';
-            changesResult[stock.ticker] = null;
-          }
-        } catch (err) {
-          results[stock.ticker] = 'N/A';
-          changesResult[stock.ticker] = null;
-          setError('Could not fetch stock prices. Please try again later.');
-          if (typeof window !== 'undefined') console.error('Price fetch error', stock.ticker, err);
-        }
-
-        if (!dayChartRequest) return;
-        try {
-          const chartResponse = await dayChartRequest;
-          if (!chartResponse.ok) return;
-
-          const chartPayload = await chartResponse.json();
-          const cleaned = extractWatchlistSparklineSeries(chartPayload);
-          if (cleaned.length >= 2) {
-            daySeriesResult[stock.ticker] = cleaned;
-          }
-        } catch (err) {
-          if (typeof window !== 'undefined') {
-            console.error('Day chart fetch error', stock.ticker, err);
-          }
-        }
-      }),
-    );
-
-    setPrices(results);
-    setChanges(changesResult);
-    setDaySeries(daySeriesResult);
+      } catch {}
+    }));
+    if(sequence!==requestSequence.current) return;
+    setPrices(nextPrices);setChanges(nextChanges);setDaySeries(nextSeries);setObserved(nextObserved);
+    setError(failed?failed+' quote feed(s) unavailable. Try reloading.':null);
     setLoading(false);
-  }, [watchlist]);
+  },[watchlist]);
 
   useEffect(() => {
     if (watchlists.length === 0) return;
@@ -569,6 +527,7 @@ export default function WatchlistMenu({
         className={contentClassName}
       >
         <div className="overflow-hidden rounded-[inherit]">
+          <p className="border-b border-border px-3 py-2 text-[10px] text-muted-foreground">Yahoo Finance · Refresh 60s · Quotes may be delayed</p>
           <div className="border-b border-border/70 bg-card/70 px-3.5 py-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1">
@@ -673,9 +632,9 @@ export default function WatchlistMenu({
                       className="rounded-lg border border-border/70 bg-card/60 px-2.5 py-2 transition-colors hover:border-border hover:bg-card"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex min-w-[58px] items-center rounded-md bg-secondary/50 px-1.5 py-0.5 text-xs font-semibold text-foreground">
+                        <Link href={workspaceUrl('StockAnalysis')+'&symbol='+encodeURIComponent(stock.ticker)} onClick={()=>{setInternalOpen(false);onOpenChange?.(false);}} className="inline-flex min-w-[58px] items-center rounded-md bg-secondary/50 px-1.5 py-0.5 text-xs font-semibold text-foreground hover:underline">
                           {stock.ticker}
-                        </span>
+                        </Link>
                         <span className="ml-auto text-right font-mono text-xs text-foreground">
                           {loading ? (
                             <span className="text-muted-foreground">...</span>
@@ -729,6 +688,7 @@ export default function WatchlistMenu({
                       ) : loading ? (
                         <div className="mt-2 h-6 animate-pulse rounded-md bg-secondary/35" />
                       ) : null}
+                      <p className="mt-2 text-[9px] text-muted-foreground">{observed[stock.ticker]?'Observed '+observed[stock.ticker]:'Observation time unavailable'}</p>
                     </div>
                   );
                 })}

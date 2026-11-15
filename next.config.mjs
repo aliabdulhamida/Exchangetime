@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
+  devIndicators: false,
   // Enforce ESLint and TypeScript checks during builds
   eslint: {
     ignoreDuringBuilds: false,

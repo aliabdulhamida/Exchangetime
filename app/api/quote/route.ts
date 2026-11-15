@@ -14,10 +14,13 @@ const ALLOWED_EVENTS = new Set(['div', 'split', 'div,splits', 'capitalGain', 'hi
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const symbol = normalizeYahooSymbol(url.searchParams.get('symbol') || '', {
-      allowFxWithSuffix: true,
-      allowFxPair: false,
-    });
+    const rawSymbol = (url.searchParams.get('symbol') || '').trim().toUpperCase();
+    const symbol = /^(?:\^[A-Z0-9]{1,12}|[A-Z]{1,4}=F)$/.test(rawSymbol)
+      ? rawSymbol
+      : normalizeYahooSymbol(rawSymbol, {
+          allowFxWithSuffix: true,
+          allowFxPair: false,
+        });
     if (!symbol) return NextResponse.json({ error: 'Missing or invalid symbol' }, { status: 400 });
 
     const wantChart =
@@ -105,8 +108,7 @@ export async function GET(req: NextRequest) {
           toFiniteNumber(quoteResult?.regularMarketDayHigh) ??
           toFiniteNumber(summaryDetail?.dayHigh),
         dayLow:
-          toFiniteNumber(quoteResult?.regularMarketDayLow) ??
-          toFiniteNumber(summaryDetail?.dayLow),
+          toFiniteNumber(quoteResult?.regularMarketDayLow) ?? toFiniteNumber(summaryDetail?.dayLow),
         fiftyTwoWeekHigh:
           toFiniteNumber(quoteResult?.fiftyTwoWeekHigh) ??
           toFiniteNumber(summaryDetail?.fiftyTwoWeekHigh),
@@ -129,14 +131,12 @@ export async function GET(req: NextRequest) {
           toFiniteNumber(defaultKeyStats?.beta) ??
           toFiniteNumber(financialData?.beta),
         volume:
-          toFiniteNumber(quoteResult?.regularMarketVolume) ??
-          toFiniteNumber(summaryDetail?.volume),
+          toFiniteNumber(quoteResult?.regularMarketVolume) ?? toFiniteNumber(summaryDetail?.volume),
         averageVolume:
           toFiniteNumber(quoteResult?.averageDailyVolume3Month) ??
           toFiniteNumber(summaryDetail?.averageVolume),
         dividendRate:
-          toFiniteNumber(quoteResult?.dividendRate) ??
-          toFiniteNumber(summaryDetail?.dividendRate),
+          toFiniteNumber(quoteResult?.dividendRate) ?? toFiniteNumber(summaryDetail?.dividendRate),
         dividendYieldPct: normalizeYieldToPercent(
           toFiniteNumber(quoteResult?.dividendYield) ??
             toFiniteNumber(summaryDetail?.dividendYield),

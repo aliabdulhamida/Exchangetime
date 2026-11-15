@@ -1,22 +1,23 @@
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import Script from 'next/script';
 
 import './globals.css';
+import '@/styles/terminal.css';
 import '@/styles/button-animations.css';
 import '@/styles/toggle-button.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 
-const geistSans = Geist({
-  subsets: ['latin'],
+const geistSans = localFont({
+  src: '../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2',
   variable: '--font-display',
 });
 
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
+const geistMono = localFont({
+  src: '../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2',
   variable: '--font-mono',
 });
 
@@ -36,10 +37,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#000000' },
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)', color: '#000000' },
   ],
 };
@@ -48,19 +48,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* ensure theme class is present on first paint to avoid mixed light/dark flash */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-          (function() {
-            try {
-              document.documentElement.classList.add('dark');
-            } catch (e) {}
-          })();
-        `,
-          }}
-        />
-
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
@@ -68,14 +55,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Exchangetime" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-        <meta name="color-scheme" content="dark" />
+        <meta name="color-scheme" content="light dark" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
-          forcedTheme="dark"
-          defaultTheme="dark"
-          enableSystem={false}
+          storageKey="et-appearance"
+          defaultTheme="light"
+          enableSystem
           disableTransitionOnChange
         >
           {children}

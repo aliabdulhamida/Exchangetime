@@ -938,11 +938,6 @@ export default function TaxCalculator() {
   return (
     <TooltipProvider delayDuration={100}>
       <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader className="p-0 pb-4 pr-16 sm:pr-20">
-          <div>
-            <CardTitle className="text-lg">Tax Calculator</CardTitle>
-          </div>
-        </CardHeader>
         <CardContent className="grid gap-3 p-0">
           <div className="sticky top-0 z-10 bg-background/95 pb-1 backdrop-blur lg:hidden">
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">

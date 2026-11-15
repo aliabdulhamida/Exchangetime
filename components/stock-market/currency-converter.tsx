@@ -111,9 +111,6 @@ export default function CurrencyConverter() {
 
   return (
     <div className="rounded-xl px-3 pb-5 pt-2 sm:px-4 sm:pb-6">
-      <div className="mb-4">
-        <h2 className="text-lg font-bold text-foreground sm:text-xl">Currency Converter</h2>
-      </div>
 
       <form className="space-y-3.5" onSubmit={handleConvert}>
         <div className="rounded-xl border border-border/70 bg-gradient-to-b from-card/70 via-card/40 to-card/20 p-3.5">

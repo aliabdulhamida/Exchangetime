@@ -18,7 +18,10 @@ function buildPriceSeries(
   });
 }
 
-function buildDividendSeries(entries: Array<{ offsetDays: number; amount: number }>, startIso: string): DividendPoint[] {
+function buildDividendSeries(
+  entries: Array<{ offsetDays: number; amount: number }>,
+  startIso: string,
+): DividendPoint[] {
   const base = new Date(`${startIso}T00:00:00Z`);
   return entries.map((entry) => ({
     date: new Date(base.getTime() + entry.offsetDays * 24 * 60 * 60 * 1000)
@@ -29,6 +32,33 @@ function buildDividendSeries(entries: Array<{ offsetDays: number; amount: number
 }
 
 describe('runBacktestCalculation', () => {
+  it('applies purchase costs and dividend withholding without double-counting retained cash', () => {
+    const outcome = runBacktestCalculation(
+      {
+        symbol: 'TEST',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        initialAmount: 1000,
+        monthlyAmount: 0,
+        reinvestDividends: false,
+        transactionFeePct: 1,
+        slippagePct: 0,
+        dividendTaxPct: 25,
+      },
+      [
+        { date: '2026-01-01', close: 100 },
+        { date: '2026-12-31', close: 100 },
+      ],
+      [{ date: '2026-12-31', amount: 10 }],
+    );
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.totalShares).toBeCloseTo(9.9);
+    expect(outcome.result.dividendsCash).toBeCloseTo(74.25);
+    expect(outcome.result.finalValue).toBeCloseTo(1064.25);
+    expect(outcome.result.xirrPct).toBeLessThan(6.6);
+    expect(outcome.result.xirrPct).toBeGreaterThan(6.4);
+  });
   it('returns deterministic metrics for valid input data', () => {
     const prices = buildPriceSeries('2020-01-01', 220, 100, 0.3);
     const dividends = buildDividendSeries(
