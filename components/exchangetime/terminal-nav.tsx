@@ -9,7 +9,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   PieChart,
-  Search,
   Settings2,
   Star,
   Wallet,
@@ -73,8 +72,14 @@ export default function TerminalNav() {
           </button>
         )}
         <nav aria-label="Main navigation" className="terminal-nav et-scrollbar">
-          <Link href="/tools" title="Workspace directory" aria-current={pathname === '/tools' ? 'page' : undefined} className={'terminal-section ' + (pathname === '/tools' ? 'is-active' : '')}>
-            <Wrench size={18} />{!collapsed && <span>All tools</span>}
+          <Link
+            href="/tools"
+            title="Workspace directory"
+            aria-current={pathname === '/tools' ? 'page' : undefined}
+            className={'terminal-section ' + (pathname === '/tools' ? 'is-active' : '')}
+          >
+            <Wrench size={18} />
+            {!collapsed && <span>Tools</span>}
           </Link>
           {!collapsed && <p className="terminal-nav-label">Workspace</p>}
           {Object.entries(sections).map(([section, items]) => {
@@ -100,25 +105,26 @@ export default function TerminalNav() {
           })}
           {!collapsed && <p className="terminal-nav-label mt-8">Pinned workspaces</p>}
           <div className="terminal-shortcuts">
-            {pins.map(key => [workspaces.find(item => item.key === key)!.label, key]).map(([label, key]) => (
-              <Link key={key} href={workspaceUrl(key)} title={label} className="terminal-shortcut">
-                <span className="terminal-shortcut-dot" />
-                {!collapsed && label}
-              </Link>
-            ))}
+            {pins
+              .map((key) => [workspaces.find((item) => item.key === key)!.label, key])
+              .map(([label, key]) => (
+                <Link
+                  key={key}
+                  href={workspaceUrl(key)}
+                  title={label}
+                  className="terminal-shortcut"
+                >
+                  <span className="terminal-shortcut-dot" />
+                  {!collapsed && label}
+                </Link>
+              ))}
           </div>
         </nav>
         <div className="terminal-nav-footer">
-          {!collapsed && (
-            <button
-              className="terminal-command-hint"
-              onClick={() => window.dispatchEvent(new Event('et-search'))}
-            >
-              <Search size={14} />
-              <span>Jump to anything</span>
-              <kbd>⌘ K</kbd>
-            </button>
-          )}
+          <Link href="/impressum" title="Impressum">
+            <span aria-hidden>§</span>
+            {!collapsed && 'Impressum'}
+          </Link>
           <Link href="/blog" title="Research library">
             <BookOpen size={16} />
             {!collapsed && (
@@ -145,7 +151,9 @@ export default function TerminalNav() {
       <nav className="terminal-bottom-nav" aria-label="Mobile navigation">
         <Link
           href={workspaceUrl('MarketOverview')}
-          aria-current={pathname === '/dashboard' && current in sections.Markets ? 'page' : undefined}
+          aria-current={
+            pathname === '/dashboard' && current in sections.Markets ? 'page' : undefined
+          }
         >
           <Globe2 size={20} />
           <span>Markets</span>
@@ -165,7 +173,9 @@ export default function TerminalNav() {
           <BookOpen size={20} />
           <span>News</span>
         </Link>
-        <Link href="/tools" aria-current={pathname === '/tools' ? 'page' : undefined}
+        <Link
+          href="/tools"
+          aria-current={pathname === '/tools' ? 'page' : undefined}
           data-active={
             pathname === '/tools' ||
             current in sections.Trading ||

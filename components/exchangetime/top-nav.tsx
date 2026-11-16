@@ -106,7 +106,7 @@ export default function TopNav() {
         title="Search (⌘K / Ctrl+K)"
       >
         <Search size={15} />
-        <span className="flex-1 truncate">Search markets, assets, tools…</span>
+        <span className="flex-1 truncate">Search…</span>
         <kbd>⌘ K</kbd>
       </button>
       <div className="flex shrink-0 items-center gap-1 sm:gap-3">

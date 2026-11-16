@@ -1,5 +1,3 @@
-import { Analytics } from '@vercel/analytics/next';
-import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import Script from 'next/script';
@@ -68,13 +66,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Global Toasts */}
         <Toaster />
 
-        {/* Google AdSense */}
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8377777238288489"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
 
         {/* Service Worker: enable only in production to avoid dev HMR/cache conflicts */}
         {process.env.NODE_ENV === 'production' && (
@@ -111,8 +102,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             `}
           </Script>
         )}
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   );

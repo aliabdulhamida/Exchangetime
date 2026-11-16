@@ -4,6 +4,8 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 
+import LegalFooter from '@/components/legal-footer';
+
 import Preferences from './preferences';
 import TerminalNav from './terminal-nav';
 import TopNav from './top-nav';
@@ -42,7 +44,10 @@ function TerminalLayout({ children }: { children: ReactNode }) {
           tabIndex={-1}
           className="terminal-main et-scrollbar"
         >
-          <div className="terminal-container">{children}</div>
+          <div className="terminal-container">
+            {children}
+            <LegalFooter />
+          </div>
         </main>
       </div>
       <Preferences />

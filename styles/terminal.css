@@ -730,6 +730,33 @@
   max-width: 1400px;
   padding: 0;
 }
+.terminal .blog-container:has(> article.prose),
+.terminal article.blog-container.prose {
+  max-width: 860px;
+}
+.terminal .blog-container .prose,
+.terminal article.blog-container.prose {
+  font-size: 16px;
+  line-height: 1.8;
+}
+.terminal .blog-container .prose > header > h1,
+.terminal article.blog-container.prose > h1 {
+  font-size: clamp(2rem, 3.2vw, 2.8rem);
+  font-weight: 650;
+  line-height: 1.16;
+  letter-spacing: -0.035em;
+  margin: 20px 0 24px;
+  text-wrap: balance;
+}
+.terminal .blog-container .article-metadata {
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  color: var(--app-muted);
+}
+.terminal .weekly-review > header > p:not(.terminal-note) {
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
 .terminal .blog-header {
   padding: 0 0 24px;
   margin-bottom: 0;

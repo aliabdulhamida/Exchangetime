@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "weekStarting": "2026-11-09",
+  "weekEnding": "2026-11-13",
+  "publishedAt": "2026-11-16T13:58:50Z",
+  "title": "Market Week, November 9–13: US Stocks Recover as Inflation Remains in Focus",
+  "cover": {
+    "src": "/images/weekly/2026-11-13.png",
+    "alt": "Conceptual illustration of stacked coins and a rising metal line against a New York skyline",
+    "credit": "AI-generated illustration created for Exchange Time. A symbolic depiction of market recovery and inflation, not a photograph of an actual event."
+  },
+  "summary": "The S&P 500 and Nasdaq Composite finished the week higher despite declines on Friday. Meanwhile, US statistics showed further monthly price increases. This retrospective separates the completed trading week from the outlook for the following week.",
+  "sourceIds": ["sp", "nasdaq", "cpi"],
+  "markets": [
+    {
+      "name": "S&P 500",
+      "symbol": "^GSPC",
+      "previousClose": 7376.86,
+      "previousDate": "2026-11-06",
+      "close": 7561.67,
+      "closeDate": "2026-11-13",
+      "sourceId": "sp"
+    },
+    {
+      "name": "Nasdaq Composite",
+      "symbol": "^IXIC",
+      "previousClose": 24579.43,
+      "previousDate": "2026-11-06",
+      "close": 25136.27,
+      "closeDate": "2026-11-13",
+      "sourceId": "nasdaq"
+    },
+    {
+      "name": "Dow Jones Industrial Average",
+      "symbol": "^DJI",
+      "previousClose": 51285.73,
+      "previousDate": "2026-11-06",
+      "close": 52347.55,
+      "closeDate": "2026-11-13",
+      "sourceId": "ap"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "A recovery with a weaker finish",
+      "paragraphs": [
+        {
+          "text": "The S&P 500 gained 2.51% between the closing levels on November 6 and November 13. The Nasdaq Composite advanced 2.27%. These weekly gains should not be confused with Friday’s moves: both indices closed below their previous day’s levels.",
+          "sourceIds": ["sp", "nasdaq"]
+        },
+        {
+          "text": "AP reports a weekly Dow gain of 1,061.82 points to 52,347.55. The table’s comparison level of 51,285.73 is calculated from those figures. According to AP, technology stocks weighed on Friday’s market; Nvidia fell again following Jensen Huang’s reported resignation on Thursday.",
+          "sourceIds": ["ap"]
+        }
+      ]
+    },
+    {
+      "heading": "Inflation: monthly prices keep rising",
+      "paragraphs": [
+        {
+          "text": "On November 10, the Bureau of Labor Statistics reported that October consumer prices increased by a seasonally adjusted 0.4% from September. Excluding food and energy, the increase was 0.3%. Importantly, missing October 2025 data prevented the agency from publishing year-over-year changes for many series; no such rate is supplied here.",
+          "sourceIds": ["cpi"]
+        },
+        {
+          "text": "On November 13, the final-demand Producer Price Index showed a seasonally adjusted monthly increase of 0.3%. Prices were up 6.5% from October 2025, according to the BLS. Unlike the consumer price report, this annual figure was explicitly available. These releases alone neither explain an individual market move nor establish the next interest-rate decision.",
+          "sourceIds": ["ppi"]
+        }
+      ]
+    },
+    {
+      "heading": "Looking ahead to November 16–20",
+      "paragraphs": [
+        {
+          "text": "Kiplinger’s economic calendar, accessed during research, lists the FOMC minutes for Wednesday, November 18, and the University of Michigan consumer sentiment index for Friday, November 20. These are scheduled releases, not reported outcomes; timetables may change.",
+          "sourceIds": ["calendar"]
+        }
+      ]
+    },
+    {
+      "heading": "Coverage and reporting dates",
+      "paragraphs": [
+        {
+          "text": "This initial trial limits the index table to three US price indices. Each comparison uses the November 6 and November 13 closing levels, excluding dividends and currency conversion. European markets and commodities are not presented as comprehensively covered. Research and publication took place retrospectively on November 16, rather than being backdated to Saturday.",
+          "sourceIds": ["sp", "nasdaq", "ap"]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "sp",
+      "title": "Investing.com: S&P 500 historical closing levels",
+      "url": "https://www.investing.com/indices/us-spx-500-historical-data",
+      "accessedAt": "2026-11-16T13:58:50Z"
+    },
+    {
+      "id": "nasdaq",
+      "title": "Investing.com: Nasdaq Composite historical closing levels",
+      "url": "https://www.investing.com/indices/nasdaq-composite-historical-data",
+      "accessedAt": "2026-11-16T13:58:50Z"
+    },
+    {
+      "id": "ap",
+      "title": "Associated Press via SeattlePI: US stock indices on November 13, 2026",
+      "url": "https://www.seattlepi.com/business/how-major-us-stock-indexes-fared-friday-11-13-2026-a22529691",
+      "accessedAt": "2026-11-16T13:58:50Z"
+    },
+    {
+      "id": "cpi",
+      "title": "BLS: October 2026 consumer prices, released November 10",
+      "url": "https://www.bls.gov/news.release/archives/cpi_11102026.htm",
+      "accessedAt": "2026-11-16T13:58:50Z"
+    },
+    {
+      "id": "ppi",
+      "title": "BLS: October 2026 producer prices, released November 13",
+      "url": "https://www.bls.gov/news.release/archives/ppi_11132026.htm",
+      "accessedAt": "2026-11-16T13:58:50Z"
+    },
+    {
+      "id": "calendar",
+      "title": "Kiplinger: Economic calendar, November 16–20, 2026",
+      "url": "https://www.kiplinger.com/investing/economy/this-weeks-economic-calendar",
+      "accessedAt": "2026-11-16T13:58:50Z"
+    }
+  ],
+  "language": "en"
+}

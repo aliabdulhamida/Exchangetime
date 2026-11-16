@@ -77,7 +77,6 @@ export default function Dashboard({ view }: { view?: string }) {
       <footer className="workspace-continuation" aria-label="Related workspaces">
         <span>{nextSteps.length ? 'Continue with' : 'Explore'}</span>
         {nextSteps.map(key => <Link key={key} href={workspaceUrl(key)}>{workspaces.find(item => item.key === key)?.label} →</Link>)}
-        <Link href="/tools">All tools →</Link>
       </footer>
     </Layout>
   );
