@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { portfolioReturnIndex, portfolioRisk } from './portfolio-risk';
+import { comparePortfolio, portfolioReturnIndex, portfolioRisk } from './portfolio-risk';
 
 describe('portfolio risk and return', () => {
+  it('compares identical dates and excludes missing rates, not the entire benchmark history', () => {
+    const series = (values: number[]) => values.map((value, index) => ({ date: String(index), value }));
+    const result = comparePortfolio(series([NaN, 50, 55, 75]), series([1, 100, NaN, 125, 200]));
+    expect(result).toEqual([
+      { date: '1', portfolio: 100, benchmark: 100 },
+      { date: '3', portfolio: 150, benchmark: 125 },
+    ]);
+  });
+  it('withholds returns and comparisons for a single observation', () => {
+    const one = [{ date: '2026-01-01', value: 100 }];
+    expect(comparePortfolio(one, one)).toEqual([]);
+    expect(portfolioRisk(one).totalReturnPct).toBeNull();
+  });
   it('removes contributions between valuation dates', () => {
     const index = portfolioReturnIndex(
       [

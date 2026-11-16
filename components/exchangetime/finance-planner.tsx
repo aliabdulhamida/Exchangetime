@@ -15,6 +15,7 @@ import { z } from 'zod';
 
 import { balanceSchema, historySchema, goalSchema } from '@/lib/record-schemas';
 
+import { useComposeAction } from './use-compose-action';
 import { useLocalRecords } from './use-local-records';
 
 const currency = (value: number) =>
@@ -283,7 +284,7 @@ export function NetWorth() {
 export function FinancialGoals() {
   const { records, save, ready, error } = useLocalRecords('et.goals.v1', goalSchema);
   const [name, setName] = useState('');
-  const [target, setTarget] = useState('20000');
+  const [target, setTarget] = useState('');
   const [saved, setSaved] = useState('0');
   const [years, setYears] = useState('5');
   const [rate, setRate] = useState('4');
@@ -298,6 +299,10 @@ export function FinancialGoals() {
     const contribution = Math.max(0, (futureTarget - goal.saved * factor) / annuity);
     return { futureTarget, contribution };
   }
+  useComposeAction('FinancialGoals', () => {
+    setEditing(null); setName(''); setTarget(''); setSaved('0');
+    document.getElementById('financial-goal-name')?.focus();
+  });
   const preview = {
     id: 'preview',
     name,
@@ -396,6 +401,7 @@ export function FinancialGoals() {
         <label className="terminal-label">
           Goal name
           <input
+            id="financial-goal-name"
             className="terminal-input"
             value={name}
             onChange={(event) => setName(event.target.value)}

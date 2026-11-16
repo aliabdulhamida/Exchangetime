@@ -1,5 +1,21 @@
 # Exchange Time: Produktprüfung und Umbauplan
 
+## Nachprüfung – 16. November 2026
+
+Der Umbau verbindet die bestehenden Bereiche, statt sie auf einer einzigen Startseite zu stapeln. Das Verzeichnis unter `/tools` erschließt 27 Arbeitsbereiche über Aufgabe, Suchbegriff, Bereich oder persönliche Favoriten. Neu sind der Vergleich zweier tatsächlich beobachteter Kursreihen, ein Kreditplan mit Sondertilgung und ein Break-even-Rechner für Long-Positionen.
+
+| Frage | Bedienweg und Datengrenze |
+|---|---|
+| Welches Wertpapier ist gemeint? | In der Suche „Instruments“ wählen oder aus Research nach Namen suchen. Treffer stammen von Yahoo Finance und zeigen Typ und Handelsplatz. Die lokale Werkzeugsuche überträgt keine Suchbegriffe an Yahoo. |
+| Wie hat es sich entwickelt? | Aktien führen zur Unternehmensanalyse; Fonds, Indizes, Krypto, Devisen und Futures zum Kursprofil. Tagesbeobachtungen sind einsehbar; Vergleichsreihen verwenden nur gemeinsame UTC-Daten. Kein Dividenden- oder Währungsausgleich. Ein laufender Handelstag ist vorläufig. |
+| Welches Unternehmen möchte ich untersuchen? | Anbieterlisten nach gemeldetem Volumen, Bewertungsmultiple oder Lage zum 200-Tage-Durchschnitt eingrenzen. Ein aktives Kriterium schließt fehlende Werte aus; der Filter ist kein Scan aller weltweit notierten Aktien. Forward-P/E ist als Schätzung gekennzeichnet. |
+| Kann ich dem Score vertrauen? | Verschuldungsgrad wird bei Yahoo von Prozent in ein Verhältnis umgerechnet. Gesamtkapitalrendite, ROCE und allgemeines Gewinnwachstum werden nicht als ROIC bzw. EPS-Wachstum eingesetzt. Berichtsquelle und Abrufzeit stehen getrennt vom Kurszeitpunkt. |
+| Was lädt im Hintergrund? | Nicht ausgewählte Radiosender laden keine Player mehr. Die externe, ungenutzte Icon-Schrift entfällt. Kalender zeigen den Unterschied zwischen einem leeren Terminplan und einem Anbieterausfall. |
+
+**Geprüft:** 52 Seitenaufrufe einschließlich aller 27 Arbeitsbereiche ohne erfassten JavaScript-Seitenfehler. In getrennten Browserprofilen bei 390 und 1440 px: Apple-Namenssuche, SPY-Kursprofil, Zeitraumauswahl, Watchlist, Direktlink nach Neuladen, Auswahl und Trennung eines Radiosenders sowie die Schnellaktionen für Transaktion, Ziel und Journal. Ein echter Screener-Abruf wurde gefiltert, gespeichert und nach Neuladen wieder angewendet. Keine Ersatzkurse für diese Browserprüfungen.
+
+**Offen:** Die Routenprüfung bestätigt keine vollständige fachliche Abnahme. Als Nächstes sollten Insider-Meldungen unbekannte Beträge von belegten Nullbeträgen und Geschenke von Käufen trennen. Danach folgen Referenzfälle für Kapitalmaßnahmen im Portfolio und regionale Steuerannahmen. Die Radioprüfung bestätigt das Laden und Trennen des Players, nicht die Audioverfügbarkeit jedes Senders.
+
 ## Ausgangslage
 24 Arbeitsbereiche, sechs Hauptbereiche und eine gemeinsame Navigation. Der Einstieg leitet auf das Dashboard. Die stärkste Grundlage sind die getrennt testbaren Rechenkerne für Optionen, Backtests, Portfolio-Risiko und Zinseszins. Sie sollten beim Umbau erhalten bleiben.
 

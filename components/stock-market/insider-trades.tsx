@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { reportedPurchase as buyRegex, reportedSale as sellRegex } from '@/lib/insider-scanner';
 
 import { fetchStockData } from '../stock-market/portfolio-tracker';
 
@@ -89,8 +90,6 @@ export default function InsiderTrades() {
     );
   }
 
-  const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
-  const sellRegex = /sell|sale|dispose|disposition/i;
 
   function getSignedTradeValue(trade: InsiderTrade | undefined) {
     if (!trade) return 0;
@@ -176,11 +175,10 @@ export default function InsiderTrades() {
       return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     // Aggregiere Buy/Sell-Volumen pro Tag
-    const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
-    const sellRegex = /sell|sale|dispose|disposition/i;
     // Nach Datum gruppieren
     const grouped: Record<string, { date: string; buy: number; sell: number }> = {};
     trades.forEach((t) => {
+      if (!buyRegex.test(t.transaction) && !sellRegex.test(t.transaction)) return;
       if (!grouped[t.date]) grouped[t.date] = { date: t.date, buy: 0, sell: 0 };
       if (buyRegex.test(t.transaction)) grouped[t.date].buy += t.value;
       if (sellRegex.test(t.transaction)) grouped[t.date].sell += t.value;

@@ -9,12 +9,15 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { isPriceSymbol } from '@/lib/asset-directory';
+import { formatQuote } from '@/lib/research-history';
 
 import { workspaceUrl } from './product-model';
 
 
 
 interface WatchlistMenuProps {
+  suggestedTicker?: string;
   trigger: (state: { open: boolean }) => React.ReactElement;
   contentClassName?: string;
   align?: 'start' | 'center' | 'end';
@@ -27,7 +30,6 @@ interface WatchlistMenuProps {
 type WatchlistEntry = { ticker: string };
 type WatchlistRecord = { id: string; title: string; items: WatchlistEntry[] };
 
-const DEFAULT_WATCHLIST: WatchlistEntry[] = [{ ticker: 'AAPL' }, { ticker: 'MSFT' }, { ticker: 'TSLA' }];
 const EMPTY_WATCHLIST: WatchlistEntry[] = [];
 const WATCHLISTS_STORAGE_KEY = 'et_watchlists';
 const ACTIVE_WATCHLIST_STORAGE_KEY = 'et_active_watchlist_id';
@@ -37,14 +39,6 @@ const WATCHLIST_SESSION_GAP_SECONDS = 3 * 60 * 60;
 const WATCHLIST_MIN_SESSION_POINTS = 6;
 
 type TimedClosePoint = { timestamp: number; close: number };
-
-function cloneDefaultWatchlist(): WatchlistEntry[] {
-  return DEFAULT_WATCHLIST.map((entry) => ({ ticker: entry.ticker }));
-}
-
-function normalizeTickerInput(value: string): string {
-  return value.toUpperCase().replace(/[^A-Z0-9.-]/g, '').slice(0, 12);
-}
 
 function sanitizeWatchlistTitle(raw: unknown): string {
   if (typeof raw !== 'string') return 'Watchlist';
@@ -77,8 +71,8 @@ function sanitizeWatchlistItems(raw: unknown): WatchlistEntry[] {
         : itemRecord && typeof itemRecord.ticker === 'string'
           ? itemRecord.ticker
           : '';
-    const ticker = normalizeTickerInput(tickerRaw);
-    if (!ticker || unique.has(ticker)) continue;
+    const ticker = tickerRaw.trim().toUpperCase();
+    if (!isPriceSymbol(ticker) || unique.has(ticker)) continue;
     unique.add(ticker);
     sanitized.push({ ticker });
   }
@@ -117,20 +111,21 @@ function sanitizeWatchlists(raw: unknown): WatchlistRecord[] {
 
 function loadInitialWatchlists(): WatchlistRecord[] {
   if (typeof window === 'undefined') {
-    return [{ id: 'wl_default', title: 'Watchlist', items: cloneDefaultWatchlist() }];
+    return [{ id: 'wl_default', title: 'Watchlist', items: [] }];
   }
 
   const storedWatchlists = sanitizeWatchlists(parseStorageJson(WATCHLISTS_STORAGE_KEY));
   if (storedWatchlists.length > 0) return storedWatchlists;
 
   const legacyItems = sanitizeWatchlistItems(parseStorageJson(LEGACY_WATCHLIST_STORAGE_KEY));
-  const legacyTitle = sanitizeWatchlistTitle(window.localStorage.getItem(LEGACY_WATCHLIST_TITLE_STORAGE_KEY));
+  let legacyTitle = 'Watchlist';
+  try { legacyTitle = sanitizeWatchlistTitle(window.localStorage.getItem(LEGACY_WATCHLIST_TITLE_STORAGE_KEY)); } catch {}
 
   return [
     {
       id: 'wl_default',
       title: legacyTitle,
-      items: legacyItems.length > 0 ? legacyItems : cloneDefaultWatchlist(),
+      items: legacyItems,
     },
   ];
 }
@@ -316,6 +311,7 @@ function DaySparkline({ series }: { series: number[] }) {
 }
 
 export default function WatchlistMenu({
+  suggestedTicker = '',
   trigger,
   contentClassName = 'et-dropdown-panel min-w-[300px] max-w-[94vw] p-0',
   align = 'start',
@@ -365,10 +361,7 @@ export default function WatchlistMenu({
         if(quoteResult.status!=='fulfilled'||!quoteResult.value.ok) throw new Error('Unavailable');
         const quote=await quoteResult.value.json();
         if(typeof quote.price!=='number'||!Number.isFinite(quote.price)) throw new Error('Unavailable');
-        const code=quote.currency;
-        nextPrices[stock.ticker]=typeof code==='string'&&/^[A-Z]{3}$/.test(code)
-          ? quote.price.toLocaleString(undefined,{style:'currency',currency:code})
-          : quote.price.toLocaleString()+(code?' '+code:'');
+        nextPrices[stock.ticker]=formatQuote(quote.price, quote.meta?.instrumentType === 'INDEX' ? 'points' : quote.currency);
         nextChanges[stock.ticker]=typeof quote.previousClose==='number'&&quote.previousClose>0?(quote.price/quote.previousClose-1)*100:null;
         nextObserved[stock.ticker]=quote.meta?.regularMarketTime?new Date(quote.meta.regularMarketTime*1000).toLocaleString():'Time unavailable';
       } catch { failed++;nextPrices[stock.ticker]='Unavailable';nextChanges[stock.ticker]=null; }
@@ -421,15 +414,15 @@ export default function WatchlistMenu({
   }, [activeWatchlistTitle]);
 
   useEffect(() => {
-    setShowAdd(false);
-    setNewTicker('');
+    setShowAdd(isPriceSymbol(suggestedTicker));
+    setNewTicker(suggestedTicker);
     setInputError(null);
     setEditingTitle(false);
     setTitleDraft(activeWatchlistTitle);
     setPrices({});
     setChanges({});
     setDaySeries({});
-  }, [activeWatchlistId, activeWatchlistTitle]);
+  }, [activeWatchlistId, activeWatchlistTitle, suggestedTicker]);
 
   useEffect(() => {
     if (watchlist.length === 0) return;
@@ -491,8 +484,11 @@ export default function WatchlistMenu({
   };
 
   const handleAddStock = () => {
-    const normalizedTicker = normalizeTickerInput(newTicker.trim());
-    if (!normalizedTicker) return;
+    const normalizedTicker = newTicker.trim().toUpperCase();
+    if (!isPriceSymbol(normalizedTicker)) {
+      setInputError('Enter a valid ticker, including any exchange suffix.');
+      return;
+    }
 
     if (watchlist.some((entry) => entry.ticker === normalizedTicker)) {
       setInputError(`${normalizedTicker} is already in your watchlist.`);
@@ -619,7 +615,7 @@ export default function WatchlistMenu({
           <div className="et-scrollbar max-h-[50vh] overflow-y-auto px-2.5 py-2">
             {watchlist.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/80 p-5 text-center text-xs text-muted-foreground">
-                No stocks in watchlist.
+                Your list is empty. Add a ticker to follow its price.
               </div>
             ) : (
               <div className="space-y-2">
@@ -710,10 +706,12 @@ export default function WatchlistMenu({
                 <input
                   type="text"
                   placeholder="Ticker"
+                  aria-label="Watchlist ticker"
+                  maxLength={16}
                   className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs uppercase text-foreground outline-none transition focus:border-primary"
                   value={newTicker}
                   onChange={(e) => {
-                    setNewTicker(normalizeTickerInput(e.target.value));
+                    setNewTicker(e.target.value.toUpperCase());
                     if (inputError) setInputError(null);
                   }}
                   autoFocus

@@ -4,26 +4,14 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { workspaceUrl } from '@/components/exchangetime/product-model';
+import { researchUrl, workspaceUrl } from '@/components/exchangetime/product-model';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { matchesValuationTrend, valuationMeasures, type Measure, type ScreenerRow, type Trend } from '@/lib/market-screen';
+import { formatQuote } from '@/lib/research-history';
 
 type ScreenerKey = 'gainers' | 'losers' | 'movers' | 'mostActive';
-
-type ScreenerRow = {
-  symbol: string;
-  name: string;
-  price: number | null;
-  change: number | null;
-  changePercent: number | null;
-  volume: number | null;
-  averageVolume: number | null;
-  marketCap: number | null;
-  exchange: string | null;
-  currency: string | null;
-  regularMarketTime: number | null;
-};
 
 type ScreenerList = {
   title: string;
@@ -71,28 +59,7 @@ function formatCompactNumber(value: number | null | undefined, digits = 2): stri
 
 function formatPrice(value: number | null, currency: string | null): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
-  const currencyCode = (currency || 'USD').toUpperCase();
-
-  if (!/^[A-Z]{3}$/.test(currencyCode)) {
-    return value.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currencyCode,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return value.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
+  return formatQuote(value, currency ?? undefined);
 }
 
 function formatSignedPrice(value: number | null, currency: string | null): string {
@@ -148,6 +115,9 @@ type Screen = {
   volume: string;
   relative: string;
   order: string;
+  measure?: Measure;
+  ceiling?: string;
+  trend?: Trend;
 };
 function validScreen(value: unknown): value is Screen {
   if (!value || typeof value !== 'object') return false;
@@ -158,6 +128,9 @@ function validScreen(value: unknown): value is Screen {
     TAB_ORDER.includes(screen.tab as ScreenerKey) &&
     ['0', '1000000', '10000000'].includes(screen.volume ?? '') &&
     ['0', '1', '2', '3'].includes(screen.relative ?? '') &&
+    (screen.measure === undefined || Object.hasOwn(valuationMeasures, screen.measure)) &&
+    (screen.ceiling === undefined || typeof screen.ceiling === 'string') &&
+    (screen.trend === undefined || ['any', 'above', 'below'].includes(screen.trend)) &&
     ['provider', 'volume', 'move'].includes(screen.order ?? '')
   );
 }
@@ -168,6 +141,9 @@ export default function MarketScreener() {
   const [minVolume, setMinVolume] = useState('0');
   const [minRelative, setMinRelative] = useState('0');
   const [order, setOrder] = useState('provider');
+  const [measure, setMeasure] = useState<Measure>('trailingPE');
+  const [ceiling, setCeiling] = useState('');
+  const [trend, setTrend] = useState<Trend>('any');
   const [saved, setSaved] = useState<Screen[]>([]);
   const [name, setName] = useState('');
   const [notice, setNotice] = useState('');
@@ -244,6 +220,7 @@ export default function MarketScreener() {
       const relative =
         row.averageVolume && row.volume !== null ? row.volume / row.averageVolume : 0;
       return (
+        matchesValuationTrend(row, measure, ceiling, trend) &&
         (row.symbol.toLowerCase().includes(needle) || row.name.toLowerCase().includes(needle)) &&
         (row.volume ?? 0) >= Number(minVolume) &&
         (relative ?? 0) >= Number(minRelative)
@@ -256,10 +233,12 @@ export default function MarketScreener() {
         (left, right) => Math.abs(right.changePercent ?? 0) - Math.abs(left.changePercent ?? 0),
       );
     return matches;
-  }, [activeList, query, minVolume, minRelative, order]);
+  }, [activeList, query, minVolume, minRelative, order, measure, ceiling, trend]);
 
   const fetchedAtText = formatFetchedAt(payload?.fetchedAt || null);
   const asOfText = formatAsOf(activeList?.asOf || null);
+  const emptyText = !payload || payload.unavailable?.includes(activeTab) ? 'This feed is unavailable. Try refreshing.'
+    : !activeList?.rows.length ? 'The provider returned no stocks in this list.' : 'No stocks match these filters.';
 
   return (
     <div className="screener-workspace terminal-panel p-5">
@@ -272,6 +251,7 @@ export default function MarketScreener() {
               <button
                 key={key}
                 type="button"
+                aria-pressed={isActive}
                 onClick={() => setActiveTab(key)}
                 className={`whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition sm:px-3 sm:text-sm ${
                   isActive
@@ -295,6 +275,7 @@ export default function MarketScreener() {
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <Input
             value={query}
+            aria-label="Filter by symbol or company"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Filter by symbol or company"
             className="h-9 w-full rounded-lg border-border/70 bg-background/70 text-sm sm:w-72"
@@ -353,10 +334,24 @@ export default function MarketScreener() {
             <option value="move">Largest absolute move</option>
           </select>
         </label>
+        <label>Valuation measure
+          <select className="et-tool-select" value={measure} onChange={event => setMeasure(event.target.value as Measure)}>
+            {Object.entries(valuationMeasures).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+        </label>
+        <label>Maximum multiple
+          <input className="terminal-input" type="number" min="0" step="any" placeholder="No limit" value={ceiling} onChange={event => setCeiling(event.target.value)} />
+        </label>
+        <label>Price vs. 200-day average
+          <select className="et-tool-select" value={trend} onChange={event => setTrend(event.target.value as Trend)}>
+            <option value="any">Any trend</option><option value="above">Above average</option><option value="below">Below average</option>
+          </select>
+        </label>
         <span aria-live="polite">
           {activeList && filteredRows.length + ' of ' + activeList.rows.length + ' stocks'}
         </span>
       </div>
+      <p className="terminal-note mb-4">Filters apply to the loaded list, not the entire market. A valuation limit includes only reported positive multiples. Missing inputs never qualify for an active criterion.</p>
       <details className="mb-3 text-sm">
         <summary className="cursor-pointer">Saved screens ({saved.length})</summary>
         <form
@@ -374,6 +369,7 @@ export default function MarketScreener() {
                 volume: minVolume,
                 relative: minRelative,
                 order,
+                measure, ceiling, trend,
               },
             ]);
           }}
@@ -399,6 +395,9 @@ export default function MarketScreener() {
                 setMinVolume(item.volume);
                 setMinRelative(item.relative);
                 setOrder(item.order);
+                setMeasure(item.measure ?? 'trailingPE');
+                setCeiling(item.ceiling ?? '');
+                setTrend(item.trend ?? 'any');
                 setName(item.name);
                 setNotice('Applied ' + item.name);
               }}
@@ -455,14 +454,9 @@ export default function MarketScreener() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <Link
-                      href={
-                        workspaceUrl('TechnicalAnalysis') +
-                        '&symbol=' +
-                        encodeURIComponent(row.symbol)
-                      }
+                      href={researchUrl(row.symbol)}
                       className="text-sm font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:underline"
-                      title="Load in Technical Analysis"
-                      aria-label={`Load ${row.symbol} in Technical Analysis`}
+                      aria-label={`Research ${row.symbol}`}
                     >
                       {row.symbol}
                     </Link>
@@ -482,6 +476,10 @@ export default function MarketScreener() {
                       {formatSignedPrice(row.change, row.currency)}
                     </p>
                   </div>
+                </div>
+                <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                  <span>{valuationMeasures[measure]}: {row[measure]?.toFixed(2) ?? '—'}</span>
+                  <Link className="underline" href={workspaceUrl('TechnicalAnalysis') + '&symbol=' + encodeURIComponent(row.symbol)}>Chart ↗</Link>
                 </div>
 
                 <div className="mt-3 grid grid-cols-3 gap-2 rounded-md border border-border/60 bg-card/60 p-2">
@@ -514,7 +512,7 @@ export default function MarketScreener() {
             ))
           ) : (
             <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-6 text-center text-sm text-muted-foreground">
-              No stocks match the current filter.
+              {emptyText}
             </div>
           )}
         </div>
@@ -549,13 +547,14 @@ export default function MarketScreener() {
                 <th className="sticky top-0 z-10 bg-muted/70 px-3 py-2 text-right backdrop-blur">
                   Mkt Cap
                 </th>
+                <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-right">{valuationMeasures[measure]}</th>
               </tr>
             </thead>
             <tbody>
               {loading && !payload ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <tr key={`skeleton-${index}`} className="border-b border-border/60">
-                    <td className="px-3 py-2" colSpan={8}>
+                    <td className="px-3 py-2" colSpan={9}>
                       <div className="h-5 w-full animate-pulse rounded bg-muted/40" />
                     </td>
                   </tr>
@@ -568,14 +567,9 @@ export default function MarketScreener() {
                   >
                     <td className="px-3 py-2 font-semibold text-foreground">
                       <Link
-                        href={
-                          workspaceUrl('TechnicalAnalysis') +
-                          '&symbol=' +
-                          encodeURIComponent(row.symbol)
-                        }
+                        href={researchUrl(row.symbol)}
                         className="font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:underline"
-                        title="Load in Technical Analysis"
-                        aria-label={`Load ${row.symbol} in Technical Analysis`}
+                        aria-label={`Research ${row.symbol}`}
                       >
                         {row.symbol}
                       </Link>
@@ -585,6 +579,7 @@ export default function MarketScreener() {
                     </td>
                     <td className="px-3 py-2 text-foreground">
                       <p className="line-clamp-1">{row.name}</p>
+                      <Link className="text-xs text-muted-foreground hover:underline" href={workspaceUrl('TechnicalAnalysis') + '&symbol=' + encodeURIComponent(row.symbol)}>Chart ↗</Link>
                     </td>
                     <td className="px-3 py-2 text-right text-foreground">
                       {formatPrice(row.price, row.currency)}
@@ -606,12 +601,13 @@ export default function MarketScreener() {
                     <td className="px-3 py-2 text-right text-foreground">
                       {formatCompactNumber(row.marketCap)}
                     </td>
+                    <td className="px-3 py-2 text-right">{row[measure]?.toFixed(2) ?? '—'}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className="px-3 py-6 text-center text-sm text-muted-foreground" colSpan={8}>
-                    No stocks match the current filter.
+                  <td className="px-3 py-6 text-center text-sm text-muted-foreground" colSpan={9}>
+                    {emptyText}
                   </td>
                 </tr>
               )}

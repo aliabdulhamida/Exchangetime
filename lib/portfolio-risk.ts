@@ -1,6 +1,23 @@
 export type PortfolioObservation = { date: string; value: number };
 export type DatedAmount = { date: string; amount: number };
 
+export function comparePortfolio(portfolio: PortfolioObservation[], benchmark: PortfolioObservation[]) {
+  const prices = new Map(benchmark.map(point => [point.date, point.value]));
+  const shared = portfolio.flatMap(point => {
+    const price = prices.get(point.date);
+    return price !== undefined && price > 0 && Number.isFinite(price) && Number.isFinite(point.value) && point.value >= 0
+      ? [{ date: point.date, portfolio: point.value, benchmark: price }]
+      : [];
+  });
+  if (shared.length < 2 || shared[0].portfolio <= 0) return [];
+  const first = shared[0];
+  return shared.map(point => ({
+    date: point.date,
+    portfolio: 100 * (point.portfolio / first.portfolio),
+    benchmark: 100 * (point.benchmark / first.benchmark),
+  }));
+}
+
 export function portfolioReturnIndex(
   history: PortfolioObservation[],
   flows: DatedAmount[],
@@ -61,7 +78,7 @@ export function portfolioRisk(index: PortfolioObservation[], riskFreePct = 0) {
   });
   const final = index[index.length - 1]?.value;
   const initial = index[0]?.value;
-  const total = initial > 0 && Number.isFinite(final) ? final / initial - 1 : null;
+  const total = index.length > 1 && initial > 0 && Number.isFinite(final) ? final / initial - 1 : null;
   return {
     totalReturnPct: total === null ? null : total * 100,
     cagrPct:

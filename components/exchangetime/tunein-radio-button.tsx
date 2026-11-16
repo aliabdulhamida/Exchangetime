@@ -42,26 +42,22 @@ function RadioIcon({ size = 16, className }: { size?: number; className?: string
   );
 }
 
-function RadioEmbeds({ visible }: { visible: boolean }) {
+function RadioPlayer() {
+  const [stationId, setStationId] = useState('');
+  const station = TUNEIN_EMBEDS.find(item => item.id === stationId);
   return (
-    <>
-      {TUNEIN_EMBEDS.map((station) => (
-        <iframe
-          key={station.id}
-          src={station.src}
-          style={{
-            width: '100%',
-            height: RADIO_EMBED_HEIGHT,
-            border: 'none',
-            display: visible ? 'block' : 'none',
-          }}
-          scrolling="no"
-          frameBorder="no"
-          title={station.title}
-          allow="autoplay"
-        />
-      ))}
-    </>
+    <div className="p-3">
+      <label className="planner-field">Radio station
+        <select className="terminal-input" value={stationId} onChange={event => setStationId(event.target.value)}>
+          <option value="">Choose a station</option>
+          {TUNEIN_EMBEDS.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
+        </select>
+      </label>
+      {station ? <>
+        <iframe key={station.id} src={station.src} className="mt-2 w-full border-0" height={RADIO_EMBED_HEIGHT} title={station.title} allow="autoplay" />
+        <button className="terminal-button mt-2" onClick={() => setStationId('')}>Disconnect player</button>
+      </> : <p className="terminal-note mt-2">Selecting a station connects to TuneIn. No player loads until you choose one.</p>}
+    </div>
   );
 }
 
@@ -120,7 +116,7 @@ export default function TuneInRadioButton({
   );
 
   const modalWidth = 320;
-  const modalHeight = TUNEIN_EMBEDS.length * RADIO_EMBED_HEIGHT + 24;
+  const modalHeight = RADIO_EMBED_HEIGHT + 164;
   const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
   const winHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
   const isMobileViewport = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
@@ -180,7 +176,8 @@ export default function TuneInRadioButton({
 
     const syncAnchor = () => {
       if (!navButtonRef.current) return;
-      setNavAnchorRect(navButtonRef.current.getBoundingClientRect());
+      const anchor = navButtonRef.current.offsetWidth ? navButtonRef.current : document.querySelector('.terminal-topbar');
+      setNavAnchorRect(anchor?.getBoundingClientRect() ?? null);
     };
 
     syncAnchor();
@@ -202,9 +199,18 @@ export default function TuneInRadioButton({
       setOpenState(false);
     }
 
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOpenState(false);
+        const trigger = navButtonRef.current?.offsetWidth ? navButtonRef.current : document.querySelector<HTMLButtonElement>('.terminal-search');
+        trigger?.focus();
+      }
+    }
+    document.addEventListener('keydown', handleKey);
     document.addEventListener('mousedown', handleClick);
     document.addEventListener('touchstart', handleClick);
     return () => {
+      document.removeEventListener('keydown', handleKey);
       document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('touchstart', handleClick);
     };
@@ -388,7 +394,7 @@ export default function TuneInRadioButton({
                 </div>
                 <div className="et-scrollbar max-h-[56vh] overflow-y-auto p-3">
                   <div className="overflow-hidden rounded-lg border border-border/70 bg-card/70">
-                    <RadioEmbeds visible />
+                    <RadioPlayer />
                   </div>
                 </div>
               </motion.section>
@@ -454,7 +460,7 @@ export default function TuneInRadioButton({
                 style={{ pointerEvents: 'auto' }}
               >
                 <div className="overflow-hidden rounded-lg border border-border/70 bg-card/70">
-                  <RadioEmbeds visible={open} />
+                  <RadioPlayer />
                 </div>
               </div>
             </div>,
@@ -513,33 +519,10 @@ export default function TuneInRadioButton({
             className="relative z-[1110] w-[320px] max-w-[90vw] rounded-lg border border-gray-200 bg-white p-2 shadow-xl dark:border-[#23232a] dark:bg-[#18181b]"
             style={{ visibility: 'visible', pointerEvents: 'auto' }}
           >
-            <RadioEmbeds visible={open && !dragging} />
+            <RadioPlayer />
           </div>
         </div>
 
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            right: 0,
-            width: 0,
-            height: 0,
-            overflow: 'hidden',
-          }}
-        >
-          {TUNEIN_EMBEDS.map((station) => (
-            <iframe
-              key={`${station.id}-hidden`}
-              src={station.src}
-              style={{ width: 0, height: 0, border: 'none' }}
-              scrolling="no"
-              frameBorder="no"
-              title={`${station.title} (Hidden)`}
-              allow="autoplay"
-              tabIndex={-1}
-            />
-          ))}
-        </div>
       </div>
     </>
   );

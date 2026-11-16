@@ -65,7 +65,7 @@ export default function MarketChart({
           minTickGap={45}
           tickMargin={14}
           tickFormatter={(value) =>
-            new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+            new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
           }
           tick={{ fill: 'var(--app-secondary)', fontSize: 10 }}
           tickLine={false}
@@ -84,7 +84,7 @@ export default function MarketChart({
         <Tooltip
           cursor={{ stroke: 'var(--app-secondary)', strokeDasharray: '3 3' }}
           labelFormatter={(value) =>
-            new Date(Number(value)).toLocaleDateString(undefined, { dateStyle: 'medium' })
+            new Date(Number(value)).toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' })
           }
           formatter={(value) => [
             Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 }),

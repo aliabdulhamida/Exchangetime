@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import type { ScreenerRow } from '@/lib/market-screen';
 import { fetchYahooJson, toFiniteNumber, toNullableString } from '@/lib/server/yahoo-finance';
 
 export const dynamic = 'force-dynamic';
@@ -10,20 +11,6 @@ const MAX_START = 500;
 
 type ScreenerBaseKey = 'gainers' | 'losers' | 'mostActive';
 type ScreenerKey = ScreenerBaseKey | 'movers';
-
-type ScreenerRow = {
-  symbol: string;
-  name: string;
-  price: number | null;
-  change: number | null;
-  changePercent: number | null;
-  volume: number | null;
-  averageVolume: number | null;
-  marketCap: number | null;
-  exchange: string | null;
-  currency: string | null;
-  regularMarketTime: number | null;
-};
 
 type ScreenerList = {
   title: string;
@@ -140,6 +127,10 @@ function normalizeScreenerRow(raw: any): ScreenerRow | null {
     averageVolume:
       toNumeric(raw?.averageDailyVolume3Month) ?? toNumeric(raw?.averageDailyVolume10Day),
     marketCap: toNumeric(raw?.marketCap),
+    trailingPE: toNumeric(raw?.trailingPE),
+    forwardPE: toNumeric(raw?.forwardPE),
+    priceToBook: toNumeric(raw?.priceToBook),
+    twoHundredDayAverage: toNumeric(raw?.twoHundredDayAverage),
     exchange: toNullableString(raw?.fullExchangeName) || toNullableString(raw?.exchange),
     currency: toNullableString(raw?.currency),
     regularMarketTime:
@@ -224,6 +215,7 @@ async function fetchList(
   }
 
   const screener = result.json?.finance?.result?.[0];
+  if (!Array.isArray(screener?.quotes)) throw new Error('Missing screener list');
   const title = toNullableString(screener?.title) || config.fallbackTitle;
   const description = toNullableString(screener?.description) || config.fallbackDescription;
   const quotes = Array.isArray(screener?.quotes) ? screener.quotes : [];

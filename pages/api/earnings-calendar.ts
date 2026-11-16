@@ -224,7 +224,8 @@ function normalizeEarningsRows(
   for (const key of dateKeys) mapped[key] = [];
   const allowedDateKeys = new Set(dateKeys);
 
-  const rows = Array.isArray(payload) ? (payload as EarningsHubCalendarRow[]) : [];
+  if (!Array.isArray(payload)) throw new Error('Invalid earnings calendar response');
+  const rows = payload as EarningsHubCalendarRow[];
 
   for (const row of rows) {
     const reportDateKey = normalizeDateKey(row.earningsDate ?? row.earningsDateTime);
@@ -289,6 +290,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!forceRefresh && now - lastFetch < CACHE_DURATION && Object.keys(cachedData).length > 0) {
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1800');
+    res.setHeader('X-Data-Retrieved-At', new Date(lastFetch).toISOString());
     res.status(200).json(cachedData);
     return;
   }
@@ -297,12 +299,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (Object.keys(cachedData).length > 0) {
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=1800');
       res.setHeader('X-Provider-Stale', '1');
+      res.setHeader('X-Data-Retrieved-At', new Date(lastFetch).toISOString());
       res.status(200).json(cachedData);
       return;
     }
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=1800');
     res.setHeader('X-Provider-Stale', '1');
-    res.status(200).json(buildEmptyCalendar(keys));
+    res.status(503).json({ error: 'Earnings provider unavailable' });
     return;
   }
 
@@ -316,6 +319,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     lastFetch = now;
 
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1800');
+    res.setHeader('X-Data-Retrieved-At', new Date(lastFetch).toISOString());
     res.status(200).json(data);
   } catch (err) {
     const status = extractErrorStatus(err);
@@ -336,6 +340,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (Object.keys(cachedData).length > 0) {
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=1800');
       res.setHeader('X-Provider-Stale', '1');
+      res.setHeader('X-Data-Retrieved-At', new Date(lastFetch).toISOString());
       res.status(200).json(cachedData);
       return;
     }
@@ -343,7 +348,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=1800');
     if (providerClientError || isTimeout) {
       res.setHeader('X-Provider-Stale', '1');
-      res.status(200).json(buildEmptyCalendar(keys));
+      res.status(503).json({ error: 'Earnings provider unavailable' });
       return;
     }
 

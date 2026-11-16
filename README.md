@@ -41,6 +41,7 @@ Fallback-Reihenfolge in betroffenen Endpunkten:
 - `fcf`: Yahoo -> FMP
 - `analyst-consensus`: Yahoo -> FMP
 - `insider-trades`: Yahoo -> Nasdaq
+- `insider-scanner`: Die Marktansicht benötigt `FMP_API_KEY` für `insider-trading/latest` (Form 4/4/A, Codes P/S). Bei Tickersuche lädt der Scanner dagegen die Firmenhistorie: FMP, wenn verfügbar, sonst die Nasdaq-Transaktionstabelle für genau diesen Ticker. Nasdaq braucht keinen Schlüssel und unterscheidet auch automatische Käufe/Verkäufe. Blättern bleibt bei derselben Quelle; Marktstichproben ersetzen keine Firmenhistorie.
 - `portfolio-market`: Yahoo -> FMP
 
 ## Produktionsbuild

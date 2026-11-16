@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { tradeSchema } from '@/lib/record-schemas';
 
+import { useComposeAction } from './use-compose-action';
 import { useLocalRecords } from './use-local-records';
 
 type Trade = z.infer<typeof tradeSchema>[number];
@@ -21,11 +22,11 @@ function money(value: number, currency: string) {
 export function PositionSizing() {
   const [currency, setCurrency] = useState('EUR');
   const [side, setSide] = useState('long');
-  const [account, setAccount] = useState('25000');
+  const [account, setAccount] = useState('');
   const [risk, setRisk] = useState('1');
-  const [entry, setEntry] = useState('100');
-  const [stop, setStop] = useState('95');
-  const [target, setTarget] = useState('115');
+  const [entry, setEntry] = useState('');
+  const [stop, setStop] = useState('');
+  const [target, setTarget] = useState('');
   const [lot, setLot] = useState('1');
   const [fees, setFees] = useState('0');
   const [slippage, setSlippage] = useState('0.1');
@@ -184,6 +185,11 @@ export function TradeJournal() {
   const [notes, setNotes] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  useComposeAction('TradeJournal', () => {
+    setEditing(null); setSymbol(''); setEntry(''); setExit(''); setQuantity('');
+    setNotes(''); setFees('0'); setDate(new Date().toISOString().slice(0, 10));
+    document.getElementById('journal-symbol')?.focus();
+  });
   const visible = records
     .filter((trade) => trade.currency === currency)
     .sort((left, right) => right.date.localeCompare(left.date));
@@ -386,6 +392,7 @@ export function TradeJournal() {
                 className="terminal-input"
                 required
                 maxLength={15}
+                id="journal-symbol"
                 value={symbol}
                 onChange={(event) => setSymbol(event.target.value)}
                 pattern="[A-Za-z0-9.:-]+"

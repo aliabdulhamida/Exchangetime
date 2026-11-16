@@ -22,14 +22,18 @@ import {
   YAxis,
 } from 'recharts';
 
+import PortfolioOverview from '@/components/exchangetime/portfolio-overview';
 import PortfolioWelcome from '@/components/exchangetime/portfolio-welcome';
+import { useComposeAction } from '@/components/exchangetime/use-compose-action';
 import HoldingDetailsModal from '@/components/stock-market/holding-details-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer } from '@/components/ui/chart';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useIsMobile } from '@/components/ui/use-mobile';
 import { getSeriesFxRate } from '@/lib/fx-rate';
-import { portfolioReturnIndex, portfolioRisk } from '@/lib/portfolio-risk';
+import { buildPortfolioHistory } from '@/lib/portfolio-history';
+import { comparePortfolio, portfolioReturnIndex, portfolioRisk } from '@/lib/portfolio-risk';
 
 interface StockDataPoint {
   date: string; // yyyy-mm-dd
@@ -1084,12 +1088,6 @@ function getPriceOnOrBefore(series: StockDataPoint[], date: string): number | nu
   return null;
 }
 
-function getPriceOnOrAfter(series: StockDataPoint[], date: string): number | null {
-  for (const point of series) {
-    if (point.date >= date) return point.close;
-  }
-  return null;
-}
 
 
 function getTimeframeCutoff(timeframe: Timeframe): number | null {
@@ -1103,13 +1101,6 @@ function getTimeframeCutoff(timeframe: Timeframe): number | null {
   return Date.now() - daysMap[timeframe] * 24 * 60 * 60 * 1000;
 }
 
-function computeSeriesReturnPct(values: number[]): number | null {
-  if (values.length < 2) return null;
-  const first = values[0];
-  const last = values[values.length - 1];
-  if (!Number.isFinite(first) || !Number.isFinite(last) || first <= 0) return null;
-  return ((last - first) / first) * 100;
-}
 
 function computeMaxDrawdownPct(values: number[]): number | null {
   if (values.length < 2) return null;
@@ -1220,7 +1211,7 @@ async function fetchStockSnapshot(symbol: string): Promise<StockSnapshot | { err
     const asOfUtc =
       typeof regularMarketTime === 'number'
         ? new Date(regularMarketTime * 1000).toISOString()
-        : new Date().toISOString();
+        : null;
     const meta: StockMeta = {
       asOfUtc,
       source: resolveMarketSourceLabel(data.source),
@@ -1391,6 +1382,7 @@ export default function PortfolioTracker() {
   });
 
   const [showAddForm, setShowAddForm] = useState(false);
+  useComposeAction('PortfolioTracker', () => setShowAddForm(true));
   const [addInputMode, setAddInputMode] = useState<AddInputMode>('manual');
   const [holdingsPanelTab, setHoldingsPanelTab] = useState<HoldingsPanelTab>('holdings');
   const [holdingSearch, setHoldingSearch] = useState('');
@@ -1453,7 +1445,7 @@ export default function PortfolioTracker() {
   const [reloading, setReloading] = useState(false);
   const [dividendLoading, setDividendLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
+  const [storageWarning, setStorageWarning] = useState('');
 
   useEffect(() => {
     setTradeCurrency(baseCurrency);
@@ -1485,27 +1477,30 @@ export default function PortfolioTracker() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const timeout = setTimeout(() => {
+    try {
       localStorage.setItem('portfolioTransactions', JSON.stringify(transactions));
-      localStorage.setItem('stockData', JSON.stringify(stockData));
-      localStorage.setItem('stockMeta', JSON.stringify(stockMeta));
-      localStorage.setItem('dividendData', JSON.stringify(dividendData));
-      localStorage.setItem('portfolioFxData', JSON.stringify(fxData));
       localStorage.setItem('portfolioBaseCurrency', baseCurrency);
       localStorage.setItem('portfolioDividendWithholdingPct', String(dividendWithholdingPct));
       localStorage.setItem('portfolioSelectedSymbol', selectedSymbol);
+      setStorageWarning('');
+    } catch {
+      setStorageWarning('Browser storage is full or unavailable. Changes may be lost when leaving this page.');
+    }
+  }, [transactions, baseCurrency, dividendWithholdingPct, selectedSymbol]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      try {
+        localStorage.setItem('stockData', JSON.stringify(stockData));
+        localStorage.setItem('stockMeta', JSON.stringify(stockMeta));
+        localStorage.setItem('dividendData', JSON.stringify(dividendData));
+        localStorage.setItem('portfolioFxData', JSON.stringify(fxData));
+      } catch {
+        setStorageWarning(previous => previous || 'Market data could not be cached on this device.');
+      }
     }, 300);
     return () => clearTimeout(timeout);
-  }, [
-    transactions,
-    stockData,
-    stockMeta,
-    dividendData,
-    fxData,
-    baseCurrency,
-    dividendWithholdingPct,
-    selectedSymbol,
-  ]);
+  }, [stockData, stockMeta, dividendData, fxData]);
 
   const stockCurrencyForSymbol = useCallback(
     (symbol: string): SupportedCurrency => {
@@ -1527,7 +1522,6 @@ export default function PortfolioTracker() {
       }
       setStockData((prev) => ({ ...prev, [symbol]: snapshot.points }));
       setStockMeta((prev) => ({ ...prev, [symbol]: snapshot.meta }));
-      setLastRefreshAt(new Date().toISOString());
     },
     [stockData],
   );
@@ -1575,34 +1569,37 @@ export default function PortfolioTracker() {
         fetchAndCacheDividends(symbol);
       }
     });
-    if (!stockData[benchmarkSymbol]) {
+    if (trackedSymbols.length && !stockData[benchmarkSymbol] && !trackedSymbols.includes(benchmarkSymbol)) {
       fetchAndCacheStock(benchmarkSymbol);
     }
   }, [trackedSymbols, stockData, transactions, dividendData, fetchAndCacheStock, fetchAndCacheDividends, benchmarkSymbol]);
 
   const requiredFxPairs = useMemo(() => {
-    const set = new Set<SupportedCurrency>(transactions.length ? [baseCurrency, 'USD'] : [baseCurrency]);
-    transactions.forEach((tx) => set.add(tx.currency));
-    trackedSymbols.forEach((symbol) => set.add(stockCurrencyForSymbol(symbol)));
-    return Array.from(set)
-      .filter((currency) => currency !== baseCurrency)
-      .map((currency) => ({ from: currency, to: baseCurrency }));
-  }, [baseCurrency, transactions, trackedSymbols, stockCurrencyForSymbol]);
+    const firstNeeded = new Map<SupportedCurrency, string>();
+    for (const tx of sortedTransactions) {
+      for (const currency of [tx.currency, stockCurrencyForSymbol(tx.symbol)]) {
+        if (currency !== baseCurrency && !firstNeeded.has(currency)) firstNeeded.set(currency, tx.date);
+      }
+    }
+    return [...firstNeeded].map(([from, date]) => ({ from, to: baseCurrency, date }));
+  }, [baseCurrency, sortedTransactions, stockCurrencyForSymbol]);
 
   useEffect(() => {
+    if (trackedSymbols.length && baseCurrency !== 'USD' && !requiredFxPairs.some(pair => pair.from === 'USD')) {
+      void fetchAndCacheFx('USD', baseCurrency);
+    }
     requiredFxPairs.forEach(({ from, to }) => {
       fetchAndCacheFx(from, to);
     });
-  }, [requiredFxPairs, fetchAndCacheFx]);
+  }, [requiredFxPairs, fetchAndCacheFx, baseCurrency, trackedSymbols]);
 
   useEffect(() => {
     if (!trackedSymbols.length) return;
     const interval = setInterval(() => {
-      trackedSymbols.forEach((symbol) => fetchAndCacheStock(symbol, true));
-      fetchAndCacheStock('SPY', true);
+      new Set([...trackedSymbols, benchmarkSymbol]).forEach(symbol => void fetchAndCacheStock(symbol, true));
     }, 900000);
     return () => clearInterval(interval);
-  }, [trackedSymbols, fetchAndCacheStock]);
+  }, [trackedSymbols, fetchAndCacheStock, benchmarkSymbol]);
 
   useEffect(() => {
     if (!trackedSymbols.length) {
@@ -1651,7 +1648,7 @@ export default function PortfolioTracker() {
     (symbol: string, date: string): number | null => {
       const data = stockData[symbol];
       if (!data?.length) return null;
-      return getPriceOnOrAfter(data, date) ?? getPriceOnOrBefore(data, date);
+      return getPriceOnOrBefore(data, date);
     },
     [stockData],
   );
@@ -1889,15 +1886,19 @@ export default function PortfolioTracker() {
     const symbol = search.trim().toUpperCase();
     const nValue = Number.parseFloat(transactionValue);
     const nManualPrice = Number.parseFloat(fillPrice);
-    const nFees = Math.max(0, Number.parseFloat(fees || '0') || 0);
-    const nTaxes = Math.max(0, Number.parseFloat(taxes || '0') || 0);
+    const nFees = Number(fees);
+    const nTaxes = Number(taxes);
     const isManualInput = addInputMode === 'manual';
 
-    if (!symbol || Number.isNaN(nValue) || nValue <= 0 || !buyDate) {
+    if (!symbol || !Number.isFinite(nValue) || nValue <= 0 || !buyDate) {
       setError('Please fill in symbol, date and value.');
       return;
     }
-    if (isManualInput && (Number.isNaN(nManualPrice) || nManualPrice <= 0)) {
+    if (![nFees, nTaxes].every(amount => Number.isFinite(amount) && amount >= 0)) {
+      setError('Fees and taxes must be zero or positive.');
+      return;
+    }
+    if (isManualInput && (!Number.isFinite(nManualPrice) || nManualPrice <= 0)) {
       setError('Please enter a valid execution price for manual mode.');
       return;
     }
@@ -1907,21 +1908,17 @@ export default function PortfolioTracker() {
     }
     setLoading(true);
     setError(null);
-    const snapshot = await fetchStockSnapshot(symbol);
-    if ('error' in snapshot) {
+    const snapshot = isManualInput ? null : await fetchStockSnapshot(symbol);
+    if (snapshot && 'error' in snapshot) {
       setError(`Could not fetch market data for ${symbol}: ${snapshot.error}`);
       setLoading(false);
       return;
     }
-    setStockData((prev) => ({ ...prev, [symbol]: snapshot.points }));
-    setStockMeta((prev) => ({ ...prev, [symbol]: snapshot.meta }));
-    setLastRefreshAt(new Date().toISOString());
-
-    const marketPrice =
-      getPriceOnOrAfter(snapshot.points, buyDate) ??
-      getPriceOnOrBefore(snapshot.points, buyDate) ??
-      snapshot.points[snapshot.points.length - 1]?.close ??
-      null;
+    if (snapshot) {
+      setStockData((prev) => ({ ...prev, [symbol]: snapshot.points }));
+      setStockMeta((prev) => ({ ...prev, [symbol]: snapshot.meta }));
+    }
+    const marketPrice = snapshot ? getPriceOnOrBefore(snapshot.points, buyDate) : null;
 
     if (!isManualInput && (!marketPrice || marketPrice <= 0)) {
       setError('Automatic mode could not determine a market price for that date.');
@@ -1929,7 +1926,12 @@ export default function PortfolioTracker() {
       return;
     }
 
-    const inferredCurrency = normalizeCurrency(snapshot.meta.currency || tradeCurrency);
+    if (snapshot && !SUPPORTED_CURRENCIES.some(currency => currency === snapshot.meta.currency)) {
+      setError('Automatic pricing needs a supported quote currency. Enter your broker’s execution price instead.');
+      setLoading(false);
+      return;
+    }
+    const inferredCurrency = normalizeCurrency(snapshot?.meta.currency || tradeCurrency);
     const txCurrency = tradeCurrency;
     let txPrice = isManualInput ? nManualPrice : (marketPrice as number);
 
@@ -1975,13 +1977,6 @@ export default function PortfolioTracker() {
         setLoading(false);
         return;
       }
-    }
-
-    if (transactionSide === 'BUY') {
-      await fetchAndCacheDividends(symbol, true);
-    }
-    if (txCurrency !== baseCurrency) {
-      await fetchAndCacheFx(txCurrency, baseCurrency);
     }
 
     const tx: PortfolioTransaction = {
@@ -2171,14 +2166,12 @@ export default function PortfolioTracker() {
     if (!trackedSymbols.length) return;
     setReloading(true);
     setError(null);
-    await Promise.all(trackedSymbols.map((symbol) => fetchAndCacheStock(symbol, true)));
+    await Promise.all([...new Set([...trackedSymbols, benchmarkSymbol])].map(symbol => fetchAndCacheStock(symbol, true)));
     await Promise.all(
       trackedSymbols
         .filter((symbol) => transactions.some((tx) => tx.symbol === symbol && tx.side === 'BUY'))
         .map((symbol) => fetchAndCacheDividends(symbol, true)),
     );
-    await fetchAndCacheStock('SPY', true);
-    setLastRefreshAt(new Date().toISOString());
     setReloading(false);
   };
 
@@ -2301,7 +2294,7 @@ export default function PortfolioTracker() {
         nativeCurrentPrice === null
           ? null
           : convertToBase(nativeCurrentPrice, stockCurrencyForSymbol(symbol));
-      const currentValue = convertedCurrentPrice !== null ? convertedCurrentPrice * quantity : 0;
+      const currentValue = quantity > 0 ? (convertedCurrentPrice ?? NaN) * quantity : 0;
       const unrealizedPnl = currentValue - openCostBasis;
       const unrealizedPct = openCostBasis > 0 ? (unrealizedPnl / openCostBasis) * 100 : null;
       const dividendReturn = dividendNetBySymbol.get(symbol) || 0;
@@ -2517,33 +2510,11 @@ export default function PortfolioTracker() {
   const totalReturnPct = investedCapital > 0 ? (totalReturn / investedCapital) * 100 : null;
   const annualYield = currentPortfolioValue > 0 ? (ttmDividends.net / currentPortfolioValue) * 100 : null;
 
-  const portfolioHistory = useMemo(() => {
-    const allDates = new Set<string>();
-    trackedSymbols.forEach((symbol) => {
-      (stockData[symbol] || []).forEach((point) => allDates.add(point.date));
-    });
-    const sortedDates = Array.from(allDates).sort();
-    if (!sortedDates.length || !sortedTransactions.length) return [] as Array<{ date: string; value: number }>;
-
-    const earliestDate = sortedTransactions[0].date;
-    const dates = sortedDates.filter((date) => date >= earliestDate);
-    if (!dates.length) return [];
-
-    return dates.map((date) => {
-      let total = 0;
-      trackedSymbols.forEach((symbol) => {
-        const quantity = sortedTransactions
-          .filter((tx) => tx.symbol === symbol && tx.date <= date)
-          .reduce((sum, tx) => sum + toSignedShares(tx), 0);
-        if (quantity <= 0) return;
-        const price = getPriceOnOrBefore(stockData[symbol] || [], date);
-        if (price === null) return;
-        const basePrice = convertToBase(price, stockCurrencyForSymbol(symbol), date);
-        total += quantity * basePrice;
-      });
-      return { date, value: total };
-    });
-  }, [trackedSymbols, stockData, sortedTransactions, convertToBase, stockCurrencyForSymbol]);
+  const portfolioHistory = useMemo(() =>
+    buildPortfolioHistory(sortedTransactions, stockData, (price, symbol, date) =>
+      convertToBase(price, stockCurrencyForSymbol(symbol), date)),
+    [sortedTransactions, stockData, convertToBase, stockCurrencyForSymbol],
+  );
 
   const timeframePortfolioHistory = useMemo(() => {
     if (!portfolioHistory.length) return [];
@@ -2572,7 +2543,6 @@ export default function PortfolioTracker() {
     return cutoff?returnIndex.filter(point=>new Date(point.date).getTime()>=cutoff):returnIndex;
   },[returnIndex,activeTimeframe]);
   const riskMetrics = useMemo(()=>portfolioRisk(timeframeReturnIndex,riskFreePct),[timeframeReturnIndex,riskFreePct]);
-  const totalReturnPctForRange = riskMetrics.totalReturnPct;
 
   const benchmarkHistory = useMemo(() => {
     const spy = stockData[benchmarkSymbol] || [];
@@ -2589,51 +2559,14 @@ export default function PortfolioTracker() {
     return benchmarkHistory.filter((point) => new Date(point.date).getTime() >= cutoff);
   }, [benchmarkHistory, activeTimeframe]);
 
-  const filteredBenchmarkHistory = timeframeBenchmarkHistory;
-
-  const benchmarkReturnPctForRange = useMemo(
-    () => computeSeriesReturnPct(filteredBenchmarkHistory.map((point) => point.value)),
-    [filteredBenchmarkHistory],
+  const insightsComparisonChartData = useMemo(
+    () => comparePortfolio(timeframeReturnIndex, timeframeBenchmarkHistory),
+    [timeframeReturnIndex, timeframeBenchmarkHistory],
   );
-
-  const insightsComparisonChartData = useMemo(() => {
-    if (timeframeReturnIndex.length < 2 || filteredBenchmarkHistory.length < 2) return [];
-    const portfolioByDate = new Map(timeframeReturnIndex.map((point) => [point.date, point.value]));
-    const benchmarkByDate = new Map(filteredBenchmarkHistory.map((point) => [point.date, point.value]));
-    const commonDates = timeframeReturnIndex
-      .map((point) => point.date)
-      .filter((date) => benchmarkByDate.has(date));
-    if (commonDates.length < 2) return [];
-
-    const firstPortfolioValue = portfolioByDate.get(commonDates[0]);
-    const firstBenchmarkValue = benchmarkByDate.get(commonDates[0]);
-    if (
-      !Number.isFinite(firstPortfolioValue) ||
-      !Number.isFinite(firstBenchmarkValue) ||
-      (firstPortfolioValue ?? 0) <= 0 ||
-      (firstBenchmarkValue ?? 0) <= 0
-    ) {
-      return [];
-    }
-
-    const safeFirstPortfolio = firstPortfolioValue as number;
-    const safeFirstBenchmark = firstBenchmarkValue as number;
-
-    return commonDates.map((date) => {
-      const portfolioPoint = portfolioByDate.get(date);
-      const benchmarkPoint = benchmarkByDate.get(date);
-      return {
-        date,
-        portfolio: ((portfolioPoint ?? safeFirstPortfolio) / safeFirstPortfolio) * 100,
-        benchmark: ((benchmarkPoint ?? safeFirstBenchmark) / safeFirstBenchmark) * 100,
-      };
-    });
-  }, [timeframeReturnIndex, filteredBenchmarkHistory]);
-
-  const excessVsBenchmark = useMemo(() => {
-    if (totalReturnPctForRange === null || benchmarkReturnPctForRange === null) return null;
-    return totalReturnPctForRange - benchmarkReturnPctForRange;
-  }, [totalReturnPctForRange, benchmarkReturnPctForRange]);
+  const comparisonEnd = insightsComparisonChartData[insightsComparisonChartData.length - 1];
+  const totalReturnPctForRange = comparisonEnd ? comparisonEnd.portfolio - 100 : null;
+  const benchmarkReturnPctForRange = comparisonEnd ? comparisonEnd.benchmark - 100 : null;
+  const excessVsBenchmark = comparisonEnd ? comparisonEnd.portfolio - comparisonEnd.benchmark : null;
 
   const diversificationInsight = useMemo(() => {
     const topHoldings = holdingSnapshots.filter((holding) => holding.weightPct > 0).slice(0, 8);
@@ -2933,11 +2866,7 @@ export default function PortfolioTracker() {
     if (!symbol || !buyDate) return null;
     const series = stockData[symbol];
     if (!series?.length) return null;
-    const resolved =
-      getPriceOnOrAfter(series, buyDate) ??
-      getPriceOnOrBefore(series, buyDate) ??
-      series[series.length - 1]?.close ??
-      null;
+    const resolved = getPriceOnOrBefore(series, buyDate);
     if (!resolved || !Number.isFinite(resolved)) return null;
     const marketCurrency = normalizeCurrency(stockMeta[symbol]?.currency || tradeCurrency);
     const txCurrency = tradeCurrency;
@@ -2965,7 +2894,10 @@ export default function PortfolioTracker() {
 
   const returnsSummaryLabel = formatPercent(timeWeightedReturnPct, 1);
   const riskSummaryLabel = formatPercent(maxDrawdownPct, 1);
-  const benchmarkSummaryLabel = formatPercent(excessVsBenchmark, 1);
+  const openHoldings = holdingSnapshots.filter(holding => holding.quantity > 0);
+  const missingPrices = openHoldings.filter(holding => !Number.isFinite(holding.currentPrice));
+  const oldestClose = openHoldings.map(holding => stockData[holding.symbol]?.at(-1)?.date)
+    .filter((date): date is string => Boolean(date)).sort()[0];
 
   useEffect(() => {
     if (holdingsPanelTab !== 'allocation') return;
@@ -2989,30 +2921,46 @@ export default function PortfolioTracker() {
     }
   }, [holdingModalSymbol, holdingSnapshots]);
 
+  const missingRates = requiredFxPairs.filter(({ from, to, date }) => getFxRate(from, to, date) === null);
   return (
     <div className="min-h-[52vh] w-full text-sm">
-      {requiredFxPairs.some(({from,to}) => getFxRate(from,to,sortedTransactions[0]?.date) === null) ? (
+      {storageWarning && <p className="mb-4 border-l-2 border-amber-500 pl-3 text-sm" role="alert">{storageWarning}</p>}
+      {missingRates.length ? (
         <section role="status" className="terminal-panel space-y-3 p-5">
           <h2>Portfolio valuation incomplete</h2>
-          <p>Historical exchange rates are missing for {requiredFxPairs.filter(({from,to}) => getFxRate(from,to,sortedTransactions[0]?.date) === null).map(({from,to}) => from + '/' + to).join(', ')}. Totals are withheld rather than assuming a 1:1 conversion. Your transactions are unchanged.</p>
-          <button className="terminal-button" onClick={() => requiredFxPairs.forEach(({from,to}) => void fetchAndCacheFx(from,to,true))}>Retry exchange rates</button>
+          <p>Historical exchange rates are missing for {missingRates.map(({from,to,date}) => from + '/' + to + ' (' + date + ')').join(', ')}. Totals are withheld rather than assuming a 1:1 conversion. Your transactions are unchanged.</p>
+          <button className="terminal-button" onClick={() => missingRates.forEach(({from,to}) => void fetchAndCacheFx(from,to,true))}>Retry exchange rates</button>
+          <button className="terminal-button" onClick={() => setShowAddForm(true)}>Add transaction</button>
           <select aria-label="Base currency" className="terminal-input" value={baseCurrency} onChange={event => setBaseCurrency(normalizeCurrency(event.target.value))}>{SUPPORTED_CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select>
         </section>
       ) : <>
-      {holdingSnapshots.length>0 ? <section className="mb-6 space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3"><h2 className="font-semibold">Portfolio risk & performance</h2><div className="flex gap-3"><label className="terminal-label">Benchmark<select className="terminal-input" value={benchmarkSymbol} onChange={event=>setBenchmarkSymbol(event.target.value)}><option value="SPY">S&P 500 · SPY</option><option value="URTH">MSCI World · URTH</option><option value="ACWI">MSCI ACWI · ACWI</option><option value="EWG">Germany · EWG</option></select></label><label className="terminal-label">Risk-free assumption · %<input className="terminal-input max-w-40" type="number" min="-5" max="30" step="0.1" value={riskFreePct} onChange={event=>setRiskFreePct(Number(event.target.value))}/></label></div></div>
-        <div className="terminal-metrics">{[
-          ['Time-weighted return',formatPercent(riskMetrics.totalReturnPct)],
-          ['Annualized return',formatPercent(riskMetrics.cagrPct)],
-          ['Annualized volatility',formatPercent(riskMetrics.volatilityPct)],
-          ['Maximum drawdown',formatPercent(riskMetrics.maxDrawdownPct)],
-        ].map(([label,value])=><div className="terminal-metric" key={label}><p>{label}</p><strong>{value}</strong></div>)}</div>
-        <div className="flex flex-wrap gap-x-8 gap-y-2 text-xs"><span>Sharpe <strong>{riskMetrics.sharpe?.toFixed(2)??'—'}</strong></span><span>Sortino <strong>{riskMetrics.sortino?.toFixed(2)??'—'}</strong></span><span>Largest holding <strong>{largestHoldingWeight.toFixed(1)}%</strong></span><span>{riskMetrics.observations} return observations · {activeTimeframe}</span></div>
-        {largestHoldingWeight>25&&<p className="rounded border border-amber-300/25 bg-amber-300/5 p-3 text-xs text-amber-200">Concentration alert · Your largest holding represents {largestHoldingWeight.toFixed(1)}% of portfolio value.</p>}
-        <details className="terminal-note"><summary>Return and risk methodology</summary><p className="mt-2">Returns remove net trade cash flows and include net cash dividends using an end-of-period cash-flow convention. Volatility uses sample standard deviation annualized from observation frequency. Sharpe and Sortino use the selected risk-free assumption. Annualized metrics require at least 20 returns. Benchmarks are ETF price returns converted to your base currency and exclude ETF distributions. Price histories and missing FX observations can affect comparability.</p></details>
-      </section> : sortedTransactions.length === 0 ? <PortfolioWelcome onAdd={() => setShowAddForm(true)} /> : <section className="mb-7 flex flex-wrap items-end justify-between gap-5 border-b border-border pb-6"><div><p className="text-xs text-muted-foreground">Portfolio value</p><strong className="mt-2 block text-4xl font-semibold tabular-nums">{formatMoney(currentPortfolioValue,baseCurrency,2,2)}</strong></div><button className="terminal-button primary" onClick={()=>setShowAddForm(true)}><Plus size={14}/>Add transaction</button></section>}
+      {!sortedTransactions.length ? <PortfolioWelcome onAdd={() => setShowAddForm(true)} /> : (
+        <PortfolioOverview currency={baseCurrency}
+          value={missingPrices.length ? 'Unavailable' : formatMoney(currentPortfolioValue, baseCurrency)}
+          positions={openHoldings.length} transactions={sortedTransactions.length}
+          priceNote={missingPrices.length ? 'Missing prices: ' + missingPrices.map(row => row.symbol).join(', ')
+            : oldestClose ? 'Daily closing prices · Oldest holding close: ' + oldestClose + ' · May be delayed' : 'No open positions.'}
+          metrics={[
+            { label: 'Unrealized P/L', value: formatSignedMoney(totalUnrealizedPnl, baseCurrency) },
+            { label: 'Time-weighted return · ' + activeTimeframe, value: formatPercent(riskMetrics.totalReturnPct) },
+            { label: 'Maximum drawdown · ' + activeTimeframe, value: formatPercent(riskMetrics.maxDrawdownPct) },
+          ]}
+          concentration={!missingPrices.length && largestHoldingWeight > 25 ? 'Concentration: ' + holdingSnapshots[0].symbol + ' represents ' + largestHoldingWeight.toFixed(1) + '% of holdings value.' : null}
+          onAdd={() => setShowAddForm(true)}>
+        <div className="flex flex-wrap items-end justify-between gap-3"><div className="flex flex-wrap gap-3"><label className="terminal-label">Benchmark<select className="terminal-input" value={benchmarkSymbol} onChange={event=>setBenchmarkSymbol(event.target.value)}><option value="SPY">S&P 500 · SPY</option><option value="URTH">MSCI World · URTH</option><option value="ACWI">MSCI ACWI · ACWI</option><option value="EWG">Germany · EWG</option></select></label><label className="terminal-label">Risk-free assumption · %<input className="terminal-input max-w-40" type="number" min="-5" max="30" step="0.1" value={riskFreePct} onChange={event=>setRiskFreePct(Number(event.target.value))}/></label></div></div>
+          {comparisonEnd ? <p>Portfolio {formatPercent(totalReturnPctForRange)} · {benchmarkSymbol} {formatPercent(benchmarkReturnPctForRange)} · Difference {excessVsBenchmark?.toFixed(2)} pp<br/><small>Matched closes: {insightsComparisonChartData[0].date} – {comparisonEnd.date}</small></p>
+            : <p className="terminal-note">Comparison requires two dates with closing values for both series.</p>}
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+            <span>Annualized return <strong>{formatPercent(riskMetrics.cagrPct)}</strong></span>
+            <span>Volatility <strong>{formatPercent(riskMetrics.volatilityPct)}</strong></span>
+            <span>Sharpe <strong>{riskMetrics.sharpe?.toFixed(2) ?? '—'}</strong></span>
+            <span>Sortino <strong>{riskMetrics.sortino?.toFixed(2) ?? '—'}</strong></span>
+          </div>
+          <p className="terminal-note">Portfolio returns remove net trade flows and include net dividends. ETF price returns are converted to {baseCurrency} and exclude distributions. Annualized metrics require 20 return observations; this range has {riskMetrics.observations}.</p>
+        </PortfolioOverview>
+      )}
       <main className="w-full space-y-6 py-1 sm:py-2">
-        <div className={sortedTransactions.length ? 'grid grid-cols-1 gap-5 xl:grid-cols-12' : 'hidden'}>
+        {sortedTransactions.length > 0 && <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
           {portfolioHistory.length>1 ? <PerformanceChartCard
             activeChart={activeChart}
             activeTimeframe={activeTimeframe}
@@ -3027,7 +2975,7 @@ export default function PortfolioTracker() {
             onValueChartStyleChange={setValueChartStyle}
             timeframePortfolioHistory={timeframePortfolioHistory}
             valueChartStyle={valueChartStyle}
-          /> : <section className="min-h-[260px] rounded-lg border border-border p-5 xl:col-span-7"><h2 className="text-base font-semibold">Performance</h2><div className="flex min-h-[220px] flex-col items-center justify-center gap-2 text-center"><p className="font-medium">No performance history yet</p><p className="text-xs text-muted-foreground">Add a transaction to see your portfolio over time.</p></div></section>}
+          /> : <section className="min-h-[260px] rounded-lg border border-border p-5 xl:col-span-7"><h2 className="text-base font-semibold">Performance</h2><div className="flex min-h-[220px] flex-col items-center justify-center gap-2 text-center"><p className="font-medium">No performance history yet</p><p className="text-xs text-muted-foreground">A return needs at least two closing valuations after your first trade.</p></div></section>}
 
           <Card className="overflow-hidden rounded-xl border border-border bg-background xl:col-span-5">
             <CardHeader className="border-b border-border bg-transparent pb-4 pt-5">
@@ -3039,8 +2987,8 @@ export default function PortfolioTracker() {
                       : holdingsPanelTab === 'transactions'
                         ? 'Recent Transactions'
                         : holdingsPanelTab === 'allocation'
-                          ? 'Insights'
-                          : 'KPIs & Analytics'}
+                          ? 'Allocation'
+                          : 'Risk and returns'}
                   </CardTitle>
                   {holdingsPanelTab !== 'holdings' ? (
                     <p className="mt-1 text-[11px] text-muted-foreground sm:text-xs">
@@ -3079,7 +3027,7 @@ export default function PortfolioTracker() {
                     </Button>
                     <Button
                       onClick={handleReload}
-                      disabled={loading || trackedSymbols.length === 0}
+                      disabled={loading || reloading || trackedSymbols.length === 0}
                       variant="outline"
                       size="sm"
                       className="h-8 w-8 rounded-full border-border bg-background p-0 text-foreground shadow-none transition-colors hover:bg-muted/20 disabled:opacity-40"
@@ -3843,9 +3791,9 @@ export default function PortfolioTracker() {
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Excess</span>
+                            <span className="text-muted-foreground">Difference (pp)</span>
                             <span className={`font-semibold ${metricTone(excessVsBenchmark)}`}>
-                              {formatPercent(excessVsBenchmark)}
+                              {excessVsBenchmark?.toFixed(2) ?? '—'}
                             </span>
                           </div>
                         </div>
@@ -3857,7 +3805,7 @@ export default function PortfolioTracker() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </div>}
       </main>
       </>}
 
@@ -3878,11 +3826,11 @@ export default function PortfolioTracker() {
         error={activeHoldingModalError}
       />
 
-      {showAddForm && (
-        <div className="fixed inset-0 z-[200] flex items-end bg-black/55 p-2 sm:items-center sm:justify-center sm:p-4">
-          <Card className="w-full max-w-md overflow-hidden rounded-xl border border-border bg-background">
+      <Dialog open={showAddForm} onOpenChange={open => { if (!loading) setShowAddForm(open); }}>
+        <DialogContent className="max-h-[94dvh] w-[min(96vw,32rem)] gap-0 overflow-auto rounded-xl p-0">
             <CardHeader className="border-b border-border bg-background px-4 py-3 sm:px-6 sm:py-4">
-              <CardTitle className="text-base font-semibold sm:text-lg">Add Transaction</CardTitle>
+              <DialogTitle>Record a transaction</DialogTitle>
+              <DialogDescription>Use the gross trade value, before fees and taxes.</DialogDescription>
             </CardHeader>
             <CardContent className="max-h-[calc(100dvh-6.5rem)] space-y-3 overflow-y-auto px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-sm sm:max-h-[72vh] sm:space-y-4 sm:px-6 sm:py-4">
               <div className="grid grid-cols-2 gap-2">
@@ -3933,30 +3881,33 @@ export default function PortfolioTracker() {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Symbol</label>
+                  <label htmlFor="ledger-symbol" className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Symbol</label>
                   <input
                     type="text"
                     placeholder="AAPL"
+                    id="ledger-symbol"
                     value={search}
                     onChange={(event) => setSearch(event.target.value.toUpperCase())}
                     className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Date</label>
+                  <label htmlFor="ledger-date" className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Date</label>
                   <input
                     type="date"
+                    id="ledger-date"
                     value={buyDate}
                     onChange={(event) => setBuyDate(event.target.value)}
                     className="h-10 w-full rounded-lg border border-border bg-background px-3 text-[15px] leading-tight focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm [&::-webkit-date-and-time-value]:leading-tight [&::-webkit-date-and-time-value]:text-left [&::-webkit-datetime-edit]:leading-tight"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Value</label>
+                  <label htmlFor="ledger-value" className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Value</label>
                   <input
                     type="number"
                     step="any"
                     placeholder="2500"
+                    id="ledger-value"
                     value={transactionValue}
                     onChange={(event) => setTransactionValue(event.target.value)}
                     className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
@@ -3964,11 +3915,12 @@ export default function PortfolioTracker() {
                 </div>
                 {addInputMode === 'manual' && (
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Execution Price</label>
+                    <label htmlFor="ledger-price" className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Execution Price</label>
                     <input
                       type="number"
                       step="any"
                       placeholder="251.04"
+                      id="ledger-price"
                       value={fillPrice}
                       onChange={(event) => setFillPrice(event.target.value)}
                       className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
@@ -3976,22 +3928,24 @@ export default function PortfolioTracker() {
                   </div>
                 )}
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Fees</label>
+                  <label htmlFor="ledger-fees" className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Fees</label>
                   <input
                     type="number"
                     step="any"
                     placeholder="0"
+                    id="ledger-fees"
                     value={fees}
                     onChange={(event) => setFees(event.target.value)}
                     className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Taxes</label>
+                  <label htmlFor="ledger-taxes" className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Taxes</label>
                   <input
                     type="number"
                     step="any"
                     placeholder="0"
+                    id="ledger-taxes"
                     value={taxes}
                     onChange={(event) => setTaxes(event.target.value)}
                     className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
@@ -4000,8 +3954,9 @@ export default function PortfolioTracker() {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Transaction Currency</label>
+                <label htmlFor="ledger-currency" className="mb-1 block text-xs font-medium text-muted-foreground sm:text-sm">Transaction Currency</label>
                 <select
+                  id="ledger-currency"
                   value={tradeCurrency}
                   onChange={(event) => setTradeCurrency(normalizeCurrency(event.target.value))}
                   className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-10 sm:text-sm"
@@ -4014,6 +3969,12 @@ export default function PortfolioTracker() {
                 </select>
               </div>
 
+              {addInputMode === 'manual' && Number(transactionValue) > 0 && Number(fillPrice) > 0 && (
+                <p role="status" className="border-y border-border py-3 text-sm">
+                  {transactionSide === 'BUY' ? 'Buying' : 'Selling'} <strong>{(Number(transactionValue) / Number(fillPrice)).toLocaleString(undefined, { maximumFractionDigits: 8 })} shares</strong>
+                  {' · '}{transactionSide === 'BUY' ? 'Total cost' : 'Net proceeds'} {formatMoney(Number(transactionValue) + (transactionSide === 'BUY' ? 1 : -1) * (Number(fees) + Number(taxes)), tradeCurrency)}
+                </p>
+              )}
               {addInputMode === 'automatic' && (
                 <div className="rounded-lg border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
                   {autoModePreview ? (
@@ -4055,9 +4016,8 @@ export default function PortfolioTracker() {
                 </div>
               </div>
             </CardContent>
-          </Card>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

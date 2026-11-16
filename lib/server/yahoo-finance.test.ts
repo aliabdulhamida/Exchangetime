@@ -55,7 +55,8 @@ describe('yahoo-finance helpers', () => {
           currentRatio: { raw: 1.2 },
           freeCashflow: { raw: 120_000_000_000 },
           revenueGrowth: { raw: 0.12 },
-          earningsGrowth: { raw: 0.15 },
+          earningsGrowth: { raw: 1.15 },
+          returnOnAssets: { raw: 0.07 },
         },
       },
       'AAPL',
@@ -67,7 +68,10 @@ describe('yahoo-finance helpers', () => {
     expect(payload.pbRatio).toBe(45);
     expect(payload.roe).toBe(25);
     expect(payload.revenueGrowth).toBe(12);
-    expect(payload.earningsGrowth).toBe(15);
+    expect(payload.earningsGrowth).toBeCloseTo(115);
+    expect(payload.debtToEquity).toBe(1.5);
+    expect(payload.roic).toBeUndefined();
+    expect(payload.epsGrowth).toBeUndefined();
     expect(payload.freeCashFlow).toBe(120);
     expect(payload.dividendYield).toBe(0.5);
     expect(payload.logoUrl).toBe('https://www.google.com/s2/favicons?domain=www.apple.com&sz=128');

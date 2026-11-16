@@ -53,7 +53,7 @@ export default function Preferences() {
           Appearance
           <select
             className="et-tool-select"
-            value={theme || 'light'}
+            value={theme || 'system'}
             onChange={(event) => setTheme(event.target.value)}
           >
             <option value="light">Light</option>

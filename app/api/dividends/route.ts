@@ -263,9 +263,10 @@ async function fetchNormalizedPayloadWithDedupe(
           const item = toCalendarItem(row);
           if (!item) continue;
           if (!allowedDateKeys.has(item.exDate)) continue;
-          mapped[item.exDate].push(item);
+          mapped[item.exDate]?.push(item);
         }
       } catch (err) {
+        delete mapped[dateKey];
         failedRequests += 1;
         if (!firstError) firstError = err;
       }
@@ -302,7 +303,7 @@ export async function GET(request: Request) {
   const cached = globalDividendCache.__dividendCalendarCache;
   if (!forceRefresh && cached && cached.cacheKey === cacheKey && now - cached.fetchedAt < CACHE_DURATION_MS) {
     return NextResponse.json(cached.data, {
-      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=1800' },
+      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=1800', 'X-Data-Retrieved-At': new Date(cached.fetchedAt).toISOString() },
     });
   }
 
@@ -312,16 +313,12 @@ export async function GET(request: Request) {
         headers: {
           'Cache-Control': 's-maxage=60, stale-while-revalidate=1800',
           'X-Provider-Stale': '1',
+          'X-Data-Retrieved-At': new Date(cached.fetchedAt).toISOString(),
         },
       });
     }
 
-    return NextResponse.json(buildEmptyCalendar(keys), {
-      headers: {
-        'Cache-Control': 's-maxage=60, stale-while-revalidate=1800',
-        'X-Provider-Stale': '1',
-      },
-    });
+    return NextResponse.json({ error: 'Dividend provider unavailable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 
   try {
@@ -336,7 +333,7 @@ export async function GET(request: Request) {
     };
 
     return NextResponse.json(normalized, {
-      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=1800' },
+      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=1800', 'X-Data-Retrieved-At': new Date(now).toISOString() },
     });
   } catch (err) {
     const status = extractErrorStatus(err);
@@ -361,16 +358,12 @@ export async function GET(request: Request) {
         headers: {
           'Cache-Control': 's-maxage=60, stale-while-revalidate=1800',
           'X-Provider-Stale': '1',
+          'X-Data-Retrieved-At': new Date(cached.fetchedAt).toISOString(),
         },
       });
     }
 
-    return NextResponse.json(buildEmptyCalendar(keys), {
-      headers: {
-        'Cache-Control': 's-maxage=60, stale-while-revalidate=1800',
-        'X-Provider-Stale': '1',
-      },
-    });
+    return NextResponse.json({ error: 'Dividend provider unavailable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 

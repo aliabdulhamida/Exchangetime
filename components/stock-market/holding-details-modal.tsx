@@ -1,8 +1,10 @@
 'use client';
 
 import { AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
+import { workspaceUrl } from '@/components/exchangetime/product-model';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface HoldingDetailsData {
@@ -229,12 +231,16 @@ export default function HoldingDetailsModal({
                   {companyName ? `${companyName} • ` : ''}
                   Position details, market data and transaction activity
                 </DialogDescription>
+                {symbol && <nav aria-label="Holding tools" className="mt-2 flex gap-4 text-xs">
+                  <Link className="underline" href={workspaceUrl('StockAnalysis') + '&symbol=' + encodeURIComponent(symbol)}>Research {symbol}</Link>
+                  <Link className="underline" href={workspaceUrl('AssetComparison') + '&symbol=' + encodeURIComponent(symbol)}>Compare prices</Link>
+                </nav>}
               </div>
               <div className="flex items-center justify-between sm:block sm:text-right">
                 <div className="text-xl font-semibold text-foreground sm:text-2xl">
                   {formatMoney(
                     marketQuote?.price ?? holding?.currentPrice ?? null,
-                    quoteCurrency,
+                    marketQuote?.price != null ? quoteCurrency : baseCurrency,
                     2,
                     2,
                   )}

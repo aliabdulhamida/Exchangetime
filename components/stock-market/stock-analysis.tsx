@@ -12,6 +12,7 @@ import {
   Search,
   Users,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -33,9 +34,13 @@ import { Button } from '@/components/ui/button';
 import { ChartContainer } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { isPriceSymbol } from '@/lib/asset-directory';
+import { reportedPurchase as buyRegex, reportedSale as sellRegex } from '@/lib/insider-scanner';
 import { filterChartPointsByRange, formatQuote, priceCsv, type ChartRange } from '@/lib/research-history';
 
 import AnalystValuation from './AnalystValuation';
+
+const InstrumentProfile = dynamic(() => import('../exchangetime/instrument-profile'));
 
 type MobilePanelTab = 'analysis' | 'insider' | 'news';
 type RightPanelTab = 'insider' | 'news';
@@ -45,6 +50,7 @@ interface StockData {
   name: string;
   currency?: string;
   observedAt?: number;
+  fundamentalsFeed: Pick<Metrics, 'source' | 'fallbackSource' | 'fetchedAt' | 'stale'>;
   logoUrl?: string;
   price: number;
   change: number | null;
@@ -86,6 +92,10 @@ interface StockNewsItem {
 }
 
 type Metrics = {
+  source?: string;
+  fallbackSource?: string;
+  fetchedAt?: string;
+  stale?: boolean;
   peRatio?: number;
   pbRatio?: number;
   pegRatio?: number;
@@ -177,8 +187,6 @@ const NEWS_CACHE_TTL_MS = 10 * 60 * 1000;
 const CHART_RANGES: readonly ChartRange[] = ['1M', '3M', '6M', '1Y'];
 const NEWS_PAGE_SIZE = 6;
 
-const buyRegex = /buy|purchase|acq|acquisition|award|option|gift/i;
-const sellRegex = /sell|sale|dispose|disposition/i;
 
 const METRIC_SECTIONS: readonly MetricSection[] = [
   {
@@ -202,7 +210,7 @@ const METRIC_SECTIONS: readonly MetricSection[] = [
     rows: [
       { label: 'Revenue', field: 'revenueGrowth', kind: 'percent' },
       { label: 'Earnings', field: 'earningsGrowth', kind: 'percent' },
-      { label: 'EPS', field: 'epsGrowth', kind: 'percent' },
+      { label: 'EPS growth', field: 'epsGrowth', kind: 'percent' },
     ],
   },
   {
@@ -390,7 +398,7 @@ function metricSignalTone(field: MetricField, value: number | undefined): Signal
       return 'negative';
     case 'debtEquity':
       if (value < 0) return 'negative';
-      if (value < 1) return 'positive';
+      if (value <= 1) return 'positive';
       if (value <= 2) return 'neutral';
       return 'negative';
     case 'currentRatio':
@@ -429,8 +437,12 @@ function FundamentalScore({ stock }: { stock: StockData }) {
   const available=groups.filter(group=>group.score!==null);
   const coverage=groups.reduce((sum,group)=>sum+group.coverage,0);
   const total=available.length>=3&&coverage>=6?Math.round(available.reduce((sum,group)=>sum+(group.score||0),0)/available.length):null;
+  const feed = stock.fundamentalsFeed;
+  const providers: Record<string, string> = { yahoo: 'Yahoo Finance', fmp: 'Financial Modeling Prep', twelvedata: 'Twelve Data', massive: 'Massive' };
+  const sources = [feed.source, feed.fallbackSource].flatMap(source => source && providers[source] ? [providers[source]] : []);
   return <section className="my-4 border-y border-border py-4">
-    <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-sm font-semibold">Fundamental score</h3><strong className="font-mono text-xl text-emerald-200">{total===null?'Insufficient coverage':total+' / 100'}</strong></div>
+    <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-sm font-semibold">Fundamental score</h3><strong className="font-mono text-xl">{total===null?'Insufficient coverage':total+' / 100'}</strong></div>
+    <p className="terminal-note mb-4">{feed.stale && 'Refresh failed · Cached figures · '}{sources.length ? sources.join(' + ') : 'Source unavailable'}{feed.fetchedAt && ' · Retrieved ' + new Date(feed.fetchedAt).toLocaleString()} · Reporting periods vary by metric.</p>
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">{groups.map(group=><details key={group.title}><summary className="cursor-pointer text-xs text-muted-foreground">{group.title}<strong className="mt-2 block font-mono text-lg text-foreground">{group.score??'—'}</strong></summary><ul className="mt-3 space-y-2 text-xs">{group.rows.map(row=><li key={row.field}>{row.label} · {formatMetricValue(stock[row.field],row.kind)} · {metricSignalTone(row.field,stock[row.field])}</li>)}</ul></details>)}</div>
     <details className="terminal-note mt-4"><summary>Score thresholds & coverage · {coverage} / 12 metrics</summary><p className="mt-2">Each metric receives 100, 50, or 0 points. Available metrics are equally weighted within each group, then available groups are equally weighted. The overall score requires six metrics across three groups. Missing data is excluded.</p><p className="mt-2">100-point thresholds: P/E ≤25, PEG ≤1.5, P/B ≤4 with positive ratios. ROE and net margin ≥15%, ROIC ≥12%. Growth ≥10%. Debt/equity between 0 and 1, current ratio ≥1.5, positive FCF. 50-point ranges: P/E ≤40, PEG ≤2.5, P/B ≤8, ROE and margin ≥8%, ROIC ≥6%, growth ≥0%, debt/equity ≤2, current ratio ≥1. Remaining observations score 0. Thresholds are fixed and sector-agnostic.</p></details>
   </section>;
@@ -548,7 +560,11 @@ function ShareResearch({ symbol }: { symbol: string }) {
 }
 
 export default function StockAnalysis() {
-  const symbol = useSearchParams()?.get('symbol')?.trim().toUpperCase() || '';
+  const params = useSearchParams();
+  const symbol = params?.get('symbol')?.trim().toUpperCase() || '';
+  if (isPriceSymbol(symbol) && (params?.get('profile') === 'price' || !SYMBOL_PATTERN.test(symbol))) {
+    return <InstrumentProfile key={symbol} symbol={symbol} />;
+  }
   return <ResearchWorkspace key={symbol ? 'asset' : 'start'} requestedSymbol={symbol} />;
 }
 
@@ -669,6 +685,7 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
   const insiderChartData = useMemo(() => {
     const grouped: Record<string, { date: string; buy: number; sell: number; net: number }> = {};
     insiderTrades.forEach((trade) => {
+      if (getTransactionKind(trade.transaction) === 'other') return;
       const key = trade.date;
       if (!grouped[key]) {
         grouped[key] = { date: key, buy: 0, sell: 0, net: 0 };
@@ -928,7 +945,7 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
 
   function openSymbol(value: string) {
     const symbol = value.trim().toUpperCase();
-    if (!SYMBOL_PATTERN.test(symbol)) {
+    if (!isPriceSymbol(symbol)) {
       setValidationError('Please enter a valid ticker symbol.');
       return;
     }
@@ -981,20 +998,22 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
     setInsiderCompanyName('');
     setLoading(true);
 
-    void loadFeed('insider', symbol, requestId);
-    void loadFeed('news', symbol, requestId);
     try {
-      const [chartResult, fundamentalsResult] = await Promise.allSettled([
-        fetchChartSnapshot(symbol), fetchFundamentals(symbol),
-      ]);
-
+      const chartSnapshot = await fetchChartSnapshot(symbol).catch(() => null);
       if (requestId !== requestSequenceRef.current) return;
-
-      const chartSnapshot = chartResult.status === 'fulfilled' ? chartResult.value : null;
-      const fundamentals =
-        fundamentalsResult.status === 'fulfilled'
-          ? fundamentalsResult.value
-          : { metrics: {}, dcf: null };
+      const kind = chartSnapshot?.quote.meta?.instrumentType;
+      if (kind && kind !== 'EQUITY') {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('view') === 'StockAnalysis' && url.searchParams.get('symbol')?.toUpperCase() === symbol) {
+          url.searchParams.set('profile', 'price');
+          window.history.replaceState(null, '', url);
+        }
+        return;
+      }
+      void loadFeed('insider', symbol, requestId);
+      void loadFeed('news', symbol, requestId);
+      const fundamentals = await fetchFundamentals(symbol).catch(() => ({ metrics: {} as Metrics, dcf: null }));
+      if (requestId !== requestSequenceRef.current) return;
 
       if (chartSnapshot?.quote) {
         applyChartRange(chartSnapshot.points, chartRange);
@@ -1014,6 +1033,7 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
         if (hasValidPrice) {
           setSelectedStock({
             symbol,
+            fundamentalsFeed: fundamentals.metrics,
             currency: typeof meta.currency==='string'?meta.currency:undefined,
             observedAt: typeof meta.regularMarketTime==='number'?meta.regularMarketTime*1000:undefined,
             name: fundamentals.metrics?.companyName || meta?.longName || meta?.shortName || symbol,
@@ -1132,6 +1152,9 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
             <span className="sr-only">Search ticker</span>
           </Button>
         </form>
+        <button type="button" className="research-name-search" onClick={() => window.dispatchEvent(new CustomEvent('et-asset-search', { detail: searchSymbol === requestedSymbol ? '' : searchSymbol }))}>
+          Find an instrument by name →
+        </button>
       </div>
 
       {validationError && (
@@ -1149,8 +1172,9 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
         <p className="terminal-note w-full">Price source Yahoo Finance · {selectedStock.observedAt?'Observed '+new Date(selectedStock.observedAt).toLocaleString():'Observation time unavailable'} · May be delayed</p>
       </header>}
       {resolvedSymbol && <nav aria-label="Asset tools" className="flex flex-wrap gap-2 pb-2">
-        {[['TechnicalAnalysis','Chart'],['DCFCalculator','Valuation'],['OptionsPayoffLab','Options'],['PortfolioTracker','Portfolio']].map(([key,label])=><Link className="terminal-button" key={key} href={workspaceUrl(key)+'&symbol='+encodeURIComponent(resolvedSymbol)}>{label}<ArrowUpRight size={12}/></Link>)}
+        {[['AssetComparison','Compare'],['TechnicalAnalysis','Chart'],['DCFCalculator','Valuation'],['OptionsPayoffLab','Options'],['PortfolioTracker','Portfolio']].map(([key,label])=><Link className="terminal-button" key={key} href={workspaceUrl(key)+'&symbol='+encodeURIComponent(resolvedSymbol)}>{label}<ArrowUpRight size={12}/></Link>)}
         <ShareResearch key={resolvedSymbol} symbol={resolvedSymbol} />
+        <button className="terminal-button" onClick={() => window.dispatchEvent(new CustomEvent('et-watchlist', { detail: resolvedSymbol }))}>Add to watchlist</button>
       </nav>}
       {selectedStock && <FundamentalScore stock={selectedStock}/>}
 
@@ -1626,6 +1650,9 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
               </p>
             ) : rightPanelTab === 'insider' ? (
               <>
+                <Link className="terminal-button my-3" href={workspaceUrl('InsiderScanner') + '&symbol=' + encodeURIComponent(activeSymbol)}>
+                  Scan buys and sells for {activeSymbol} ↗
+                </Link>
                 {insiderError && (
                   <Alert
                     variant="destructive"

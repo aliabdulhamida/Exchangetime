@@ -4,7 +4,7 @@ import { RotateCw } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { workspaceUrl } from './product-model';
+import { researchUrl } from './product-model';
 import { useMarketSeries, seriesChange, signedPercent } from './use-market-series';
 
 export const sectors = [
@@ -67,7 +67,7 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
         {rows.map((row) => (
           <Link
             key={row.symbol}
-            href={workspaceUrl('StockAnalysis') + '&symbol=' + row.symbol}
+            href={researchUrl(row.symbol, true)}
             className={
               'sector-tile ' +
               (row.change === null

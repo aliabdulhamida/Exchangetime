@@ -1,3 +1,5 @@
+import { alignMarketCloses } from '../market-observations';
+
 const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
 const FX_SYMBOL_PATTERN = /^[A-Z]{6}=X$/;
 const FX_PAIR_PATTERN = /^[A-Z]{6}$/;
@@ -435,12 +437,7 @@ export async function fetchYahooChart(
 
   const chartRaw = result.json;
   const chartResult = chartRaw?.chart?.result?.[0] || null;
-  const series = Array.isArray(chartResult?.indicators?.quote?.[0]?.close)
-    ? chartResult.indicators.quote[0].close.filter((v: unknown) => typeof v === 'number' && Number.isFinite(v))
-    : [];
-  const timestamps = Array.isArray(chartResult?.timestamp)
-    ? chartResult.timestamp.filter((v: unknown) => typeof v === 'number' && Number.isFinite(v))
-    : [];
+  const { prices: series, timestamps } = alignMarketCloses(chartResult?.timestamp, chartResult?.indicators?.quote?.[0]?.close);
 
   return {
     ok: true,
@@ -575,6 +572,8 @@ export function mapYahooMetrics(snapshot: YahooQuoteSnapshot, fallbackCompanyNam
     directLogoUrl || buildGoogleFaviconUrl(snapshot.summaryProfile?.website || snapshot.summaryProfile?.url);
 
   const freeCashflowRaw = toFiniteNumber(financialData?.freeCashflow) ?? toFiniteNumber(financialData?.freeCashFlow);
+  const debtEquityPercent = toFiniteNumber(financialData?.debtToEquity);
+  const percentOfFraction = (value: number | null) => value === null ? undefined : value * 100;
 
   return {
     peRatio:
@@ -600,13 +599,11 @@ export function mapYahooMetrics(snapshot: YahooQuoteSnapshot, fallbackCompanyNam
       toFiniteNumber(defaultKeyStats?.trailingPegRatio) ??
       undefined,
     roe:
-      coercePercent(toFiniteNumber(financialData?.returnOnEquity) ?? toFiniteNumber(defaultKeyStats?.returnOnEquity)) ??
-      undefined,
+      percentOfFraction(toFiniteNumber(financialData?.returnOnEquity) ?? toFiniteNumber(defaultKeyStats?.returnOnEquity)),
     profitMargin:
-      coercePercent(toFiniteNumber(financialData?.profitMargins) ?? toFiniteNumber(defaultKeyStats?.profitMargins)) ??
-      undefined,
-    roic: coercePercent(toFiniteNumber(financialData?.returnOnAssets)) ?? undefined,
-    debtToEquity: toFiniteNumber(financialData?.debtToEquity) ?? undefined,
+      percentOfFraction(toFiniteNumber(financialData?.profitMargins) ?? toFiniteNumber(defaultKeyStats?.profitMargins)),
+    roic: percentOfFraction(toFiniteNumber(financialData?.returnOnInvestedCapital)),
+    debtToEquity: debtEquityPercent === null ? undefined : debtEquityPercent / 100,
     currentRatio: toFiniteNumber(financialData?.currentRatio) ?? undefined,
     freeCashFlow:
       typeof freeCashflowRaw === 'number' && Number.isFinite(freeCashflowRaw)
@@ -618,9 +615,9 @@ export function mapYahooMetrics(snapshot: YahooQuoteSnapshot, fallbackCompanyNam
           toFiniteNumber(summaryDetail?.dividendYield) ??
           toFiniteNumber(defaultKeyStats?.dividendYield),
       ) ?? undefined,
-    revenueGrowth: coercePercent(toFiniteNumber(financialData?.revenueGrowth)) ?? undefined,
-    earningsGrowth: coercePercent(toFiniteNumber(financialData?.earningsGrowth)) ?? undefined,
-    epsGrowth: coercePercent(toFiniteNumber(defaultKeyStats?.earningsQuarterlyGrowth)) ?? undefined,
+    revenueGrowth: percentOfFraction(toFiniteNumber(financialData?.revenueGrowth)),
+    earningsGrowth: percentOfFraction(toFiniteNumber(financialData?.earningsGrowth)),
+    epsGrowth: percentOfFraction(toFiniteNumber(financialData?.epsGrowth)),
     companyName:
       toNullableString(quoteResult?.longName) ||
       toNullableString(quoteResult?.shortName) ||

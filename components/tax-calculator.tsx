@@ -379,7 +379,7 @@ export default function TaxCalculator() {
 
   // Common inputs
   const [salaryInputBasis, setSalaryInputBasis] = useState<'annual' | 'monthly'>('annual');
-  const [salaryIncome, setSalaryIncome] = useState(80000);
+  const [salaryIncome, setSalaryIncome] = useState(0);
   const [capitalGains, setCapitalGains] = useState(0);
   const [holdingPeriodLong, setHoldingPeriodLong] = useState(true); // US only meaningful
   const [dividends, setDividends] = useState(0);
@@ -939,6 +939,7 @@ export default function TaxCalculator() {
     <TooltipProvider delayDuration={100}>
       <Card className="border-0 bg-transparent shadow-none">
         <CardContent className="grid gap-3 p-0">
+          <p className="workspace-source">Planning estimate · {country} · 2026 model assumptions, not a tax filing. Enter your own income and review the deductions that apply.</p>
           <div className="sticky top-0 z-10 bg-background/95 pb-1 backdrop-blur lg:hidden">
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
               <button

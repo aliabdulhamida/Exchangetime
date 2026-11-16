@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { blogPosts, BlogList } from '@/components/blog-components';
@@ -62,11 +63,9 @@ export default function BlogPage() {
     <BlogLayout>
       <div className="blog-container">
         <div className="blog-header blog-header-minimal">
-          <p className="blog-header-kicker">Research library</p>
-          <h1 className="blog-header-title">Market insights</h1>
+          <h1 className="blog-header-title">Research library</h1>
           <p className="blog-header-subtitle">
-            Actionable market analysis, practical trading strategies, and financial education to
-            help you make smarter long-term investment decisions.
+            Analysis and guides by topic and publication date. For current headlines, open the <Link className="underline" href="/dashboard?view=News">market news feed</Link>.
           </p>
         </div>
 
@@ -115,6 +114,7 @@ export default function BlogPage() {
         {filteredPosts.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-lg text-gray-500 dark:text-gray-400">No articles found.</p>
+            <button className="terminal-button mt-4" onClick={() => { setMonth(''); setCategory(''); setQuery(''); }}>Clear filters</button>
           </div>
         ) : (
           <BlogList posts={filteredPosts} />

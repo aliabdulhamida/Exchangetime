@@ -1,7 +1,10 @@
 'use client';
 
 import { CalendarX, ChevronLeft, ChevronRight, Filter, RefreshCw, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useState } from 'react';
+
+import { useCalendarFeed } from '@/components/exchangetime/use-calendar-feed';
 
 type DividendCalendarItem = {
   symbol: string;
@@ -18,7 +21,6 @@ type DividendCalendarItem = {
   paymentDate: string;
 };
 
-const STORAGE_KEY = 'dividendCalendarData:v4';
 
 function toLocalDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -50,9 +52,7 @@ export default function DividendCalendar() {
   const today = new Date();
   const [weekStart, setWeekStart] = useState<Date>(() => toWeekStart(today));
   const [selectedDayIdx, setSelectedDayIdx] = useState((today.getDay() + 6) % 7);
-  const [dividendData, setDividendData] = useState<Record<string, DividendCalendarItem[]>>({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { data: dividendData, loading: loading, notice, retrieved, refresh } = useCalendarFeed<DividendCalendarItem>('/api/dividends');
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState({
     ticker: '',
@@ -62,7 +62,6 @@ export default function DividendCalendar() {
     instrumentType: '',
     currency: '',
   });
-  const didAutoAlignWeekRef = useRef(false);
 
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
@@ -75,93 +74,6 @@ export default function DividendCalendar() {
   const items = dividendData[selectedKey] || [];
   const allItems = Object.values(dividendData).flat();
 
-  const fetchDividends = async (forceRefresh = false) => {
-    const shouldForceRefresh = forceRefresh === true;
-    setLoading(true);
-    try {
-      const endpoint = shouldForceRefresh ? '/api/dividends?refresh=1' : '/api/dividends';
-      const response = await fetch(endpoint);
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        const detail =
-          data && typeof data === 'object' && 'error' in data
-            ? String((data as Record<string, unknown>).error || '')
-            : '';
-        throw new Error(detail || 'Failed to load dividend calendar');
-      }
-      if (!data || typeof data !== 'object' || Array.isArray(data) || 'error' in data) {
-        throw new Error('Invalid dividend calendar payload');
-      }
-      setDividendData(data as Record<string, DividendCalendarItem[]>);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      setError('');
-    } catch (fetchError) {
-      const message =
-        fetchError instanceof Error && fetchError.message
-          ? fetchError.message
-          : 'Failed to load dividend calendar';
-      setError(message);
-      // Keep existing on-screen data if refresh fails.
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const cached = localStorage.getItem(STORAGE_KEY);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          setDividendData(parsed as Record<string, DividendCalendarItem[]>);
-        }
-      } catch {
-        // Ignore invalid cache and fetch fresh data below.
-      }
-    }
-    fetchDividends(false);
-  }, []);
-
-  useEffect(() => {
-    if (didAutoAlignWeekRef.current) return;
-    const availableDateKeys = Object.keys(dividendData)
-      .filter((key) => Array.isArray(dividendData[key]) && dividendData[key].length > 0)
-      .sort();
-    if (availableDateKeys.length === 0) return;
-
-    const initialWeekHasData = Array.from({ length: 7 }, (_, idx) => {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + idx);
-      return toLocalDateKey(date);
-    }).some((dateKey) => Array.isArray(dividendData[dateKey]) && dividendData[dateKey].length > 0);
-
-    if (!initialWeekHasData) {
-      const firstDate = new Date(`${availableDateKeys[0]}T00:00:00`);
-      if (!Number.isNaN(firstDate.getTime())) {
-        setWeekStart(toWeekStart(firstDate));
-        setSelectedDayIdx((firstDate.getDay() + 6) % 7);
-      }
-    }
-
-    didAutoAlignWeekRef.current = true;
-  }, [dividendData, weekStart]);
-
-  useEffect(() => {
-    const selectedDate = new Date(weekStart);
-    selectedDate.setDate(weekStart.getDate() + selectedDayIdx);
-    const selectedDateKey = toLocalDateKey(selectedDate);
-    if (Array.isArray(dividendData[selectedDateKey]) && dividendData[selectedDateKey].length > 0) return;
-
-    for (let idx = 0; idx < 7; idx += 1) {
-      const weekDate = new Date(weekStart);
-      weekDate.setDate(weekStart.getDate() + idx);
-      const weekDateKey = toLocalDateKey(weekDate);
-      if (Array.isArray(dividendData[weekDateKey]) && dividendData[weekDateKey].length > 0) {
-        if (idx !== selectedDayIdx) setSelectedDayIdx(idx);
-        return;
-      }
-    }
-  }, [dividendData, weekStart, selectedDayIdx]);
 
   const minYield = Number(filters.minYield);
   const hasMinYield = filters.minYield.trim() !== '' && Number.isFinite(minYield);
@@ -194,7 +106,7 @@ export default function DividendCalendar() {
   return (
     <div className="flex h-full min-h-0 flex-col px-1 pb-1 sm:px-2 sm:pb-2">
       <div className="mb-3 flex items-center justify-between pr-16 sm:mb-4 sm:pr-20">
-        <h2 className="text-base font-semibold text-foreground sm:text-lg">Dividend Calendar</h2>
+        <p className="workspace-source" role="status">Source: Nasdaq · Calendar feed · {retrieved ? 'Retrieved ' + new Date(retrieved).toLocaleString() : 'Retrieval time unavailable'}{notice && ' · ' + notice}</p>
       </div>
 
       <div className="mb-2 flex items-center justify-center gap-2 text-center">
@@ -265,7 +177,7 @@ export default function DividendCalendar() {
             <Filter className="h-4 w-4 text-foreground" />
           </button>
           <button
-            onClick={() => fetchDividends(true)}
+            onClick={refresh}
             className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-70"
             title={loading ? 'Loading dividend data...' : 'Reload dividend data'}
             aria-label="Reload dividend data"
@@ -397,16 +309,11 @@ export default function DividendCalendar() {
         }
       `}</style>
 
-      {error ? (
-        <div className="mb-2 rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
-          {error}
-        </div>
-      ) : null}
 
       {filteredItems.length === 0 ? (
         <div className="flex min-h-[80px] flex-1 flex-col items-center justify-center text-sm text-muted-foreground">
           <CalendarX className="mb-1 h-5 w-5" />
-          <span className="block text-center">No dividend ex-dates scheduled.</span>
+          <span className="block text-center">{loading ? 'Checking calendar…' : notice ? 'No confirmed entries available for this selection.' : !Object.hasOwn(dividendData, selectedKey) ? 'No provider coverage for this date.' : 'No matching events on this date.'}</span>
         </div>
       ) : (
         <div className="et-scrollbar min-h-[260px] flex-1 space-y-3 overflow-y-auto pr-1 sm:min-h-[360px] sm:pr-2 lg:min-h-0">
@@ -417,7 +324,7 @@ export default function DividendCalendar() {
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-lg font-bold tracking-wide text-foreground sm:text-xl">
-                  {item.symbol}
+                  <Link href={'/dashboard?view=StockAnalysis&symbol=' + encodeURIComponent(item.symbol)}>{item.symbol} ↗</Link>
                 </span>
               </div>
               <p className="mb-3 text-xs text-muted-foreground">{item.company}</p>

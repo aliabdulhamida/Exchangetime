@@ -73,10 +73,10 @@ export default function DcfCalculator() {
   const [terminalGrowth, setTerminalGrowth] = useState(2);
   const [terminalMultiple, setTerminalMultiple] = useState(12);
   const [useMultiple, setUseMultiple] = useState(false);
-  const [sharesOutstanding, setSharesOutstanding] = useState(100_000_000);
+  const [sharesOutstanding, setSharesOutstanding] = useState(0);
   const [cash, setCash] = useState(0);
   const [debt, setDebt] = useState(0);
-  const [fcfList, setFcfList] = useState<number[]>([100_000_000, 110_000_000, 121_000_000, 133_100_000, 146_410_000]);
+  const [fcfList, setFcfList] = useState<number[]>(Array(5).fill(0));
   const [preset, setPreset] = useState<'conservative' | 'base' | 'aggressive' | null>('base');
   const [showSensitivity, setShowSensitivity] = useState(true);
   // Automated FCF generation mode: 'manual' | 'constant' | 'per-year'
@@ -106,6 +106,7 @@ export default function DcfCalculator() {
   const [detailView, setDetailView] = useState<'chart' | 'mechanics'>('chart');
 
   function formatCurrency(v: number) {
+    if (!Number.isFinite(v)) return '—';
     const cur = currency || 'USD';
     try {
       return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, maximumFractionDigits: 2 }).format(v);
@@ -193,15 +194,14 @@ export default function DcfCalculator() {
     currency,
   ]);
 
-  const perShare = useMemo(() => equityValue / Math.max(1, numeric(sharesOutstanding, currency)), [
+  const perShare = useMemo(() => sharesOutstanding > 0 ? equityValue / sharesOutstanding : NaN, [
     equityValue,
     sharesOutstanding,
-    currency,
   ]);
 
   const upsidePct = useMemo(() => {
     const cp = numeric(currentPrice, currency);
-    if (!cp || !isFinite(cp) || cp <= 0) return null;
+    if (!cp || !isFinite(cp) || cp <= 0 || !Number.isFinite(perShare)) return null;
     return ((perShare - cp) / Math.abs(cp)) * 100;
   }, [perShare, currentPrice, currency]);
 
@@ -674,7 +674,7 @@ export default function DcfCalculator() {
       const pvTv = tv / Math.pow(1 + r, terminalPeriod);
       const ev = pv + pvTv;
       const eq = ev + numeric(cash, currency) - numeric(debt, currency);
-      return eq / Math.max(1, numeric(sharesOutstanding, currency));
+      return sharesOutstanding > 0 ? eq / sharesOutstanding : NaN;
     },
     [fcfList, cash, debt, sharesOutstanding, currency, useMidYearConvention],
   );
@@ -698,6 +698,7 @@ export default function DcfCalculator() {
   const sensitivityVars = useMultiple ? sensitivityMultiples : sensitivityGrowths;
 
   function formatCurrencyWithSymbol(v: number) {
+    if (!Number.isFinite(v)) return '—';
     try {
       return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(v);
     } catch (e) {
@@ -1148,6 +1149,7 @@ export default function DcfCalculator() {
     <Card className="border-0 bg-transparent shadow-none">
       <CardContent className="p-0">
         <TooltipProvider delayDuration={100}>
+          <p className="workspace-source">Valuation model · Load company inputs or enter cash flows and share count. Discount rates and growth rates are assumptions, not observed prices.</p>
           <div className="mb-3 md:hidden">
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
               <button

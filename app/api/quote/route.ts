@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { isPriceSymbol } from '@/lib/asset-directory';
 import {
   fetchYahooChart,
   fetchYahooQuoteSnapshot,
-  normalizeYahooSymbol,
   normalizeYieldToPercent,
   toFiniteNumber,
   toNullableString,
@@ -14,14 +14,8 @@ const ALLOWED_EVENTS = new Set(['div', 'split', 'div,splits', 'capitalGain', 'hi
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const rawSymbol = (url.searchParams.get('symbol') || '').trim().toUpperCase();
-    const symbol = /^(?:\^[A-Z0-9]{1,12}|[A-Z]{1,4}=F)$/.test(rawSymbol)
-      ? rawSymbol
-      : normalizeYahooSymbol(rawSymbol, {
-          allowFxWithSuffix: true,
-          allowFxPair: false,
-        });
-    if (!symbol) return NextResponse.json({ error: 'Missing or invalid symbol' }, { status: 400 });
+    const symbol = (url.searchParams.get('symbol') || '').trim().toUpperCase();
+    if (!isPriceSymbol(symbol)) return NextResponse.json({ error: 'Missing or invalid symbol' }, { status: 400 });
 
     const wantChart =
       url.searchParams.get('chart') === '1' || url.searchParams.get('chart') === 'true';

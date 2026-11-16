@@ -185,12 +185,7 @@ async function fetchFmpMetrics(ticker, apiKey) {
     ),
     roe: toPercent(keyMetrics?.returnOnEquity || ratios?.returnOnEquity),
     profitMargin: toPercent(ratios?.netProfitMargin),
-    roic: toPercent(
-      keyMetrics?.returnOnCapitalEmployed ||
-        keyMetrics?.returnOnInvestedCapital ||
-        ratios?.returnOnCapitalEmployed ||
-        ratios?.returnOnAssets,
-    ),
+    roic: toStableNumber(100 * (toNum(keyMetrics?.returnOnInvestedCapital) ?? toNum(ratios?.returnOnInvestedCapital))),
     debtToEquity: toNum(ratios?.debtToEquityRatio),
     currentRatio: toNum(ratios?.currentRatio),
     freeCashFlow:
@@ -200,7 +195,7 @@ async function fetchFmpMetrics(ticker, apiKey) {
     dividendYield: toPercent(ratios?.dividendYield || ratios?.dividendYieldPercentage),
     revenueGrowth: toPercent(growth?.revenueGrowth),
     earningsGrowth: toPercent(growth?.netIncomeGrowth),
-    epsGrowth: undefined,
+    epsGrowth: toStableNumber(100 * toNum(growth?.epsgrowth ?? growth?.epsGrowth)),
     companyName: profile?.companyName || ticker,
     logoUrl: toSafeHttpUrl(profile?.image) || buildGoogleFaviconUrl(profile?.website),
     source: 'fmp',
@@ -228,7 +223,10 @@ function readCachedMetrics(symbol) {
 }
 
 function writeCachedMetrics(symbol, data) {
-  metricsCache.set(symbol, { fetchedAt: Date.now(), data });
+  const fetchedAt = Date.now();
+  const snapshot = { ...data, fetchedAt: new Date(fetchedAt).toISOString() };
+  metricsCache.set(symbol, { fetchedAt, data: snapshot });
+  return snapshot;
 }
 
 function buildUnavailableMetrics(ticker, reason = 'upstream_unavailable') {
@@ -340,9 +338,8 @@ export default async function handler(req, res) {
       if (!hasAnySignalMetrics(metrics)) {
         const fallback = await fetchFallbackMetrics(ticker, apiKey);
         if (fallback) {
-          writeCachedMetrics(ticker, fallback);
           res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
-          return res.status(200).json(fallback);
+          return res.status(200).json(writeCachedMetrics(ticker, fallback));
         }
       } else {
         const fallback = needsFallbackMerge(metrics)
@@ -350,17 +347,15 @@ export default async function handler(req, res) {
           : null;
         metrics = mergeMissingMetrics(metrics, fallback);
 
-        writeCachedMetrics(ticker, metrics);
         res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
-        return res.status(200).json(metrics);
+        return res.status(200).json(writeCachedMetrics(ticker, metrics));
       }
     }
 
     const fallbackMetrics = await fetchFallbackMetrics(ticker, apiKey);
     if (fallbackMetrics) {
-      writeCachedMetrics(ticker, fallbackMetrics);
       res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
-      return res.status(200).json(fallbackMetrics);
+      return res.status(200).json(writeCachedMetrics(ticker, fallbackMetrics));
     }
 
     const stale = readCachedMetrics(ticker);
@@ -379,9 +374,8 @@ export default async function handler(req, res) {
 
     const fallbackMetrics = await fetchFallbackMetrics(ticker, apiKey).catch(() => null);
     if (fallbackMetrics) {
-      writeCachedMetrics(ticker, fallbackMetrics);
       res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
-      return res.status(200).json(fallbackMetrics);
+      return res.status(200).json(writeCachedMetrics(ticker, fallbackMetrics));
     }
 
     const stale = readCachedMetrics(ticker);

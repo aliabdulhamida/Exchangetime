@@ -25,6 +25,7 @@ export const metadata: Metadata = {
   title: 'Exchange Time',
   description: 'Global Market Intelligence Dashboard',
   icons: {
+    icon: '/et-logo.png',
     apple: '/apple-icon-180x180.png',
   },
   manifest: '/manifest.json',
@@ -48,10 +49,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
-        />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Exchangetime" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
@@ -61,7 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider
           attribute="class"
           storageKey="et-appearance"
-          defaultTheme="light"
+          defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >

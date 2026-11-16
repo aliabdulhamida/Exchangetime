@@ -1,7 +1,10 @@
 'use client';
 
 import { CalendarX, Menu, Filter, Clock, BarChart2, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
+import { useState } from 'react';
+
+import { useCalendarFeed } from '@/components/exchangetime/use-calendar-feed';
 
 type EarningsCalendarItem = {
   symbol: string;
@@ -22,42 +25,6 @@ type EarningsCalendarItem = {
   exchange: string;
 };
 
-const STORAGE_KEY = 'earningsData:v3';
-
-function sanitizePlaceholderMetrics(
-  data: Record<string, EarningsCalendarItem[]>,
-): Record<string, EarningsCalendarItem[]> {
-  const next: Record<string, EarningsCalendarItem[]> = {};
-  for (const [dateKey, rows] of Object.entries(data)) {
-    if (!Array.isArray(rows)) {
-      next[dateKey] = [];
-      continue;
-    }
-    next[dateKey] = rows.map((row) => {
-      if (!row || typeof row !== 'object') return row;
-      const epsEstimate = (row as EarningsCalendarItem).epsEstimate;
-      const epsActual = (row as EarningsCalendarItem).epsActual;
-      const revenueEstimate = (row as EarningsCalendarItem).revenueEstimate;
-      const revenueActual = (row as EarningsCalendarItem).revenueActual;
-      const isMissingEpsActual =
-        epsActual === null || epsActual === undefined || String(epsActual).trim() === '';
-      const isMissingRevenueEstimate =
-        revenueEstimate === null || revenueEstimate === undefined || String(revenueEstimate).trim() === '';
-      const isMissingRevenueActual =
-        revenueActual === null || revenueActual === undefined || String(revenueActual).trim() === '';
-      if (
-        epsEstimate === 0 &&
-        isMissingEpsActual &&
-        isMissingRevenueEstimate &&
-        isMissingRevenueActual
-      ) {
-        return { ...row, epsEstimate: null };
-      }
-      return row;
-    });
-  }
-  return next;
-}
 
 export default function EarningsCalendar() {
   // Helper to determine border color for earnings card
@@ -123,7 +90,6 @@ export default function EarningsCalendar() {
   const today = new Date();
   const [weekStart, setWeekStart] = useState<Date>(() => toWeekStart(today));
   const [selectedDayIdx, setSelectedDayIdx] = useState((today.getDay() + 6) % 7);
-  const didAutoAlignWeekRef = useRef(false);
 
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
@@ -132,79 +98,7 @@ export default function EarningsCalendar() {
   });
 
   const selectedDate = weekDates[selectedDayIdx];
-  const [earningsData, setEarningsData] = useState<Record<string, EarningsCalendarItem[]>>({});
-  const [loadingEarnings, setLoadingEarnings] = useState(false);
-
-  // Fetch earnings data from API and store in localStorage
-  const fetchEarnings = useCallback(async (forceRefresh = false) => {
-    const shouldForceRefresh = forceRefresh === true;
-    setLoadingEarnings(true);
-    try {
-      const res = await fetch(
-        shouldForceRefresh ? '/api/earnings-calendar?refresh=1' : '/api/earnings-calendar',
-      );
-      if (!res.ok) throw new Error('Failed to load earnings calendar');
-      const data = await res.json();
-      if (!data || typeof data !== 'object' || Array.isArray(data) || 'error' in data) {
-        throw new Error('Invalid earnings calendar payload');
-      }
-      const sanitizedData = sanitizePlaceholderMetrics(
-        data as Record<string, EarningsCalendarItem[]>,
-      );
-      setEarningsData(sanitizedData);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizedData));
-    } catch {
-      // Keep existing on-screen data if refresh fails.
-    } finally {
-      setLoadingEarnings(false);
-    }
-  }, []);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const cached = localStorage.getItem(STORAGE_KEY);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          const sanitized = sanitizePlaceholderMetrics(
-            parsed as Record<string, EarningsCalendarItem[]>,
-          );
-          setEarningsData(sanitized);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
-        }
-      } catch {
-        // Ignore invalid cache and fetch fresh data below.
-      }
-    }
-    fetchEarnings(false);
-  }, [fetchEarnings]);
-
-  useEffect(() => {
-    if (didAutoAlignWeekRef.current) return;
-    if (!earningsData || typeof earningsData !== 'object') return;
-
-    const availableDateKeys = Object.keys(earningsData)
-      .filter((key) => Array.isArray(earningsData[key]) && earningsData[key].length > 0)
-      .sort();
-    if (availableDateKeys.length === 0) return;
-
-    const initialWeekHasData = Array.from({ length: 7 }, (_, idx) => {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + idx);
-      return toLocalDateKey(date);
-    }).some((dateKey) => Array.isArray(earningsData[dateKey]) && earningsData[dateKey].length > 0);
-
-    if (!initialWeekHasData) {
-      const firstDate = new Date(`${availableDateKeys[0]}T00:00:00`);
-      if (!Number.isNaN(firstDate.getTime())) {
-        setWeekStart(toWeekStart(firstDate));
-        setSelectedDayIdx((firstDate.getDay() + 6) % 7);
-      }
-    }
-
-    didAutoAlignWeekRef.current = true;
-  }, [earningsData, weekStart]);
+  const { data: earningsData, loading: loadingEarnings, notice, retrieved, refresh } = useCalendarFeed<EarningsCalendarItem>('/api/earnings-calendar');
 
   const selectedKey = toLocalDateKey(weekDates[selectedDayIdx]);
   const items = earningsData[selectedKey] || [];
@@ -285,7 +179,7 @@ export default function EarningsCalendar() {
   return (
     <div className="flex h-full min-h-0 flex-col px-1 pb-1 sm:px-2 sm:pb-2">
       <div className="mb-3 flex items-center justify-between pr-16 sm:mb-4 sm:pr-20">
-        <h2 className="text-base font-semibold text-foreground sm:text-lg">Earnings Calendar</h2>
+        <p className="workspace-source" role="status">Source: EarningsHub · Calendar feed · {retrieved ? 'Retrieved ' + new Date(retrieved).toLocaleString() : 'Retrieval time unavailable'}{notice && ' · ' + notice}</p>
       </div>
 
       <div className="mb-2 flex items-center justify-center gap-2 text-center">
@@ -354,7 +248,7 @@ export default function EarningsCalendar() {
               <Menu className="h-5 w-5 text-foreground" />
             </button>
             <button
-              onClick={() => fetchEarnings(true)}
+              onClick={refresh}
               className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-70"
               title={loadingEarnings ? 'Loading earnings data...' : 'Reload earnings data'}
               aria-label="Reload earnings data"
@@ -545,7 +439,7 @@ export default function EarningsCalendar() {
         {filteredItems.length === 0 ? (
           <div className="flex min-h-[80px] flex-1 flex-col items-center justify-center text-sm text-muted-foreground">
             <CalendarX className="mb-1 h-5 w-5" />
-            <span className="block text-center">No earnings scheduled.</span>
+            <span className="block text-center">{loadingEarnings ? 'Checking calendar…' : notice ? 'No confirmed entries available for this selection.' : !Object.hasOwn(earningsData, selectedKey) ? 'No provider coverage for this date.' : 'No matching events on this date.'}</span>
           </div>
         ) : (
           <div className="et-scrollbar min-h-[260px] flex-1 space-y-3 overflow-y-auto pr-1 sm:min-h-[360px] sm:pr-2 lg:min-h-0">
@@ -572,7 +466,7 @@ export default function EarningsCalendar() {
                     <>
                 <div className="mb-2 flex flex-col items-center">
                   <span className="text-xl font-bold leading-tight tracking-wide text-foreground sm:text-2xl">
-                    {item.symbol || '–'}
+                    <Link href={'/dashboard?view=StockAnalysis&symbol=' + encodeURIComponent(item.symbol)}>{item.symbol} ↗</Link>
                   </span>
                   {(() => {
                     const hourLabel = formatHour(item.hour);

@@ -58,7 +58,7 @@ const commonPairs = [
 
 export default function CurrencyConverter() {
   // Eingabewert als Text, damit wir Kommas/Darstellung steuern können
-  const [amount, setAmount] = useState('1,000');
+  const [amount, setAmount] = useState('');
   const [fromCurrency, setFromCurrency] = useState('USD');
   const [toCurrency, setToCurrency] = useState('EUR');
   const [result, setResult] = useState<number | null>(null);
@@ -66,6 +66,8 @@ export default function CurrencyConverter() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [resultFor, setResultFor] = useState('');
+  const selection = [amount.replace(/,/g, ''), fromCurrency, toCurrency].join('|');
   // Helper: US-Format mit Tausendertrennzeichen
   const formatNumber = (value: number, opts: Intl.NumberFormatOptions = {}) =>
     new Intl.NumberFormat('en-US', opts).format(value);
@@ -78,19 +80,23 @@ export default function CurrencyConverter() {
     setRate(null);
     try {
       // Kommas entfernen, dann parsen
-      const amt = parseFloat(amount.replace(/,/g, ''));
-      if (isNaN(amt) || amt <= 0) throw new Error('Please enter a valid positive amount');
+      const amt = Number(amount.replace(/,/g, ''));
+      if (!Number.isFinite(amt) || amt <= 0) throw new Error('Please enter a valid positive amount');
       if (fromCurrency === toCurrency)
         throw new Error('Please select different currencies for conversion');
       const symbol = `${fromCurrency}${toCurrency}=X`;
       const url = `/api/quote?symbol=${encodeURIComponent(symbol)}&chart=1&range=5d&interval=1d`;
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (!response.ok) throw new Error('Exchange rate source unavailable. Please retry.');
       const data = await response.json();
       if (data.chart && data.chart.result && data.chart.result[0]) {
-        const rateVal = data.chart.result[0].meta.regularMarketPrice as number;
+        const meta = data.chart.result[0]?.meta;
+        const rateVal = meta?.regularMarketPrice;
+        if (typeof rateVal !== 'number' || !Number.isFinite(rateVal) || rateVal <= 0) throw new Error('No valid exchange rate was reported.');
+        setResultFor(selection);
         setRate(rateVal);
         setResult(amt * rateVal);
-        setLastUpdated(new Date().toLocaleString());
+        setLastUpdated(typeof meta.regularMarketTime === 'number' && meta.regularMarketTime > 0 ? new Date(meta.regularMarketTime * 1000).toLocaleString() : null);
       } else {
         throw new Error('Exchange rate not available');
       }
@@ -132,7 +138,7 @@ export default function CurrencyConverter() {
                 setAmount(raw);
               }}
               onBlur={() => {
-                const num = parseFloat(amount.replace(/,/g, ''));
+                const num = amount.trim() ? Number(amount.replace(/,/g, '')) : NaN;
                 if (!isNaN(num)) {
                   // Bei Verlassen formatieren (max 8 Nachkommastellen beibehalten)
                   const decimals = (() => {
@@ -271,7 +277,7 @@ export default function CurrencyConverter() {
         </Alert>
       )}
 
-      {result !== null && rate !== null && (
+      {result !== null && rate !== null && selection === resultFor && (
         <div className="mt-4 rounded-xl border border-border/70 bg-gradient-to-b from-card/80 via-card/55 to-card/35 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Conversion Result
@@ -283,7 +289,7 @@ export default function CurrencyConverter() {
 
           <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock3 className="h-3.5 w-3.5" />
-            <span>Last updated: {lastUpdated}</span>
+            <span>1 {fromCurrency} = {formatNumber(rate, { maximumSignificantDigits: 8 })} {toCurrency} · Yahoo Finance · {lastUpdated ? 'Observed ' + lastUpdated : 'Observation time unavailable'} · May be delayed</span>
           </div>
         </div>
       )}
