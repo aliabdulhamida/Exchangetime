@@ -56,7 +56,7 @@ export function PositionSizing() {
   const reward = quantity * (Math.abs(targetPrice - entryPrice) - costPerUnit);
   return (
     <section className="terminal-chart-grid">
-      <form className="grid content-start gap-5" onSubmit={(event) => event.preventDefault()}>
+      <form className="tool-surface grid content-start gap-5" onSubmit={(event) => event.preventDefault()}>
         <div className="flex flex-wrap gap-3">
           <label className="terminal-label">
             Account currency

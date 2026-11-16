@@ -100,7 +100,7 @@ export default function WorkspaceTitle({
         <SheetContent side="bottom" className="mobile-navigation-sheet workspace-chooser">
           <SheetHeader>
             <SheetTitle>Your workspace</SheetTitle>
-            <SheetDescription>Find the right tool for your next question.</SheetDescription>
+            <SheetDescription className="sr-only">Search or select a workspace.</SheetDescription>
           </SheetHeader>
           <div className="workspace-chooser-controls">
             <label className="planner-field">
@@ -141,10 +141,7 @@ export default function WorkspaceTitle({
               >
                 <span>
                   <strong>{item.label}</strong>
-                  <small>
-                    {query.trim() ? item.section + ' · ' : ''}
-                    {workspaceDescriptions[item.key]}
-                  </small>
+                  {query.trim() && <small>{item.section}</small>}
                 </span>
                 {item.key === current.key && <Check size={18} aria-label="Current workspace" />}
               </Link>

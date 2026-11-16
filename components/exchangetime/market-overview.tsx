@@ -237,7 +237,6 @@ export default function MarketOverview() {
                 Sector research
               </button>
             </div>
-            <p className="terminal-note">Choose what matters. Reorder or hide any panel.</p>
             <p role="status" className="terminal-note">
               {notice}
             </p>

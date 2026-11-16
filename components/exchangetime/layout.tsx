@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 
 import LegalFooter from '@/components/legal-footer';
 
+import MobileNavigation from './mobile-navigation';
 import Preferences from './preferences';
 import TerminalNav from './terminal-nav';
 import TopNav from './top-nav';
@@ -50,6 +51,7 @@ function TerminalLayout({ children }: { children: ReactNode }) {
           </div>
         </main>
       </div>
+      <MobileNavigation />
       <Preferences />
     </div>
   );

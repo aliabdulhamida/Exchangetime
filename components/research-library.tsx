@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { blogPosts as existingPosts, BlogList, type BlogPost } from '@/components/blog-components';
@@ -69,13 +68,6 @@ export default function ResearchLibrary({ weeklyPosts }: { weeklyPosts: BlogPost
       <div className="blog-container">
         <div className="blog-header blog-header-minimal">
           <h1 className="blog-header-title">Research library</h1>
-          <p className="blog-header-subtitle">
-            Analysis and guides by topic and publication date. For current headlines, open the{' '}
-            <Link className="underline" href="/dashboard?view=News">
-              market news feed
-            </Link>
-            .
-          </p>
         </div>
 
         {/* Simple month dropdown */}

@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 
 import Content from './content';
 import Layout from './layout';
-import { workflows, workspaces, workspaceUrl, workspaceDescriptions } from './product-model';
+import { workflows, workspaces, workspaceUrl } from './product-model';
 import { usePinnedWorkspaces } from './use-pinned-workspaces';
 import WorkspaceTitle from './workspace-title';
 
@@ -55,11 +55,6 @@ export default function Dashboard({ view }: { view?: string }) {
               }
             />
           </h1>
-          <p>
-            {current.key === 'MarketOverview'
-              ? 'Global indices, market conditions, and sector performance.'
-              : workspaceDescriptions[current.key]}
-          </p>
         </div>
         <button
           className="terminal-button workspace-pin"

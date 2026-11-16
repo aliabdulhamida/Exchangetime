@@ -37,7 +37,6 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
       <div className="terminal-section-heading">
         <div>
           <h2>Sector performance</h2>
-          <p className="terminal-note">Where the market is moving · US sector ETF proxies</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -106,7 +105,7 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
         ))}
       </div>
       <p className="terminal-note mt-3">
-        Source Yahoo Finance · Change over {horizon} trading session{horizon > 1 ? 's' : ''} · Equal
+        US sector ETF proxies · Source Yahoo Finance · Change over {horizon} trading session{horizon > 1 ? 's' : ''} · Equal
         tile sizes, not market-cap weighted. Quotes may be delayed. Hover a sector for its
         observation time.
         {rows.some((row) => row.entry?.error) && ' Some feeds could not refresh.'}

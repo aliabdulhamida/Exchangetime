@@ -1055,12 +1055,12 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
     : 'Unlimited';
 
   return (
-    <div className="w-full max-w-full" id="options-payoff-lab-container">
+    <div className="options-workspace w-full max-w-full" id="options-payoff-lab-container">
       {requestedSymbol && <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-border pb-4"><button className="terminal-button" disabled={loadingSpot} onClick={loadUnderlying}>{loadingSpot?'Loading quote…':'Load '+requestedSymbol+' spot'}</button><p role="status" className="terminal-note">{spotMessage||'Load the underlying quote, then review the strategy inputs.'}</p></div>}
 
       <div className="space-y-4 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
         <div className="md:hidden">
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
+          <div className="tool-segmented grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
             <button
               type="button"
               onClick={() => {

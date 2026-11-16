@@ -12,6 +12,12 @@ const views = [
   'PersonalBudget',
   'NetWorth',
   'MarketScreener',
+  'PositionSizing',
+  'TradeJournal',
+  'BacktestTool',
+  'OptionsPayoffLab',
+  'DCFCalculator',
+  'EconomicIndicators',
 ];
 try {
   for (const width of [390, 1440]) {
@@ -21,7 +27,7 @@ try {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     for (const view of views) {
-      await page.goto(base + '/dashboard?view=' + view, { waitUntil: 'networkidle2' });
+      await page.goto(base + '/dashboard?view=' + view, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(
         () =>
           document.querySelector('.workspace-content') &&

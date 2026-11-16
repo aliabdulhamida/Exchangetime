@@ -17,7 +17,6 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
-import MobileNavigation from './mobile-navigation';
 import { sections, workspaces, workspaceUrl } from './product-model';
 import { usePinnedWorkspaces } from './use-pinned-workspaces';
 
@@ -148,7 +147,6 @@ export default function TerminalNav() {
           )}
         </div>
       </aside>
-      <MobileNavigation />
     </>
   );
 }

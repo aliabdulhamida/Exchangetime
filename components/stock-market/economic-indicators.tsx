@@ -443,7 +443,7 @@ export default function EconomicIndicators() {
   }, [data]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="macro-workspace tool-surface flex h-full flex-col">
       <h2 className="text-lg font-semibold text-foreground">Economic Indicators Matrix</h2>
 
       {loading && !data ? (

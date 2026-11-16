@@ -1146,12 +1146,12 @@ export default function DcfCalculator() {
   }, [fcfMode, fcfStart, fcfGrowthConstant, fcfGrowths, currency, fcfList.length]);
 
   return (
-    <Card className="border-0 bg-transparent shadow-none">
+    <Card className="valuation-workspace border-0 bg-transparent shadow-none">
       <CardContent className="p-0">
         <TooltipProvider delayDuration={100}>
           <p className="workspace-source">Valuation model · Load company inputs or enter cash flows and share count. Discount rates and growth rates are assumptions, not observed prices.</p>
           <div className="mb-3 md:hidden">
-            <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
+            <div className="tool-segmented grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
               <button
                 type="button"
                 onClick={() => setMobilePanel('inputs')}

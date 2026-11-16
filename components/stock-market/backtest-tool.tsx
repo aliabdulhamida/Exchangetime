@@ -712,9 +712,9 @@ export default function BacktestTool() {
     }
   }
 
-  const shellClass = 'mx-auto w-full max-w-[36rem] space-y-2 sm:space-y-3';
+  const shellClass = 'backtest-workspace mx-auto w-full max-w-[60rem] space-y-5';
   const panelClass = 'rounded-2xl border border-border/70 bg-card/70';
-  const sectionClass = `${panelClass} p-3 sm:p-3.5`;
+  const sectionClass = 'tool-surface backtest-surface';
   const captionClass = 'text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px]';
   const dateInputClass =
     'h-8 w-full min-w-0 rounded-lg border-border bg-background/80 pr-8 text-left text-sm leading-tight [color-scheme:dark] [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:leading-tight [&::-webkit-datetime-edit]:leading-tight [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0';

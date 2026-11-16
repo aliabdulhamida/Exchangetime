@@ -32,48 +32,50 @@ export default function MobileNavigation() {
   return (
     <>
       <nav className="terminal-bottom-nav" aria-label="Mobile navigation">
-        <Link
-          href={workspaceUrl('MarketOverview')}
-          aria-current={
-            pathname === '/dashboard' && current in sections.Markets ? 'page' : undefined
-          }
-        >
-          <Globe2 size={20} />
-          <span>Markets</span>
-        </Link>
-        <Link
-          href={workspaceUrl('PortfolioTracker')}
-          aria-current={
-            pathname === '/dashboard' && current === 'PortfolioTracker' ? 'page' : undefined
-          }
-        >
-          <PieChart size={20} />
-          <span>Portfolio</span>
-        </Link>
-        <button onClick={() => action('et-watchlist')}>
-          <Star size={20} />
-          <span>Watchlist</span>
-        </button>
-        <Link href="/blog" aria-current={pathname?.startsWith('/blog') ? 'page' : undefined}>
-          <BookOpen size={20} />
-          <span>Research</span>
-        </Link>
-        <button
-          aria-label="More navigation"
-          aria-expanded={open}
-          aria-haspopup="dialog"
-          data-active={open || (!primary && !pathname?.startsWith('/blog'))}
-          onClick={() => setOpen(true)}
-        >
-          <MoreHorizontal size={20} />
-          <span>More</span>
-        </button>
+        <div className="terminal-bottom-items">
+          <Link
+            href={workspaceUrl('MarketOverview')}
+            aria-current={
+              pathname === '/dashboard' && current in sections.Markets ? 'page' : undefined
+            }
+          >
+            <Globe2 size={20} />
+            <span>Markets</span>
+          </Link>
+          <Link
+            href={workspaceUrl('PortfolioTracker')}
+            aria-current={
+              pathname === '/dashboard' && current === 'PortfolioTracker' ? 'page' : undefined
+            }
+          >
+            <PieChart size={20} />
+            <span>Portfolio</span>
+          </Link>
+          <button onClick={() => action('et-watchlist')}>
+            <Star size={20} />
+            <span>Watchlist</span>
+          </button>
+          <Link href="/blog" aria-current={pathname?.startsWith('/blog') ? 'page' : undefined}>
+            <BookOpen size={20} />
+            <span>Research</span>
+          </Link>
+          <button
+            aria-label="More navigation"
+            aria-expanded={open}
+            aria-haspopup="dialog"
+            data-active={open || (!primary && !pathname?.startsWith('/blog'))}
+            onClick={() => setOpen(true)}
+          >
+            <MoreHorizontal size={20} />
+            <span>More</span>
+          </button>
+        </div>
       </nav>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="mobile-navigation-sheet">
           <SheetHeader>
             <SheetTitle>Explore Exchange Time</SheetTitle>
-            <SheetDescription>All workspaces and settings, in one place.</SheetDescription>
+            <SheetDescription className="sr-only">Choose an area, radio or settings.</SheetDescription>
           </SheetHeader>
           <div className="mobile-navigation-services">
             <Link href="/blog" onClick={() => setOpen(false)}>
