@@ -6,72 +6,74 @@ import { siteOperator } from '@/lib/site-operator';
 
 export function generateMetadata(): Metadata {
   return {
-    title: 'Impressum · Exchange Time',
+    title: 'Legal notice / Impressum · Exchange Time',
     robots: { index: siteOperator().complete, follow: true },
   };
 }
-
 export default function Imprint() {
   const operator = siteOperator();
   return (
     <Layout>
       <article
-        lang="de"
+        lang="en"
         className="blog-container max-w-3xl mx-auto prose prose-lg dark:prose-invert"
       >
-        <h1>Impressum</h1>
+        <h1>Legal notice / Impressum</h1>
         {!operator.complete && (
           <p role="alert" className="border border-amber-500 p-4 rounded-lg">
-            Einrichtung noch nicht abgeschlossen: Betreiberdaten und Hostingangaben fehlen ganz oder
-            teilweise. Diese Seite ist noch kein vollständiges Impressum und darf nicht als Nachweis
-            rechtlicher Konformität verwendet werden.
+            Setup incomplete: operator identity, editorial responsibility or hosting information is
+            missing. This draft is not a complete legal notice and must not be presented as proof of
+            legal compliance.
           </p>
         )}
-        <h2>Anbieter</h2>
-        <p>Angaben nach § 5 DDG, soweit anwendbar, und § 18 MStV.</p>
-        <p className="whitespace-pre-line">
-          {operator.name || 'Name/Firma noch nicht hinterlegt'}
-          {'\n'}
-          {operator.address || 'Ladungsfähige Anschrift noch nicht hinterlegt'}
+        <h2>Service provider</h2>
+        <p>
+          Provider information under section 5 of the German Digital Services Act (DDG), where
+          applicable, and section 18 of the German Interstate Media Treaty (MStV).
         </p>
-        {operator.representative && <p>Vertreten durch: {operator.representative}</p>}
-        <h2>Kontakt</h2>
+        <p className="whitespace-pre-line">
+          {operator.name || 'Full legal name / company not yet provided'}
+          {'\n'}
+          {operator.address || 'Serviceable postal address not yet provided'}
+        </p>
+        {operator.representative && <p>Represented by: {operator.representative}</p>}
+        <h2>Contact</h2>
         {operator.email ? (
           <p>
             <a href={'mailto:' + operator.email}>{operator.email}</a>
           </p>
         ) : (
-          <p>Kontakt-E-Mail noch nicht hinterlegt.</p>
+          <p>Contact email not yet provided.</p>
         )}
-        {operator.register && <p>Register: {operator.register}</p>}
-        {operator.vatId && <p>Umsatzsteuer-Identifikationsnummer: {operator.vatId}</p>}
-        <h2>Redaktionell verantwortlich</h2>
-        <p>Verantwortlich gemäß § 18 Abs. 2 MStV für die Research Library:</p>
+        {operator.register && <p>Register and registration number: {operator.register}</p>}
+        {operator.vatId && <p>VAT identification number: {operator.vatId}</p>}
+        <h2>Responsible for editorial content</h2>
+        <p>Person responsible for the Research Library under section 18(2) MStV:</p>
         <p className="whitespace-pre-line">
-          {operator.editor || 'Verantwortliche Person noch nicht benannt'}
+          {operator.editor || 'Responsible individual not yet appointed'}
           {'\n'}
-          {operator.editorAddress || 'Anschrift noch nicht hinterlegt'}
+          {operator.editorAddress || 'Postal address not yet provided'}
         </p>
         {operator.dispute && (
           <>
-            <h2>Verbraucherstreitbeilegung</h2>
+            <h2>Consumer dispute resolution</h2>
             <p>{operator.dispute}</p>
           </>
         )}
-        <h2>Redaktion, KI und Finanzinformationen</h2>
+        <h2>Editorial content, AI and financial information</h2>
         <p>
-          Automatisch erstellte Wochenrückblicke werden als KI-gestützt gekennzeichnet. Quellen und
-          Datenstand stehen im Artikel; generierte Bilder sind als Illustration bezeichnet. Eine
-          Quellenprüfung ist keine Garantie für Fehlerfreiheit.
+          Automated weekly reviews are identified as AI-assisted. Sources and reporting dates appear
+          in each article. Generated images are labelled as illustrations, not documentary
+          photographs. Source checks do not guarantee accuracy.
         </p>
         <p>
-          Die Inhalte dienen der allgemeinen Information und berücksichtigen keine persönlichen
-          Anlageverhältnisse. Ein Hinweis „keine Anlageberatung“ ersetzt keine gegebenenfalls
-          einschlägigen kapitalmarktrechtlichen Pflichten.
+          Content provides general information and does not consider your personal financial
+          circumstances. A “not investment advice” disclaimer does not replace any applicable
+          capital-markets disclosure or authorisation requirements.
         </p>
         <p>
-          <Link href="/settings/privacy-policy">Datenschutz</Link> ·{' '}
-          <Link href="/redaktion">Redaktionelle Grundsätze</Link>
+          <Link href="/settings/privacy-policy">Privacy policy</Link> ·{' '}
+          <Link href="/redaktion">Editorial &amp; AI policy</Link>
         </p>
       </article>
     </Layout>

@@ -604,12 +604,12 @@ export default function PersonalBudgetCalculator() {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-y border-border py-4">
+    <div className="budget-workspace flex h-full min-h-0 flex-col">
+      <div className="budget-health mb-5 flex flex-wrap items-center justify-between gap-4">
         <div><p className="terminal-note">Cash-flow health</p><strong className="text-2xl">{cashflowHealth===null?'—':cashflowHealth+' / 100'}</strong></div>
         <details className="terminal-note max-w-xl"><summary>Score methodology</summary><p>Up to 40 points for a 20% savings rate, 40 for fully funding your chosen emergency reserve, and 20 for keeping spending at or below 50% of income. Based on the income and spending entered here.</p></details>
       </div>
-      <div className="pr-16 sm:pr-20">
+      <div className="budget-step-heading">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">

@@ -1,9 +1,20 @@
 'use client';
 
-import { CalendarX, Menu, Filter, Clock, BarChart2, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  CalendarX,
+  Menu,
+  Filter,
+  Clock,
+  BarChart2,
+  X,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { CalendarWeekStrip, ToolEmptyState } from '@/components/exchangetime/tool-ui';
 import { useCalendarFeed } from '@/components/exchangetime/use-calendar-feed';
 
 type EarningsCalendarItem = {
@@ -24,7 +35,6 @@ type EarningsCalendarItem = {
   instrumentType: string;
   exchange: string;
 };
-
 
 export default function EarningsCalendar() {
   // Helper to determine border color for earnings card
@@ -98,7 +108,13 @@ export default function EarningsCalendar() {
   });
 
   const selectedDate = weekDates[selectedDayIdx];
-  const { data: earningsData, loading: loadingEarnings, notice, retrieved, refresh } = useCalendarFeed<EarningsCalendarItem>('/api/earnings-calendar');
+  const {
+    data: earningsData,
+    loading: loadingEarnings,
+    notice,
+    retrieved,
+    refresh,
+  } = useCalendarFeed<EarningsCalendarItem>('/api/earnings-calendar');
 
   const selectedKey = toLocalDateKey(weekDates[selectedDayIdx]);
   const items = earningsData[selectedKey] || [];
@@ -116,10 +132,12 @@ export default function EarningsCalendar() {
     reportState: '',
   });
 
-  const marketOptions = [...new Set(allItems.map((item) => String(item.market || '').trim()).filter(Boolean))]
-    .sort();
-  const exchangeOptions = [...new Set(allItems.map((item) => String(item.exchange || '').trim()).filter(Boolean))]
-    .sort();
+  const marketOptions = [
+    ...new Set(allItems.map((item) => String(item.market || '').trim()).filter(Boolean)),
+  ].sort();
+  const exchangeOptions = [
+    ...new Set(allItems.map((item) => String(item.exchange || '').trim()).filter(Boolean)),
+  ].sort();
   const instrumentTypeOptions = [
     ...new Set(allItems.map((item) => String(item.instrumentType || '').trim()).filter(Boolean)),
   ].sort();
@@ -158,9 +176,11 @@ export default function EarningsCalendar() {
   }
 
   const filteredItems = items.filter((item) => {
-    if (filters.ticker && !item.symbol.toLowerCase().includes(filters.ticker.toLowerCase())) return false;
+    if (filters.ticker && !item.symbol.toLowerCase().includes(filters.ticker.toLowerCase()))
+      return false;
     if (filters.session && item.hour !== filters.session) return false;
-    if (filters.epsForecast && !epsForecastMatches(item.epsEstimate, filters.epsForecast)) return false;
+    if (filters.epsForecast && !epsForecastMatches(item.epsEstimate, filters.epsForecast))
+      return false;
     if (filters.market && item.market !== filters.market) return false;
     if (filters.exchange && item.exchange !== filters.exchange) return false;
     if (filters.instrumentType && item.instrumentType !== filters.instrumentType) return false;
@@ -177,12 +197,18 @@ export default function EarningsCalendar() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col px-1 pb-1 sm:px-2 sm:pb-2">
+    <div className="calendar-workspace flex h-full min-h-0 flex-col">
       <div className="mb-3 flex items-center justify-between pr-16 sm:mb-4 sm:pr-20">
-        <p className="workspace-source" role="status">Source: EarningsHub · Calendar feed · {retrieved ? 'Retrieved ' + new Date(retrieved).toLocaleString() : 'Retrieval time unavailable'}{notice && ' · ' + notice}</p>
+        <p className="workspace-source" role="status">
+          Source: EarningsHub · Calendar feed ·{' '}
+          {retrieved
+            ? 'Retrieved ' + new Date(retrieved).toLocaleString()
+            : 'Retrieval time unavailable'}
+          {notice && ' · ' + notice}
+        </p>
       </div>
 
-      <div className="mb-2 flex items-center justify-center gap-2 text-center">
+      <div className="calendar-period mb-2 flex items-center justify-center gap-2 text-center">
         <button
           type="button"
           className="flex h-7 w-7 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
@@ -216,26 +242,7 @@ export default function EarningsCalendar() {
         </button>
       </div>
 
-      <div className="mb-4 overflow-x-auto pb-1">
-        <div className="mx-auto flex w-max gap-2 px-1 sm:gap-3">
-          {weekDates.map((date, idx) => {
-            const isSelected = selectedDayIdx === idx;
-            return (
-              <button
-                key={date.toISOString()}
-                onClick={() => setSelectedDayIdx(idx)}
-                className={`flex min-w-[42px] flex-col items-center justify-center rounded-md border px-2 py-1.5 text-sm font-semibold transition-all duration-150 sm:min-w-[46px]
-                    ${isSelected ? 'scale-[1.02] border-white text-white shadow-[0_0_0_1px_rgba(255,255,255,0.14)]' : 'border-border text-foreground hover:bg-muted/40'}`}
-              >
-                <span className="text-base font-bold">{date.getDate()}</span>
-                <span className="mt-0.5 text-[11px] font-medium">
-                  {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <CalendarWeekStrip dates={weekDates} selected={selectedDayIdx} onSelect={setSelectedDayIdx} />
 
       <div className="flex min-h-0 flex-1 flex-col space-y-3">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -373,7 +380,9 @@ export default function EarningsCalendar() {
                     <select
                       className="h-8 flex-1 rounded border border-border bg-transparent px-2 text-xs"
                       value={filters.instrumentType}
-                      onChange={(e) => setFilters((f) => ({ ...f, instrumentType: e.target.value }))}
+                      onChange={(e) =>
+                        setFilters((f) => ({ ...f, instrumentType: e.target.value }))
+                      }
                     >
                       <option value="">Security Type (All)</option>
                       {instrumentTypeOptions.map((type) => (
@@ -437,10 +446,19 @@ export default function EarningsCalendar() {
         `}</style>
 
         {filteredItems.length === 0 ? (
-          <div className="flex min-h-[80px] flex-1 flex-col items-center justify-center text-sm text-muted-foreground">
-            <CalendarX className="mb-1 h-5 w-5" />
-            <span className="block text-center">{loadingEarnings ? 'Checking calendar…' : notice ? 'No confirmed entries available for this selection.' : !Object.hasOwn(earningsData, selectedKey) ? 'No provider coverage for this date.' : 'No matching events on this date.'}</span>
-          </div>
+          <ToolEmptyState
+            icon={<CalendarX size={25} strokeWidth={1.5} />}
+            title="Your calendar, at a glance"
+            description={
+              loadingEarnings
+                ? 'Checking calendar…'
+                : notice
+                  ? 'No confirmed entries available for this selection.'
+                  : !Object.hasOwn(earningsData, selectedKey)
+                    ? 'No provider coverage for this date.'
+                    : 'No matching events on this date.'
+            }
+          />
         ) : (
           <div className="et-scrollbar min-h-[260px] flex-1 space-y-3 overflow-y-auto pr-1 sm:min-h-[360px] sm:pr-2 lg:min-h-0">
             {filteredItems.map((item: any, idx: number) => (
@@ -451,8 +469,12 @@ export default function EarningsCalendar() {
               >
                 {(() => {
                   const hasEpsDetails =
-                    (item.epsEstimate !== undefined && item.epsEstimate !== null && item.epsEstimate !== '') ||
-                    (item.epsActual !== undefined && item.epsActual !== null && item.epsActual !== '');
+                    (item.epsEstimate !== undefined &&
+                      item.epsEstimate !== null &&
+                      item.epsEstimate !== '') ||
+                    (item.epsActual !== undefined &&
+                      item.epsActual !== null &&
+                      item.epsActual !== '');
                   const hasRevenueDetails =
                     (item.revenueEstimate !== undefined &&
                       item.revenueEstimate !== null &&
@@ -464,70 +486,80 @@ export default function EarningsCalendar() {
 
                   return (
                     <>
-                <div className="mb-2 flex flex-col items-center">
-                  <span className="text-xl font-bold leading-tight tracking-wide text-foreground sm:text-2xl">
-                    <Link href={'/dashboard?view=StockAnalysis&symbol=' + encodeURIComponent(item.symbol)}>{item.symbol} ↗</Link>
-                  </span>
-                  {(() => {
-                    const hourLabel = formatHour(item.hour);
-                    if (hourLabel === 'After Market' || hourLabel === 'Pre Market') {
-                      return (
-                        <span className="mt-1 text-xs font-semibold leading-tight text-muted-foreground sm:text-sm">
-                          {hourLabel}
+                      <div className="mb-2 flex flex-col items-center">
+                        <span className="text-xl font-bold leading-tight tracking-wide text-foreground sm:text-2xl">
+                          <Link
+                            href={
+                              '/dashboard?view=StockAnalysis&symbol=' +
+                              encodeURIComponent(item.symbol)
+                            }
+                          >
+                            {item.symbol} ↗
+                          </Link>
                         </span>
-                      );
-                    }
-                    return null;
-                  })()}
-                  {[item.exchange, item.instrumentType, item.market, item.currency]
-                    .filter((value) => value && String(value).trim().length > 0).length > 0 && (
-                    <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
-                      {[item.exchange, item.instrumentType, item.market, item.currency]
-                        .filter((value) => value && String(value).trim().length > 0)
-                        .join(' • ')}
-                    </span>
-                  )}
-                </div>
-                {hasFinancialDetails ? (
-                  <div className={`grid w-full gap-3 sm:gap-4 ${hasEpsDetails && hasRevenueDetails ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                    {hasEpsDetails && (
-                      <div className="flex flex-col items-center">
-                        <span className="mb-1 text-xs font-semibold text-muted-foreground">
-                          EPS Estimate
-                        </span>
-                        <span className="mb-2 text-base font-bold text-foreground">
-                          {formatEPS(item.epsEstimate)}
-                        </span>
-                        <span className="mb-1 text-xs font-semibold text-muted-foreground">
-                          EPS Actual
-                        </span>
-                        <span className="text-base font-bold text-foreground">
-                          {formatEPS(item.epsActual)}
-                        </span>
+                        {(() => {
+                          const hourLabel = formatHour(item.hour);
+                          if (hourLabel === 'After Market' || hourLabel === 'Pre Market') {
+                            return (
+                              <span className="mt-1 text-xs font-semibold leading-tight text-muted-foreground sm:text-sm">
+                                {hourLabel}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                        {[item.exchange, item.instrumentType, item.market, item.currency].filter(
+                          (value) => value && String(value).trim().length > 0,
+                        ).length > 0 && (
+                          <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+                            {[item.exchange, item.instrumentType, item.market, item.currency]
+                              .filter((value) => value && String(value).trim().length > 0)
+                              .join(' • ')}
+                          </span>
+                        )}
                       </div>
-                    )}
-                    {hasRevenueDetails && (
-                      <div className="flex flex-col items-center">
-                        <span className="mb-1 text-xs font-semibold text-muted-foreground">
-                          Revenue Estimate
-                        </span>
-                        <span className="mb-2 text-base font-bold text-foreground">
-                          {formatNumber(item.revenueEstimate)}
-                        </span>
-                        <span className="mb-1 text-xs font-semibold text-muted-foreground">
-                          Revenue Actual
-                        </span>
-                        <span className="text-base font-bold text-foreground">
-                          {formatNumber(item.revenueActual)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-center text-xs text-muted-foreground">
-                    EPS and revenue figures are not available from this earnings feed.
-                  </div>
-                )}
+                      {hasFinancialDetails ? (
+                        <div
+                          className={`grid w-full gap-3 sm:gap-4 ${hasEpsDetails && hasRevenueDetails ? 'grid-cols-2' : 'grid-cols-1'}`}
+                        >
+                          {hasEpsDetails && (
+                            <div className="flex flex-col items-center">
+                              <span className="mb-1 text-xs font-semibold text-muted-foreground">
+                                EPS Estimate
+                              </span>
+                              <span className="mb-2 text-base font-bold text-foreground">
+                                {formatEPS(item.epsEstimate)}
+                              </span>
+                              <span className="mb-1 text-xs font-semibold text-muted-foreground">
+                                EPS Actual
+                              </span>
+                              <span className="text-base font-bold text-foreground">
+                                {formatEPS(item.epsActual)}
+                              </span>
+                            </div>
+                          )}
+                          {hasRevenueDetails && (
+                            <div className="flex flex-col items-center">
+                              <span className="mb-1 text-xs font-semibold text-muted-foreground">
+                                Revenue Estimate
+                              </span>
+                              <span className="mb-2 text-base font-bold text-foreground">
+                                {formatNumber(item.revenueEstimate)}
+                              </span>
+                              <span className="mb-1 text-xs font-semibold text-muted-foreground">
+                                Revenue Actual
+                              </span>
+                              <span className="text-base font-bold text-foreground">
+                                {formatNumber(item.revenueActual)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-center text-xs text-muted-foreground">
+                          EPS and revenue figures are not available from this earnings feed.
+                        </div>
+                      )}
                     </>
                   );
                 })()}

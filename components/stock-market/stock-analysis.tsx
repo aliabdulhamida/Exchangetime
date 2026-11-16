@@ -1102,7 +1102,7 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
 
   const shellClass = 'mx-auto w-full max-w-[72rem] space-y-2 sm:space-y-3';
   const panelClass = 'border-b border-border';
-  const sectionClass = `${panelClass} py-4`;
+  const sectionClass = 'research-surface tool-surface';
   const captionClass =
     'text-sm font-semibold text-foreground';
   const metricRowClass =
@@ -1122,7 +1122,7 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
   return (
     <div className={shellClass}>
       <div
-        className={`${panelClass} py-3`}
+        className="research-search-surface tool-surface"
       >
         <form
           className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
@@ -2126,7 +2126,7 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
           </div>
         </div>
       ) : (
-        <section className="space-y-3 py-4" aria-label="Research examples">
+        <section className="research-discovery tool-surface space-y-3" aria-label="Research examples">
           <h2 className="text-sm font-semibold">Explore an asset</h2>
           <p className="text-sm text-muted-foreground">Choose a company to see its fundamentals, price history and latest filings.</p>
           <div className="grid gap-x-6 sm:grid-cols-3">

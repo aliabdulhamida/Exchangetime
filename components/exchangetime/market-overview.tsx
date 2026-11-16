@@ -39,8 +39,8 @@ const blockSchema = z.array(
 );
 const defaults: z.infer<typeof blockSchema> = [
   { key: 'sessions', visible: true },
-  { key: 'markets', visible: true },
   { key: 'chart', visible: true },
+  { key: 'markets', visible: true },
   { key: 'sectors', visible: true },
 ];
 const blockNames = {
@@ -62,12 +62,18 @@ export default function MarketOverview() {
   const [selected, setSelected] = useState('^GSPC');
   const [region, setRegion] = useState('United States');
   const [range, setRange] = useState(0);
-  const visible = (key: string) => blocks.some(block => block.key === key && block.visible);
-  const { entries, refresh } = useMarketSeries([...new Set([
-    ...(visible('markets') ? instruments.filter(asset => region === 'All' || asset.region === region).map(asset => asset.symbol) : []),
-    ...(visible('chart') ? [selected, '^GSPC', '^VIX'] : []),
-    ...(visible('sectors') || visible('chart') ? sectors.map(([, symbol]) => symbol) : []),
-  ])]);
+  const visible = (key: string) => blocks.some((block) => block.key === key && block.visible);
+  const { entries, refresh } = useMarketSeries([
+    ...new Set([
+      ...(visible('markets')
+        ? instruments
+            .filter((asset) => region === 'All' || asset.region === region)
+            .map((asset) => asset.symbol)
+        : []),
+      ...(visible('chart') ? [selected, '^GSPC', '^VIX'] : []),
+      ...(visible('sectors') || visible('chart') ? sectors.map(([, symbol]) => symbol) : []),
+    ]),
+  ]);
   useEffect(() => {
     try {
       const parsed = blockSchema.safeParse(
@@ -103,7 +109,9 @@ export default function MarketOverview() {
       .map((price, index) => ({ price, date: chart.timestamps[index] }))
       .slice(range ? -range - 1 : 0) || [];
   const periodChange =
-    chartData.length > 1 && chartData[0].price > 0 ? (chartData.at(-1)!.price / chartData[0].price - 1) * 100 : null;
+    chartData.length > 1 && chartData[0].price > 0
+      ? (chartData.at(-1)!.price / chartData[0].price - 1) * 100
+      : null;
   const selectedAsset = instruments.find(({ symbol }) => symbol === selected)!;
   const breadthValues = sectors
     .map(([, symbol]) => seriesChange(entries[symbol]?.data))
@@ -268,7 +276,12 @@ export default function MarketOverview() {
                         }
                       >
                         <div className="market-quote-top">
-                          <span className="market-quote-name">{name}</span>
+                          <span className="market-quote-identity">
+                            <span className="market-quote-mark" aria-hidden>
+                              {name.slice(0, 1)}
+                            </span>
+                            <span className="market-quote-name">{name}</span>
+                          </span>
                           <ArrowUpRight size={13} />
                         </div>
                         <div className="market-quote-body">
@@ -319,8 +332,16 @@ export default function MarketOverview() {
                   <div>
                     <div className="market-chart-name">
                       <span className="market-asset-mark">{selectedAsset.name.slice(0, 1)}</span>
-                      <h2><Link href={researchUrl(selected, true)} className="hover:underline">{selectedAsset.name}</Link></h2>
-                      <span className="market-unit">{selectedAsset.type === 'Index' ? 'points' : chart?.currency || selectedAsset.type}</span>
+                      <h2>
+                        <Link href={researchUrl(selected, true)} className="hover:underline">
+                          {selectedAsset.name}
+                        </Link>
+                      </h2>
+                      <span className="market-unit">
+                        {selectedAsset.type === 'Index'
+                          ? 'points'
+                          : chart?.currency || selectedAsset.type}
+                      </span>
                     </div>
                     <div className="market-chart-price">
                       <strong>
@@ -370,7 +391,10 @@ export default function MarketOverview() {
                 </div>
                 <div className="market-history-canvas">
                   {chart ? (
-                    <MarketChart data={chartData} currency={selectedAsset.type === 'Index' ? 'points' : chart.currency} />
+                    <MarketChart
+                      data={chartData}
+                      currency={selectedAsset.type === 'Index' ? 'points' : chart.currency}
+                    />
                   ) : (
                     <div
                       className={
@@ -398,7 +422,9 @@ export default function MarketOverview() {
                   <span>
                     {chart
                       ? 'Observed ' + new Date(chart.observedAt).toLocaleString()
-                    : entries[selected]?.error ? 'No observations available' : 'Loading daily observations'}
+                      : entries[selected]?.error
+                        ? 'No observations available'
+                        : 'Loading daily observations'}
                     {entries[selected]?.error && chart ? ' · Stale data' : ''}
                   </span>
                   <span>Daily bars · Delayed</span>
@@ -409,7 +435,9 @@ export default function MarketOverview() {
                   <h2>Market pulse</h2>
                   <span className="market-model-badge">Model</span>
                 </div>
-                <p className="terminal-note">US equities · S&amp;P 500 trend, volatility and sector breadth</p>
+                <p className="terminal-note">
+                  US equities · S&amp;P 500 trend, volatility and sector breadth
+                </p>
                 <div className="market-pulse-score">
                   <strong>
                     {score ?? '—'}

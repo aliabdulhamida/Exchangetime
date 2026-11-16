@@ -33,7 +33,11 @@ const quickActions = [
   { label: 'Financial goal', key: 'FinancialGoals', command: 'Create a financial goal' },
   { label: 'Journal entry', key: 'TradeJournal', command: 'Add a trade journal entry' },
 ];
-const commandLabels = [...workspaces.map(item => item.label), ...quickActions.map(item => item.command), 'Open market radio'];
+const commandLabels = [
+  ...workspaces.map((item) => item.label),
+  ...quickActions.map((item) => item.command),
+  'Open market radio',
+];
 
 export default function TopNav() {
   const [open, setOpen] = useState(false);
@@ -48,7 +52,7 @@ export default function TopNav() {
   const params = useSearchParams();
   const current = workspaces.find((item) => item.key === params?.get('view')) ?? workspaces[0];
   const symbol = query.trim().toUpperCase();
-  const isCommand = commandLabels.some(label => rankWorkspaceCommand(label, query) >= 0.75);
+  const isCommand = commandLabels.some((label) => rankWorkspaceCommand(label, query) >= 0.75);
   const validSymbol = isPriceSymbol(symbol) && !isCommand;
   useEffect(() => {
     const toggle = (event: KeyboardEvent) => {
@@ -58,6 +62,7 @@ export default function TopNav() {
       }
     };
     const search = () => setOpen(true);
+    const radio = () => setRadioOpen(true);
     const findAsset = (event: Event) => {
       const term = (event as CustomEvent<unknown>).detail;
       setQuery(typeof term === 'string' ? term : '');
@@ -71,11 +76,13 @@ export default function TopNav() {
     };
     window.addEventListener('keydown', toggle);
     window.addEventListener('et-search', search);
+    window.addEventListener('et-radio', radio);
     window.addEventListener('et-asset-search', findAsset);
     window.addEventListener('et-watchlist', list);
     return () => {
       window.removeEventListener('keydown', toggle);
       window.removeEventListener('et-search', search);
+      window.removeEventListener('et-radio', radio);
       window.removeEventListener('et-asset-search', findAsset);
       window.removeEventListener('et-watchlist', list);
     };
@@ -85,7 +92,10 @@ export default function TopNav() {
     input.current?.focus();
   }
   useEffect(() => {
-    if (!open) { setQuery(''); setAssetMode(false); }
+    if (!open) {
+      setQuery('');
+      setAssetMode(false);
+    }
   }, [open]);
   function visit(url: string) {
     setOpen(false);
@@ -94,10 +104,21 @@ export default function TopNav() {
   }
   return (
     <nav className="terminal-toolbar" aria-label="Global tools">
+      <Link href="/dashboard" className="product-mobile-brand">
+        Exchange Time<span aria-hidden>↗</span>
+      </Link>
       <div className="terminal-breadcrumb" aria-label="Current workspace">
         <Link href="/tools">Workspaces</Link>
         <ChevronRight size={12} />
-        <strong>{pathname === '/dashboard' ? current.section : pathname === '/tools' ? 'Directory' : pathname?.startsWith('/blog') ? 'Research library' : 'Privacy & data'}</strong>
+        <strong>
+          {pathname === '/dashboard'
+            ? current.section
+            : pathname === '/tools'
+              ? 'Directory'
+              : pathname?.startsWith('/blog')
+                ? 'Research library'
+                : 'Privacy & data'}
+        </strong>
       </div>
       <button
         className="terminal-search"
@@ -109,10 +130,13 @@ export default function TopNav() {
         <span className="flex-1 truncate">Search…</span>
         <kbd>⌘ K</kbd>
       </button>
-      <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+      <div className="hidden shrink-0 items-center gap-3 lg:flex">
         <button
           className="terminal-icon"
-          onClick={() => { setWatchTicker(''); setWatchlist(true); }}
+          onClick={() => {
+            setWatchTicker('');
+            setWatchlist(true);
+          }}
           aria-label="Open watchlist"
           title="Watchlists"
         >
@@ -128,7 +152,12 @@ export default function TopNav() {
           />
         )}
         <span className="hidden lg:block">
-          <TuneInRadioButton mode="nav" className="terminal-button" open={radioOpen} onOpenChange={setRadioOpen} />
+          <TuneInRadioButton
+            mode="nav"
+            className="terminal-button"
+            open={radioOpen}
+            onOpenChange={setRadioOpen}
+          />
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -143,7 +172,10 @@ export default function TopNav() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {quickActions.map(({ label, key }) => (
-              <DropdownMenuItem key={key} onSelect={() => visit(workspaceUrl(key) + '&compose=new')}>
+              <DropdownMenuItem
+                key={key}
+                onSelect={() => visit(workspaceUrl(key) + '&compose=new')}
+              >
                 {label}
                 <ArrowUpRight size={13} className="ml-auto" />
               </DropdownMenuItem>
@@ -151,7 +183,7 @@ export default function TopNav() {
           </DropdownMenuContent>
         </DropdownMenu>
         <button
-          className="terminal-icon"
+          className="terminal-icon hidden lg:inline-flex"
           onClick={() => window.dispatchEvent(new Event('et-settings'))}
           aria-label="Workspace preferences"
           title="Workspace preferences"
@@ -159,82 +191,140 @@ export default function TopNav() {
           <Settings2 size={17} />
         </button>
       </div>
-      <CommandDialog open={open} onOpenChange={setOpen} filter={rankWorkspaceCommand} shouldFilter={!assetMode}>
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        filter={rankWorkspaceCommand}
+        shouldFilter={!assetMode}
+      >
         <CommandInput
           ref={input}
           value={query}
           onValueChange={setQuery}
           aria-label={assetMode ? 'Find an instrument' : 'Search workspaces and commands'}
-          placeholder={assetMode ? 'Company, fund, index, or ticker…' : 'Search workspaces or find an instrument…'}
+          placeholder={
+            assetMode
+              ? 'Company, fund, index, or ticker…'
+              : 'Search workspaces or find an instrument…'
+          }
         />
         <div className="search-scope" aria-label="Search in">
-          <button type="button" aria-pressed={!assetMode} onClick={() => changeScope(false)}>Workspaces</button>
-          <button type="button" aria-pressed={assetMode} onClick={() => changeScope(true)}>Instruments</button>
+          <button type="button" aria-pressed={!assetMode} onClick={() => changeScope(false)}>
+            Workspaces
+          </button>
+          <button type="button" aria-pressed={assetMode} onClick={() => changeScope(true)}>
+            Instruments
+          </button>
         </div>
         <CommandList>
-          {assetMode ? <AssetSearchResults query={query} visit={visit} /> : <>
-          {query.trim().length >= 2 && !isCommand &&
-            <CommandGroup heading="Instrument directory"><CommandItem value={query.trim()} onSelect={() => changeScope(true)}>
-              <Search size={16} /> Find “{query.trim()}” by name or ticker
-            </CommandItem></CommandGroup>}
-          {validSymbol && (
-            <CommandGroup heading="Asset">
-              {/^[A-Z0-9][A-Z0-9._-]{0,14}$/.test(symbol) && <CommandItem
-                value={symbol + ' research'}
-                onSelect={() =>
-                  visit(workspaceUrl('StockAnalysis') + '&symbol=' + encodeURIComponent(symbol))
-                }
-              >
-                <Search size={16} />
-                Research {symbol}
-              </CommandItem>}
-              <CommandItem value={symbol + ' compare prices'} onSelect={() => visit(workspaceUrl('AssetComparison') + '&symbol=' + encodeURIComponent(symbol))}>
-                Compare {symbol}
-              </CommandItem>
-              <CommandItem
-                value={symbol + ' chart'}
-                onSelect={() =>
-                  visit(workspaceUrl('TechnicalAnalysis') + '&symbol=' + encodeURIComponent(symbol))
-                }
-              >
-                Chart {symbol}
-              </CommandItem>
-            </CommandGroup>
-          )}
-          <CommandEmpty>No matching workspace.</CommandEmpty>
-          <CommandGroup heading="Actions">
-            {quickActions.map(action => <CommandItem key={action.key} value={action.command}
-              onSelect={() => visit(workspaceUrl(action.key) + '&compose=new')}><Plus size={16} />{action.command}</CommandItem>)}
-            <CommandItem value="Open market radio" keywords={['Listen to financial news TuneIn stations']}
-              onSelect={() => { setOpen(false); setRadioOpen(true); }}>Open market radio</CommandItem>
-          </CommandGroup>
-          {Object.keys(sections).map((section) => (
-            <CommandGroup key={section} heading={section}>
-              {workspaces
-                .filter((item) => item.section === section)
-                .map((item) => (
+          {assetMode ? (
+            <AssetSearchResults query={query} visit={visit} />
+          ) : (
+            <>
+              {query.trim().length >= 2 && !isCommand && (
+                <CommandGroup heading="Instrument directory">
+                  <CommandItem value={query.trim()} onSelect={() => changeScope(true)}>
+                    <Search size={16} /> Find “{query.trim()}” by name or ticker
+                  </CommandItem>
+                </CommandGroup>
+              )}
+              {validSymbol && (
+                <CommandGroup heading="Asset">
+                  {/^[A-Z0-9][A-Z0-9._-]{0,14}$/.test(symbol) && (
+                    <CommandItem
+                      value={symbol + ' research'}
+                      onSelect={() =>
+                        visit(
+                          workspaceUrl('StockAnalysis') + '&symbol=' + encodeURIComponent(symbol),
+                        )
+                      }
+                    >
+                      <Search size={16} />
+                      Research {symbol}
+                    </CommandItem>
+                  )}
                   <CommandItem
-                    key={item.key}
-                    value={item.label}
-                    keywords={[section, workspaceDescriptions[item.key] || '']}
-                    onSelect={() => visit(workspaceUrl(item.key))}
+                    value={symbol + ' compare prices'}
+                    onSelect={() =>
+                      visit(
+                        workspaceUrl('AssetComparison') + '&symbol=' + encodeURIComponent(symbol),
+                      )
+                    }
                   >
-                    {item.label}
-                    <ArrowUpRight size={13} className="ml-auto text-muted-foreground" />
+                    Compare {symbol}
+                  </CommandItem>
+                  <CommandItem
+                    value={symbol + ' chart'}
+                    onSelect={() =>
+                      visit(
+                        workspaceUrl('TechnicalAnalysis') + '&symbol=' + encodeURIComponent(symbol),
+                      )
+                    }
+                  >
+                    Chart {symbol}
+                  </CommandItem>
+                </CommandGroup>
+              )}
+              <CommandEmpty>No matching workspace.</CommandEmpty>
+              <CommandGroup heading="Actions">
+                {quickActions.map((action) => (
+                  <CommandItem
+                    key={action.key}
+                    value={action.command}
+                    onSelect={() => visit(workspaceUrl(action.key) + '&compose=new')}
+                  >
+                    <Plus size={16} />
+                    {action.command}
                   </CommandItem>
                 ))}
-            </CommandGroup>
-          ))}
-          <CommandGroup heading="Library">
-            <CommandItem value="Workspace directory all tools workflows" onSelect={() => visit('/tools')}>Browse all tools</CommandItem>
-            <CommandItem onSelect={() => visit('/blog')}>
-              <BookOpen size={16} />
-              Research articles
-            </CommandItem>
-          </CommandGroup>
-          </>}
+                <CommandItem
+                  value="Open market radio"
+                  keywords={['Listen to financial news TuneIn stations']}
+                  onSelect={() => {
+                    setOpen(false);
+                    setRadioOpen(true);
+                  }}
+                >
+                  Open market radio
+                </CommandItem>
+              </CommandGroup>
+              {Object.keys(sections).map((section) => (
+                <CommandGroup key={section} heading={section}>
+                  {workspaces
+                    .filter((item) => item.section === section)
+                    .map((item) => (
+                      <CommandItem
+                        key={item.key}
+                        value={item.label}
+                        keywords={[section, workspaceDescriptions[item.key] || '']}
+                        onSelect={() => visit(workspaceUrl(item.key))}
+                      >
+                        {item.label}
+                        <ArrowUpRight size={13} className="ml-auto text-muted-foreground" />
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              ))}
+              <CommandGroup heading="Library">
+                <CommandItem
+                  value="Workspace directory all tools workflows"
+                  onSelect={() => visit('/tools')}
+                >
+                  Browse all tools
+                </CommandItem>
+                <CommandItem onSelect={() => visit('/blog')}>
+                  <BookOpen size={16} />
+                  Research articles
+                </CommandItem>
+              </CommandGroup>
+            </>
+          )}
         </CommandList>
-        {assetMode && <p className="asset-search-footnote">Instrument names and tickers are looked up on Yahoo Finance.</p>}
+        {assetMode && (
+          <p className="asset-search-footnote">
+            Instrument names and tickers are looked up on Yahoo Finance.
+          </p>
+        )}
       </CommandDialog>
     </nav>
   );

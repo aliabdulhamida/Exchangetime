@@ -4,7 +4,7 @@ import { siteOperator } from './site-operator';
 
 afterEach(() => vi.unstubAllEnvs());
 
-it('does not treat a brand and existing contact address as a completed legal identity', () => {
+it('uses the confirmed identity but keeps missing editorial and hosting details incomplete', () => {
   for (const name of [
     'SITE_OPERATOR_NAME',
     'SITE_EDITOR_NAME',
@@ -13,7 +13,21 @@ it('does not treat a brand and existing contact address as a completed legal ide
   ])
     vi.stubEnv(name, '');
   expect(siteOperator().complete).toBe(false);
-  expect(siteOperator().name).toBe('');
+  expect(siteOperator().name).toBe('Ali Abdul Hamid Hassan');
+  expect(siteOperator().hosting).toContain('GitHub and Vercel');
+  expect(siteOperator().hosting).toContain('Washington, D.C., United States (region iad1)');
+  expect(siteOperator().hosting).toContain('log retention periods');
+  expect(siteOperator().hosting).toContain('still need to be confirmed');
+});
+
+it('uses the confirmed new address without treating unknown hosting terms as complete', () => {
+  vi.stubEnv('SITE_OPERATOR_ADDRESS', '');
+  vi.stubEnv('SITE_HOSTING_DISCLOSURE', '');
+  vi.stubEnv('SITE_OPERATOR_NAME', 'Test operator');
+  vi.stubEnv('SITE_EDITOR_NAME', 'Test editor');
+  vi.stubEnv('SITE_EDITOR_ADDRESS', 'Test editor address');
+  expect(siteOperator().address).toBe('Frieda-Seidlitz-Straße 6\n13086 Berlin\nGermany');
+  expect(siteOperator().complete).toBe(false);
 });
 
 it('keeps public operator details configurable without inventing an editor', () => {

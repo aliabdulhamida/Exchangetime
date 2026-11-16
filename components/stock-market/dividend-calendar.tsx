@@ -4,6 +4,7 @@ import { CalendarX, ChevronLeft, ChevronRight, Filter, RefreshCw, X } from 'luci
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { CalendarWeekStrip, ToolEmptyState } from '@/components/exchangetime/tool-ui';
 import { useCalendarFeed } from '@/components/exchangetime/use-calendar-feed';
 
 type DividendCalendarItem = {
@@ -20,7 +21,6 @@ type DividendCalendarItem = {
   recordDate: string;
   paymentDate: string;
 };
-
 
 function toLocalDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -52,7 +52,13 @@ export default function DividendCalendar() {
   const today = new Date();
   const [weekStart, setWeekStart] = useState<Date>(() => toWeekStart(today));
   const [selectedDayIdx, setSelectedDayIdx] = useState((today.getDay() + 6) % 7);
-  const { data: dividendData, loading: loading, notice, retrieved, refresh } = useCalendarFeed<DividendCalendarItem>('/api/dividends');
+  const {
+    data: dividendData,
+    loading: loading,
+    notice,
+    retrieved,
+    refresh,
+  } = useCalendarFeed<DividendCalendarItem>('/api/dividends');
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState({
     ticker: '',
@@ -74,12 +80,12 @@ export default function DividendCalendar() {
   const items = dividendData[selectedKey] || [];
   const allItems = Object.values(dividendData).flat();
 
-
   const minYield = Number(filters.minYield);
   const hasMinYield = filters.minYield.trim() !== '' && Number.isFinite(minYield);
 
-  const marketOptions = [...new Set(allItems.map((item) => String(item.market || '').trim()).filter(Boolean))]
-    .sort();
+  const marketOptions = [
+    ...new Set(allItems.map((item) => String(item.market || '').trim()).filter(Boolean)),
+  ].sort();
   const exchangeOptions = [
     ...new Set(allItems.map((item) => String(item.exchange || '').trim()).filter(Boolean)),
   ].sort();
@@ -91,7 +97,8 @@ export default function DividendCalendar() {
   ].sort();
 
   const filteredItems = items.filter((item) => {
-    if (filters.ticker && !item.symbol.toLowerCase().includes(filters.ticker.toLowerCase())) return false;
+    if (filters.ticker && !item.symbol.toLowerCase().includes(filters.ticker.toLowerCase()))
+      return false;
     if (hasMinYield) {
       if (item.forwardYieldPct === null) return false;
       if (item.forwardYieldPct < minYield) return false;
@@ -104,12 +111,18 @@ export default function DividendCalendar() {
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col px-1 pb-1 sm:px-2 sm:pb-2">
+    <div className="calendar-workspace flex h-full min-h-0 flex-col">
       <div className="mb-3 flex items-center justify-between pr-16 sm:mb-4 sm:pr-20">
-        <p className="workspace-source" role="status">Source: Nasdaq · Calendar feed · {retrieved ? 'Retrieved ' + new Date(retrieved).toLocaleString() : 'Retrieval time unavailable'}{notice && ' · ' + notice}</p>
+        <p className="workspace-source" role="status">
+          Source: Nasdaq · Calendar feed ·{' '}
+          {retrieved
+            ? 'Retrieved ' + new Date(retrieved).toLocaleString()
+            : 'Retrieval time unavailable'}
+          {notice && ' · ' + notice}
+        </p>
       </div>
 
-      <div className="mb-2 flex items-center justify-center gap-2 text-center">
+      <div className="calendar-period mb-2 flex items-center justify-center gap-2 text-center">
         <button
           type="button"
           className="flex h-7 w-7 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
@@ -143,29 +156,7 @@ export default function DividendCalendar() {
         </button>
       </div>
 
-      <div className="mb-4 overflow-x-auto pb-1">
-        <div className="mx-auto flex w-max gap-2 px-1 sm:gap-3">
-          {weekDates.map((date, idx) => {
-            const isSelected = selectedDayIdx === idx;
-            return (
-              <button
-                key={date.toISOString()}
-                onClick={() => setSelectedDayIdx(idx)}
-                className={`flex min-w-[42px] flex-col items-center justify-center rounded-md border px-2 py-1.5 text-sm font-semibold transition-all duration-150 sm:min-w-[46px] ${
-                  isSelected
-                    ? 'scale-[1.02] border-white text-white shadow-[0_0_0_1px_rgba(255,255,255,0.14)]'
-                    : 'border-border text-foreground hover:bg-muted/40'
-                }`}
-              >
-                <span className="text-base font-bold">{date.getDate()}</span>
-                <span className="mt-0.5 text-[11px] font-medium">
-                  {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <CalendarWeekStrip dates={weekDates} selected={selectedDayIdx} onSelect={setSelectedDayIdx} />
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="relative flex items-center gap-2">
@@ -309,12 +300,20 @@ export default function DividendCalendar() {
         }
       `}</style>
 
-
       {filteredItems.length === 0 ? (
-        <div className="flex min-h-[80px] flex-1 flex-col items-center justify-center text-sm text-muted-foreground">
-          <CalendarX className="mb-1 h-5 w-5" />
-          <span className="block text-center">{loading ? 'Checking calendar…' : notice ? 'No confirmed entries available for this selection.' : !Object.hasOwn(dividendData, selectedKey) ? 'No provider coverage for this date.' : 'No matching events on this date.'}</span>
-        </div>
+        <ToolEmptyState
+          icon={<CalendarX size={25} strokeWidth={1.5} />}
+          title="Your calendar, at a glance"
+          description={
+            loading
+              ? 'Checking calendar…'
+              : notice
+                ? 'No confirmed entries available for this selection.'
+                : !Object.hasOwn(dividendData, selectedKey)
+                  ? 'No provider coverage for this date.'
+                  : 'No matching events on this date.'
+          }
+        />
       ) : (
         <div className="et-scrollbar min-h-[260px] flex-1 space-y-3 overflow-y-auto pr-1 sm:min-h-[360px] sm:pr-2 lg:min-h-0">
           {filteredItems.map((item, idx) => (
@@ -324,16 +323,17 @@ export default function DividendCalendar() {
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-lg font-bold tracking-wide text-foreground sm:text-xl">
-                  <Link href={'/dashboard?view=StockAnalysis&symbol=' + encodeURIComponent(item.symbol)}>{item.symbol} ↗</Link>
+                  <Link
+                    href={'/dashboard?view=StockAnalysis&symbol=' + encodeURIComponent(item.symbol)}
+                  >
+                    {item.symbol} ↗
+                  </Link>
                 </span>
               </div>
               <p className="mb-3 text-xs text-muted-foreground">{item.company}</p>
-              {[
-                item.exchange,
-                item.instrumentType,
-                item.currency,
-                item.market,
-              ].some((value) => value && String(value).trim().length > 0) && (
+              {[item.exchange, item.instrumentType, item.currency, item.market].some(
+                (value) => value && String(value).trim().length > 0,
+              ) && (
                 <p className="mb-3 text-[11px] uppercase tracking-wide text-muted-foreground/80">
                   {[item.exchange, item.instrumentType, item.currency, item.market]
                     .filter((value) => value && String(value).trim().length > 0)

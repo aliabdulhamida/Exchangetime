@@ -11,6 +11,10 @@ This is a technical implementation and issue list, not a legal compliance certif
 
 ## Must be completed before publication
 
+The operator has explicitly confirmed the publication name Ali Abdul Hamid Hassan and the contact email info@exchangetime.de. Editorial responsibility has not yet been separately confirmed. A Vercel settings screenshot shows Washington, D.C., United States (iad1) selected for Functions, and the operator explicitly chose to retain this region for a US audience. The English privacy disclosure records this configuration, possible US processing and global CDN delivery without claiming that all processing takes place in one location. Log retention and applicable international transfer safeguards remain unconfirmed.
+
+The operator confirmed the public address as Frieda-Seidlitz-Straße 6, 13086 Berlin, Germany and named GitHub/Vercel as hosting/deployment services. Processing locations beyond the selected function region, log retention and transfer safeguards remain unconfirmed. The project is described as a personal project but has used AdSense; this must not be interpreted as a blanket exemption from provider-information or privacy obligations. Do not publish the revenue amount as legal-notice content. The responsible editor remains unconfirmed.
+
 1. Actual operator legal name, address, email; legal form, representative, registry, VAT identification and professional/regulatory details where applicable. DDG applicability depends on service and operation; non-private media may also be covered by MStV. Never add a private tax number.
 2. Real qualified responsible editor with name/address for the regular journalistic Research Library. An AI cannot be named as this person.
 3. Hosting provider, processing locations, processors/subprocessors, retention, legal bases and transfer safeguards; confirm the existing address/email. Check Art. 28 processing agreements as applicable. The privacy page remains a visibly incomplete draft until operations are confirmed.

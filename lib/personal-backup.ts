@@ -25,7 +25,7 @@ const groups = {
 } as const;
 
 type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
-const envelope = z.object({ format: z.literal('exchange-time/personal'), version: z.literal(1), records: z.record(z.string()) });
+const envelope = z.object({ format: z.literal('exchange-time/personal'), version: z.literal(1), records: z.record(z.string(), z.string()) });
 export function readBackup(input: string) {
   const backup = envelope.parse(JSON.parse(input));
   const entries = Object.entries(backup.records).map(([key, raw]) => {

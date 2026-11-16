@@ -1,8 +1,6 @@
 'use client';
 
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import { Facebook, Linkedin, Mail, Link as LinkIcon, Download, Check } from 'lucide-react';
+import { Facebook, Linkedin, Mail, Link as LinkIcon, Check } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { SiX as XBrand } from 'react-icons/si';
 
@@ -15,7 +13,6 @@ interface ShareButtonsProps {
 
 export default function ShareButtons({ title, url }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Handle copy link button
@@ -48,67 +45,6 @@ export default function ShareButtons({ title, url }: ShareButtonsProps) {
         variant: 'destructive',
         className: 'p-2 pr-3',
       });
-    }
-  };
-
-  const handleDownloadPdf = async () => {
-    if (isGeneratingPdf) return;
-    try {
-      setIsGeneratingPdf(true);
-      const currentUrl = typeof window !== 'undefined' ? window.location.href : url;
-      if (!currentUrl) return;
-      const res = await fetch(`/api/pdf?url=${encodeURIComponent(currentUrl)}`);
-      if (res.ok) {
-        const blob = await res.blob();
-        const fileUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = fileUrl;
-        const safeTitle = (title || document.title || 'blog-post')
-          .toLowerCase()
-          .trim()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '');
-        a.download = `${safeTitle || 'blog-post'}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(fileUrl);
-        return;
-      }
-      // Fallback to client-side PDF generation
-      const article = document.querySelector('article') as HTMLElement | null;
-      const target = article || document.body;
-      // Use white background for consistency
-      const canvas = await html2canvas(target, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-      });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const pxToMm = 0.264583; // 1px = 0.264583 mm
-      const imgWidthMm = canvas.width * pxToMm;
-      const imgHeightMm = canvas.height * pxToMm;
-      const ratio = Math.min(pageWidth / imgWidthMm, pageHeight / imgHeightMm);
-      const w = imgWidthMm * ratio;
-      const h = imgHeightMm * ratio;
-      const x = (pageWidth - w) / 2;
-      const y = 10; // top margin
-      pdf.addImage(imgData, 'PNG', x, y, w, h, undefined, 'FAST');
-      const safeTitle = (title || document.title || 'blog-post')
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-      pdf.save(`${safeTitle || 'blog-post'}.pdf`);
-      toast({ title: 'PDF erstellt (Fallback)', duration: 1500 });
-    } catch (e) {
-      if (typeof window !== 'undefined') console.error('PDF download failed', e);
-      toast({ title: 'PDF konnte nicht erstellt werden', variant: 'destructive', duration: 2000 });
-    } finally {
-      setIsGeneratingPdf(false);
     }
   };
 
@@ -174,16 +110,6 @@ export default function ShareButtons({ title, url }: ShareButtonsProps) {
           <LinkIcon size={16} />
         )}
         {copied && <span className="sr-only">Link copied!</span>}
-      </button>
-      {/* Right-aligned Download button */}
-      <button
-        onClick={handleDownloadPdf}
-        aria-label="Als PDF herunterladen"
-        title={isGeneratingPdf ? 'Erzeuge PDF…' : 'Als PDF herunterladen'}
-        disabled={isGeneratingPdf}
-        className="share-button ml-auto disabled:opacity-60"
-      >
-        <Download size={16} />
       </button>
     </div>
   );

@@ -10,7 +10,6 @@ import {
   PanelLeftOpen,
   PieChart,
   Settings2,
-  Star,
   Wallet,
   Wrench,
 } from 'lucide-react';
@@ -18,6 +17,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
+import MobileNavigation from './mobile-navigation';
 import { sections, workspaces, workspaceUrl } from './product-model';
 import { usePinnedWorkspaces } from './use-pinned-workspaces';
 
@@ -148,45 +148,7 @@ export default function TerminalNav() {
           )}
         </div>
       </aside>
-      <nav className="terminal-bottom-nav" aria-label="Mobile navigation">
-        <Link
-          href={workspaceUrl('MarketOverview')}
-          aria-current={
-            pathname === '/dashboard' && current in sections.Markets ? 'page' : undefined
-          }
-        >
-          <Globe2 size={20} />
-          <span>Markets</span>
-        </Link>
-        <Link
-          href={workspaceUrl('PortfolioTracker')}
-          aria-current={current === 'PortfolioTracker' ? 'page' : undefined}
-        >
-          <PieChart size={20} />
-          <span>Portfolio</span>
-        </Link>
-        <button onClick={() => window.dispatchEvent(new Event('et-watchlist'))}>
-          <Star size={20} />
-          <span>Watchlist</span>
-        </button>
-        <Link href={workspaceUrl('News')} aria-current={current === 'News' ? 'page' : undefined}>
-          <BookOpen size={20} />
-          <span>News</span>
-        </Link>
-        <Link
-          href="/tools"
-          aria-current={pathname === '/tools' ? 'page' : undefined}
-          data-active={
-            pathname === '/tools' ||
-            current in sections.Trading ||
-            current in sections['Personal Finance'] ||
-            current in sections.Calendar
-          }
-        >
-          <Wrench size={20} />
-          <span>Tools</span>
-        </Link>
-      </nav>
+      <MobileNavigation />
     </>
   );
 }

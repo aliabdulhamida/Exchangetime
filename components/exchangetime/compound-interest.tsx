@@ -152,9 +152,9 @@ export default function CompoundInterestCalculator() {
   const inflationPresets = [0, 2, 3, 5, 7] as const;
 
   return (
-    <div className="flex w-full flex-col gap-4 xl:flex-row xl:items-start">
+    <div className="compound-workspace flex w-full flex-col gap-4 xl:flex-row xl:items-start">
       <div className="xl:hidden">
-        <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
+        <div className="tool-segmented grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
           <button
             type="button"
             onClick={() => setMobilePanel('inputs')}
@@ -183,7 +183,7 @@ export default function CompoundInterestCalculator() {
       </div>
 
       <form
-        className={`w-full rounded-xl border border-border bg-background/40 p-4 sm:p-5 xl:block xl:max-w-md ${
+        className={`compound-input-surface w-full rounded-xl border border-border bg-background/40 p-4 sm:p-5 xl:block xl:max-w-md ${
           mobilePanel === 'inputs' ? 'block' : 'hidden'
         }`}
         onSubmit={(event) => event.preventDefault()}
@@ -387,7 +387,7 @@ export default function CompoundInterestCalculator() {
       </form>
 
       <div
-        className={`w-full min-w-0 flex-1 flex-col gap-3 xl:flex ${
+        className={`compound-results w-full min-w-0 flex-1 flex-col gap-3 xl:flex ${
           mobilePanel === 'results' ? 'flex' : 'hidden'
         }`}
       >

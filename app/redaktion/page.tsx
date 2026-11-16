@@ -3,49 +3,47 @@ import Link from 'next/link';
 
 import Layout from '@/components/exchangetime/layout';
 
-export const metadata: Metadata = { title: 'Redaktion & KI · Exchange Time' };
-
+export const metadata: Metadata = { title: 'Editorial & AI policy · Exchange Time' };
 export default function EditorialPolicy() {
   return (
     <Layout>
       <article
-        lang="de"
+        lang="en"
         className="blog-container max-w-3xl mx-auto prose prose-lg dark:prose-invert"
       >
-        <h1>Redaktion & KI</h1>
-        <h2>Quellen statt erfundener Gewissheit</h2>
+        <h1>Editorial &amp; AI policy</h1>
+        <h2>Traceable sources</h2>
         <p>
-          Wochenrückblicke enthalten nachvollziehbare Quellen für Zahlen und Aussagen.
-          Veröffentlichungszeitpunkt und betrachteter Zeitraum werden getrennt angegeben. Fehlende
-          Daten werden nicht durch Schätzungen ersetzt, ohne diese kenntlich zu machen. Die
-          Strukturprüfung ersetzt keine sachliche Prüfung der Originalquellen.
+          Weekly reviews link factual claims and market figures to their sources. Publication time
+          and the reporting period are stated separately. Missing information is not silently
+          replaced by estimates. Structural validation is not a substitute for checking the original
+          source.
         </p>
-        <h2>Kennzeichnung</h2>
+        <h2>AI transparency</h2>
         <p>
-          Die automatischen Wochenrückblicke werden mit KI recherchiert und formuliert; dies wird am
-          Artikelanfang offengelegt. Es wird keine menschliche redaktionelle Freigabe behauptet,
-          wenn sie nicht tatsächlich stattgefunden hat. KI-generierte Bilder werden als Symbolbilder
-          bezeichnet und dokumentieren keine echten Ereignisse.
+          Automated weekly reviews are researched and written with AI assistance, disclosed at the
+          beginning of the article. We do not claim human editorial approval unless it has actually
+          occurred. AI-generated pictures are labelled as symbolic illustrations and do not document
+          actual events.
         </p>
-        <h2>Bilder und Rechte</h2>
+        <h2>Images and usage rights</h2>
         <p>
-          Neue Artikel nutzen lokal gespeicherte, eigens generierte Illustrationen oder nachweisbar
-          nutzbare Bilder mit Herkunfts- und Lizenzangaben. „Im Internet auffindbar“ bedeutet nicht
-          frei verwendbar. Bei Korrekturen bleiben Bildnachweise und Quellenangaben nachvollziehbar.
+          New reviews use locally stored, purpose-generated illustrations or images with verified
+          usage rights and origin/licence information. Finding an image online does not make it free
+          to use. Credits and source references must remain traceable when corrections are made.
         </p>
-        <h2>Finanzinformationen und Interessen</h2>
+        <h2>Financial information and interests</h2>
         <p>
-          Marktrückblicke sind keine auf persönliche Umstände abgestimmte Beratung. Sollten konkrete
-          Anlageempfehlungen, Vergütungen, Sponsoring oder relevante Interessenkonflikte vorliegen,
-          müssen diese gesondert geprüft und am betroffenen Inhalt transparent angegeben werden. Ein
-          allgemeiner Haftungshinweis ersetzt diese Pflichten nicht.
+          Market commentary is not advice tailored to personal circumstances. Specific investment
+          recommendations, compensation, sponsorship or material conflicts of interest require
+          separate assessment and appropriate disclosure alongside the affected content. A general
+          disclaimer does not replace these obligations.
         </p>
-        <h2>Korrekturen</h2>
+        <h2>Corrections</h2>
         <p>
-          Fehlerhinweise können über den Kontakt im <Link href="/impressum">Impressum</Link>{' '}
-          gemeldet werden. Wesentliche inhaltliche Korrekturen müssen mit Datum am Artikel kenntlich
-          gemacht werden; bereits veröffentlichte Wochenrückblicke werden nicht stillschweigend
-          überschrieben.
+          Report errors using the contact in our <Link href="/impressum">legal notice</Link>.
+          Material corrections must be dated and identified in the affected article; published
+          weekly reviews must not be silently overwritten.
         </p>
       </article>
     </Layout>

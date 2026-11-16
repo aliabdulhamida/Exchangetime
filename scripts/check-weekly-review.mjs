@@ -67,7 +67,7 @@ try {
       const legal = await page.goto(base + route, { waitUntil: 'networkidle2' });
       assert.equal(legal.status(), 200);
       await page.waitForSelector(
-        'footer[aria-label="Rechtliche Informationen"] a[href="/impressum"]',
+        'footer[aria-label="Legal information"] a[href="/impressum"]',
       );
       if (route !== '/redaktion') await page.waitForSelector('article [role="alert"]');
     }
