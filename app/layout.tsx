@@ -5,6 +5,7 @@ import Script from 'next/script';
 import './globals.css';
 import '@/styles/terminal.css';
 import '@/styles/product.css';
+import '@/styles/tools.css';
 import '@/styles/button-animations.css';
 import '@/styles/toggle-button.css';
 import NumericKeypad from '@/components/numeric-keypad';

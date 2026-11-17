@@ -13,6 +13,7 @@ import {
 
 import PersonalBackup from './personal-backup';
 import { workspaces } from './product-model';
+import { ToolSegmented } from './tool-ui';
 
 export default function Preferences() {
   const { theme, setTheme } = useTheme();
@@ -51,23 +52,11 @@ export default function Preferences() {
         </DialogHeader>
         <fieldset className="preference-options">
           <legend>Appearance</legend>
-          <div className="preference-segmented">
-            {['system', 'light', 'dark'].map((option) => (
-              <button key={option} type="button" aria-pressed={(theme || 'system') === option} onClick={() => setTheme(option)}>
-                {option === 'system' ? 'Automatic' : option === 'light' ? 'Light' : 'Dark'}
-              </button>
-            ))}
-          </div>
+          <ToolSegmented label="Appearance" value={theme || 'system'} onChange={setTheme} fullWidth options={[{ value: 'system', label: 'Automatic' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
         </fieldset>
         <fieldset className="preference-options">
           <legend>Display density</legend>
-          <div className="preference-segmented">
-            {['comfortable', 'compact'].map((option) => (
-              <button key={option} type="button" aria-pressed={density === option} onClick={() => setDensity(option)}>
-                {option === 'compact' ? 'Compact' : 'Comfortable'}
-              </button>
-            ))}
-          </div>
+          <ToolSegmented label="Display density" value={density} onChange={setDensity} fullWidth options={[{ value: 'comfortable', label: 'Comfortable' }, { value: 'compact', label: 'Compact' }]} />
         </fieldset>
         <label className="terminal-label">
           Default workspace

@@ -66,6 +66,22 @@ export function useMarketSeries(symbols: string[]) {
   const [revision, setRevision] = useState(0);
   const previousRevision = useRef(0);
   useEffect(() => {
+    let refreshedAt = Date.now();
+    function revalidate() {
+      if (document.visibilityState !== 'visible' || Date.now() - refreshedAt < TTL) return;
+      refreshedAt = Date.now();
+      setRevision(value => value + 1);
+    }
+    const interval = window.setInterval(revalidate, TTL);
+    window.addEventListener('focus', revalidate);
+    document.addEventListener('visibilitychange', revalidate);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', revalidate);
+      document.removeEventListener('visibilitychange', revalidate);
+    };
+  }, []);
+  useEffect(() => {
     let active = true;
     const requested = key.split('|').filter(Boolean);
     const force = previousRevision.current !== revision;

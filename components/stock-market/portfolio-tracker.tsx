@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 
 import PortfolioOverview from '@/components/exchangetime/portfolio-overview';
+import PortfolioRecords from '@/components/exchangetime/portfolio-records';
 import PortfolioWelcome from '@/components/exchangetime/portfolio-welcome';
 import { useComposeAction } from '@/components/exchangetime/use-compose-action';
 import HoldingDetailsModal from '@/components/stock-market/holding-details-modal';
@@ -2932,6 +2933,7 @@ export default function PortfolioTracker() {
           <button className="terminal-button" onClick={() => missingRates.forEach(({from,to}) => void fetchAndCacheFx(from,to,true))}>Retry exchange rates</button>
           <button className="terminal-button" onClick={() => setShowAddForm(true)}>Add transaction</button>
           <select aria-label="Base currency" className="terminal-input" value={baseCurrency} onChange={event => setBaseCurrency(normalizeCurrency(event.target.value))}>{SUPPORTED_CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select>
+          <PortfolioRecords records={sortedTransactions} onDelete={handleDeleteTransaction} onUpdate={record => setTransactions(previous => previous.map(item => item.id === record.id ? record : item))} />
         </section>
       ) : <>
       {!sortedTransactions.length ? <PortfolioWelcome onAdd={() => setShowAddForm(true)} /> : (
@@ -2941,9 +2943,9 @@ export default function PortfolioTracker() {
           priceNote={missingPrices.length ? 'Missing prices: ' + missingPrices.map(row => row.symbol).join(', ')
             : oldestClose ? 'Daily closing prices · Oldest holding close: ' + oldestClose + ' · May be delayed' : 'No open positions.'}
           metrics={[
-            { label: 'Unrealized P/L', value: formatSignedMoney(totalUnrealizedPnl, baseCurrency) },
-            { label: 'Time-weighted return · ' + activeTimeframe, value: formatPercent(riskMetrics.totalReturnPct) },
-            { label: 'Maximum drawdown · ' + activeTimeframe, value: formatPercent(riskMetrics.maxDrawdownPct) },
+            { label: 'Unrealized P/L', value: missingPrices.length ? '—' : formatSignedMoney(totalUnrealizedPnl, baseCurrency) },
+            { label: 'Time-weighted return · ' + activeTimeframe, value: missingPrices.length ? '—' : formatPercent(riskMetrics.totalReturnPct) },
+            { label: 'Maximum drawdown · ' + activeTimeframe, value: missingPrices.length ? '—' : formatPercent(riskMetrics.maxDrawdownPct) },
           ]}
           concentration={!missingPrices.length && largestHoldingWeight > 25 ? 'Concentration: ' + holdingSnapshots[0].symbol + ' represents ' + largestHoldingWeight.toFixed(1) + '% of holdings value.' : null}
           onAdd={() => setShowAddForm(true)}>
@@ -3807,6 +3809,7 @@ export default function PortfolioTracker() {
           </Card>
         </div>}
       </main>
+      {sortedTransactions.length > 0 && <details className="data-details"><summary>Manage all transactions</summary><PortfolioRecords records={sortedTransactions} onDelete={handleDeleteTransaction} onUpdate={record => setTransactions(previous => previous.map(item => item.id === record.id ? record : item))} /></details>}
       </>}
 
       <HoldingDetailsModal

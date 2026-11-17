@@ -4,6 +4,7 @@ import { Info } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type InputHTMLAttributes } from 'react';
 import type React from 'react';
 
+import { ToolSegmented as Segmented } from '@/components/exchangetime/tool-ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,48 +44,6 @@ const DTA_COUNTRY_RATES: Record<DeDtaCountry, { whtPct: number; capPct: number; 
   NONE_0: { whtPct: 0, capPct: 0, label: 'No treaty / 0% WHT' },
 };
 
-// Small local segmented control for two or more options
-function Segmented({
-  value,
-  onChange,
-  options,
-  fullWidth = false,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { label: string; value: string }[];
-  fullWidth?: boolean;
-}) {
-  return (
-    <div
-      className={
-        'inline-flex items-center rounded-md border border-input bg-background p-0.5 ' +
-        (fullWidth ? 'w-full' : '')
-      }
-    >
-      {options.map((opt) => {
-        const active = opt.value === value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={
-              'rounded-md px-2.5 py-1.5 text-sm transition-colors sm:px-2 sm:py-1 sm:text-xs ' +
-              (fullWidth ? 'flex-1 text-center' : '') +
-              ' ' +
-              (active
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-foreground hover:bg-muted')
-            }
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 function InputAdornment({
   id,
   value,

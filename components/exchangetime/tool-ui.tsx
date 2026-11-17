@@ -1,5 +1,17 @@
 import React, { type ReactNode } from 'react';
 
+export function ToolSegmented({ value, onChange, options, fullWidth = false, label = 'Options' }: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  fullWidth?: boolean;
+  label?: string;
+}) {
+  return <div className={'tool-segmented-control' + (fullWidth ? ' is-full-width' : '')} role="group" aria-label={label}>
+    {options.map(option => <button type="button" key={option.value} aria-pressed={value === option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}
+  </div>;
+}
+
 export function ToolSurface({
   children,
   className = '',

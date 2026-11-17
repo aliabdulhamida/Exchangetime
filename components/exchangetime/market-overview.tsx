@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 
+import DataFreshness from './data-freshness';
 import MarketChart, { Sparkline } from './market-chart';
 import MarketSessions from './market-sessions';
 import { researchUrl, workspaceUrl } from './product-model';
@@ -366,7 +367,7 @@ export default function MarketOverview() {
                       >
                         {periodChange !== null && (periodChange < 0 ? '↘ ' : '↗ ')}
                         {signedPercent(periodChange)}
-                        <small>in this period</small>
+                        <small>{ranges.find(item => item.sessions === range)?.label || 'Selected period'} return</small>
                       </span>
                     </div>
                   </div>
@@ -425,15 +426,7 @@ export default function MarketOverview() {
                   )}
                 </div>
                 <div className="market-chart-footer">
-                  <span>
-                    {chart
-                      ? 'Observed ' + new Date(chart.observedAt).toLocaleString()
-                      : entries[selected]?.error
-                        ? 'No observations available'
-                        : 'Loading daily observations'}
-                    {entries[selected]?.error && chart ? ' · Stale data' : ''}
-                  </span>
-                  <span>Daily bars · Delayed</span>
+                  <DataFreshness source="Yahoo Finance" updatedAt={chart?.observedAt} frequency="Daily bars" delay="May be delayed; current-session bars may change" stale={Boolean(entries[selected]?.error && chart)} />
                 </div>
               </section>
               <section className="market-pulse terminal-panel">

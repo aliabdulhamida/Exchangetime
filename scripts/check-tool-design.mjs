@@ -18,11 +18,25 @@ const views = [
   'OptionsPayoffLab',
   'DCFCalculator',
   'EconomicIndicators',
+  'ExchangeTimes',
+  'SectorAnalysis',
+  'AssetComparison',
+  'InsiderScanner',
+  'News',
+  'TechnicalAnalysis',
+  'TradeBreakEven',
+  'LoanPlanner',
+  'FinancialGoals',
+  'EconomicCalendar',
+  'HolidayCalendar',
+  'CurrencyConverter',
+  'TaxCalculator',
+  'MarketOverview',
 ];
 try {
   for (const width of [390, 1440]) {
     const page = await browser.newPage();
-    await page.setViewport({ width, height: 1000 });
+    await page.setViewport({ width, height: 1000, hasTouch: width < 1024, isMobile: width < 1024 });
     await page.evaluateOnNewDocument(() => localStorage.setItem('et-appearance', 'light'));
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -34,7 +48,7 @@ try {
           !document.querySelector('.workspace-loading'),
       );
       await page.evaluate(() => document.fonts.ready);
-      if (view.includes('Calendar')) {
+      if (['EarningsCalendar', 'DividendCalendar'].includes(view)) {
         await page.waitForSelector('.calendar-week-strip button');
         assert.equal(await page.$$eval('.calendar-week-strip button', (nodes) => nodes.length), 7);
         await page.click('.calendar-week-strip button:nth-child(4)');
@@ -55,6 +69,11 @@ try {
       if (view === 'CompoundInterest') {
         const input = await page.$('form input[type="number"]');
         await input.click();
+        if (width >= 1024) {
+          assert.equal(await page.$('.numeric-keypad'), null);
+          await input.click({ clickCount: 3 });
+          await input.type('1000');
+        } else {
         await page.waitForSelector('.numeric-keypad');
         assert.equal(await input.evaluate(node => node.inputMode), 'none');
         await page.click('.numeric-keypad footer button:nth-child(2)');
@@ -62,6 +81,7 @@ try {
         await page.click('.numeric-keypad .keypad-done');
         assert.equal(await input.evaluate(node => node.value), '1000');
         assert.equal(await page.$('.numeric-keypad'), null);
+        }
       }
       if (view === 'PortfolioTracker') {
         await page.waitForSelector('.portfolio-start .tool-empty-state');

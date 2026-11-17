@@ -28,6 +28,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import DataFreshness from '@/components/exchangetime/data-freshness';
 import { workspaceUrl } from '@/components/exchangetime/product-model';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -1169,14 +1170,14 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
       {selectedStock&&<header className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
         <div><p className="terminal-eyebrow">{selectedStock.currency||'Asset'} · Research</p><h2 className="text-2xl font-semibold">{selectedStock.symbol}<span className="ml-3 text-sm font-normal text-muted-foreground">{selectedStock.name}</span></h2></div>
         <div className="text-right"><strong className="text-2xl">{selectedStock.currency&&/^[A-Z]{3}$/.test(selectedStock.currency)?selectedStock.price.toLocaleString(undefined,{style:'currency',currency:selectedStock.currency}):selectedStock.price.toLocaleString()}</strong><p className={'mt-1 font-mono text-xs '+(selectedStock.changePercent===null?'text-muted-foreground':selectedStock.changePercent>=0?'text-emerald-300':'text-rose-300')}>{selectedStock.changePercent === null ? 'Daily change unavailable' : (selectedStock.changePercent >= 0 ? '+' : '') + selectedStock.changePercent.toFixed(2) + '% · Daily'}</p></div>
-        <p className="terminal-note w-full">Price source Yahoo Finance · {selectedStock.observedAt?'Observed '+new Date(selectedStock.observedAt).toLocaleString():'Observation time unavailable'} · May be delayed</p>
+        <DataFreshness className="w-full" source="Yahoo Finance" updatedAt={selectedStock.observedAt} delay="May be delayed" />
       </header>}
-      {resolvedSymbol && <nav aria-label="Asset tools" className="flex flex-wrap gap-2 pb-2">
+      {resolvedSymbol && <details className="research-actions"><summary>Asset actions</summary><nav aria-label="Asset tools" className="flex flex-wrap gap-2 pb-2">
         {[['AssetComparison','Compare'],['TechnicalAnalysis','Chart'],['DCFCalculator','Valuation'],['OptionsPayoffLab','Options'],['PortfolioTracker','Portfolio']].map(([key,label])=><Link className="terminal-button" key={key} href={workspaceUrl(key)+'&symbol='+encodeURIComponent(resolvedSymbol)}>{label}<ArrowUpRight size={12}/></Link>)}
         <ShareResearch key={resolvedSymbol} symbol={resolvedSymbol} />
         <button className="terminal-button" onClick={() => window.dispatchEvent(new CustomEvent('et-watchlist', { detail: resolvedSymbol }))}>Add to watchlist</button>
-      </nav>}
-      {selectedStock && <FundamentalScore stock={selectedStock}/>}
+      </nav></details>}
+      {selectedStock && <details className="research-score-details"><summary>Fundamental score & methodology</summary><FundamentalScore stock={selectedStock}/></details>}
 
       {(loading || hasResultState) && <div className={`${panelClass} p-1 md:hidden`}>
         <div className="grid grid-cols-3 gap-1">
@@ -1306,7 +1307,7 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
       ) : hasResultState ? (
         <div className="grid grid-cols-1 items-start gap-2.5 sm:gap-3 xl:grid-cols-2">
           <div
-            className={`${mobilePanelTab === 'analysis' ? 'block' : 'hidden'} space-y-2.5 sm:space-y-3 md:block`}
+            className={`${mobilePanelTab === 'analysis' ? 'flex' : 'hidden'} research-analysis-column flex-col gap-3 md:flex`}
           >
             {analysisError && !selectedStock && (
               <Alert
@@ -1399,7 +1400,7 @@ function ResearchWorkspace({ requestedSymbol }: { requestedSymbol: string }) {
                   <AnalystValuation symbol={selectedStock.symbol} price={selectedStock.price} />
                 </div>
 
-                <div className={sectionClass}>
+                <div className={`${sectionClass} research-price-history`}>
                   <div className="mb-2.5 flex flex-wrap items-end justify-between gap-2">
                     <div><h3 className={captionClass}>Price history</h3>
                       <p className="terminal-note">{chartRange} · Daily closes{selectedStock.currency && ' · ' + selectedStock.currency}</p>

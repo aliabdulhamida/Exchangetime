@@ -129,6 +129,7 @@ export default function CurrencyConverter() {
           <div className="relative mt-2">
             <Input
               id="currency-amount"
+              data-number-format="grouped"
               type="text"
               inputMode="decimal"
               value={amount}

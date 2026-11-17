@@ -20,7 +20,8 @@
     "prepare": "husky install",
     "start": "next start",
     "test": "pnpm test:unit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:browser": "node scripts/check-number-entry.mjs && node scripts/check-portfolio-recovery.mjs && node scripts/check-product-design.mjs && node scripts/check-workspace-title.mjs && node scripts/check-mobile-navigation.mjs && node scripts/check-tool-design.mjs && node scripts/check-research-flow.mjs"
   },
   "dependencies": {
     "@coreui/react": "^5.7.1",

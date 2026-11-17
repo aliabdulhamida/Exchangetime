@@ -351,7 +351,8 @@ export default function MarketScreener() {
           {activeList && filteredRows.length + ' of ' + activeList.rows.length + ' stocks'}
         </span>
       </div>
-      <p className="terminal-note mb-4">Filters apply to the loaded list, not the entire market. A valuation limit includes only reported positive multiples. Missing inputs never qualify for an active criterion.</p>
+      <p className="screener-universe">Universe: loaded market-mover lists · Not a whole-market screen</p>
+      <details className="data-details"><summary>Screen methodology</summary><p>Filters apply to the loaded list. A valuation limit includes only reported positive multiples. Missing inputs never qualify for an active criterion.</p></details>
       <details className="mb-3 text-sm">
         <summary className="cursor-pointer">Saved screens ({saved.length})</summary>
         <form
