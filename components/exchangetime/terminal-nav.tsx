@@ -124,6 +124,14 @@ export default function TerminalNav() {
             <span aria-hidden>§</span>
             {!collapsed && 'Impressum'}
           </Link>
+          <Link href="/settings/privacy-policy" title="Privacy policy">
+            <span aria-hidden>§</span>
+            {!collapsed && 'Privacy policy'}
+          </Link>
+          <Link href="/redaktion" title="Editorial & AI policy">
+            <span aria-hidden>§</span>
+            {!collapsed && 'Editorial & AI policy'}
+          </Link>
           <Link href="/blog" title="Research library">
             <BookOpen size={16} />
             {!collapsed && (

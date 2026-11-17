@@ -161,6 +161,54 @@
   font-weight: 500;
 }
 .market-region-select { display: none; }
+.tools-topic-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 16px; }
+.tools-topic-options button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; border-radius: 12px; background: var(--app-surface); font-size: 12px; }
+.tools-topic-options button[aria-pressed='true'] { background: var(--app-text); color: var(--app-canvas); }
+.tools-selection-list a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 8px; border-bottom: 1px solid var(--app-separator); font-size: 14px; }
+.tools-selection-list a[aria-current] { font-weight: 600; }
+@media (max-width: 1023px) {
+  .terminal .workspace-hierarchy { display: none; }
+  .terminal .workspace-hierarchy ~ .terminal-heading { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+  .terminal .terminal-body { border-radius: 0; }
+  .terminal .terminal-main { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+  .terminal .terminal-tools-dock { position: fixed; inset: auto auto calc(16px + env(safe-area-inset-bottom)) 16px; width: auto; padding: 0; background: transparent; z-index: 100; }
+  .terminal-tools-dock .terminal-bottom-items { justify-content: flex-start; max-width: none; }
+  .terminal .terminal-tools-dock button { flex: 0 0 auto; flex-direction: row; gap: 10px; min-height: 44px; padding: 10px 16px; border-radius: 16px; background: var(--app-text); color: var(--app-canvas); box-shadow: 0 4px 20px #00000026; }
+  .terminal .terminal-tools-dock button > span { font-size: 13px; font-weight: 550; }
+}
+.tools-popover {
+  z-index: 1300;
+  width: min(350px, calc(100vw - 32px));
+  max-height: min(460px, var(--radix-popover-content-available-height));
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--app-control-border) 65%, transparent);
+  border-radius: 22px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  box-shadow: 0 12px 48px #00000030;
+}
+.tools-popover header { display: flex; align-items: center; justify-content: space-between; padding: 0 0 14px; font-size: 14px; letter-spacing: -0.025em; }
+.tools-popover header strong { font-weight: 550; }
+.tools-popover header button { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 11px; background: var(--app-inset); color: var(--app-secondary); }
+.tools-popover-browser { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; }
+.tools-popover-areas { display: flex; flex-direction: column; gap: 3px; padding-right: 8px; }
+.tools-popover-areas button { display: flex; align-items: center; gap: 7px; padding: 11px 6px; border-radius: 10px; font-size: 10px; color: var(--app-secondary); }
+.tools-popover-areas button[aria-pressed='true'] { background: var(--app-inset); color: var(--app-text); }
+.tools-popover-list { max-height: 270px; overflow-y: auto; overscroll-behavior: contain; }
+.tools-popover-list a { display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 12px 8px; min-height: 44px; border-radius: 10px; font-size: 12px; line-height: 1.4; }
+.tools-popover-list a[aria-current] { background: var(--app-inset); color: var(--app-text); font-weight: 550; }
+.tools-popover-list a:hover { background: var(--app-inset); }
+.tools-popover-list { background: var(--app-canvas); border-radius: 14px; padding: 4px; }
+.tools-popover :is(button, a, summary):focus-visible { outline: 2px solid var(--app-secondary); outline-offset: 2px; }
+.tools-popover:focus { outline: none; }
+.tools-popover-list svg { flex-shrink: 0; }
+.tools-popover-shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; border-top: 1px solid var(--app-separator); margin-top: 12px; padding-top: 12px; }
+.tools-popover-shortcuts > * { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 48px; border-radius: 10px; font-size: 10px; }
+.tools-popover-shortcuts > *:hover { background: var(--app-surface); }
+.tools-popover-legal { font-size: 10px; color: var(--app-secondary); margin-top: 10px; }
+.tools-popover-legal summary { cursor: pointer; padding: 6px; }
+.tools-popover-legal > a, .tools-popover-legal > span { display: block; padding: 7px; }
 @media (max-width: 1023px) {
   .workspace-hierarchy .workspace-main-topics { display: none; }
   .workspace-hierarchy .workspace-subtopics { padding-top: 0; }

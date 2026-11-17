@@ -4,8 +4,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 
-import LegalFooter from '@/components/legal-footer';
-
 import MobileNavigation from './mobile-navigation';
 import Preferences from './preferences';
 import TerminalNav from './terminal-nav';
@@ -47,7 +45,6 @@ function TerminalLayout({ children }: { children: ReactNode }) {
         >
           <div className="terminal-container">
             {children}
-            <LegalFooter />
           </div>
         </main>
       </div>
