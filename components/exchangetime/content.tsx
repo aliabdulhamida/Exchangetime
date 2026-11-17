@@ -4,10 +4,10 @@ import dynamic from 'next/dynamic';
 import { Component, type ComponentType, type ReactNode } from 'react';
 
 const loading = () => (
-  <div role="status" className="workspace-loading space-y-4 py-6">
-    <div className="h-8 w-48 animate-pulse rounded bg-muted" />
-    <div className="h-64 animate-pulse rounded bg-muted/40" />
-    <p className="text-xs text-muted-foreground">Loading workspace…</p>
+  <div role="status" className="workspace-loading">
+    <span className="sr-only">Loading workspace…</span>
+    <div className="workspace-loading-toolbar" aria-hidden />
+    <div className="workspace-loading-panel" aria-hidden />
   </div>
 );
 const tools: Record<string, ComponentType> = {

@@ -9,15 +9,15 @@ import Preferences from './preferences';
 import TerminalNav from './terminal-nav';
 import TopNav from './top-nav';
 
-export default function Layout({ children }: { children: ReactNode; sidebar?: ReactNode }) {
+export default function Layout({ children, focused = false }: { children: ReactNode; sidebar?: ReactNode; focused?: boolean }) {
   return (
     <Suspense fallback={<div className="h-screen bg-background" />}>
-      <TerminalLayout>{children}</TerminalLayout>
+      <TerminalLayout focused={focused}>{children}</TerminalLayout>
     </Suspense>
   );
 }
 
-function TerminalLayout({ children }: { children: ReactNode }) {
+function TerminalLayout({ children, focused }: { children: ReactNode; focused: boolean }) {
   const pathname = usePathname();
   const params = useSearchParams();
   const mainRef = useRef<HTMLElement>(null);
@@ -26,7 +26,7 @@ function TerminalLayout({ children }: { children: ReactNode }) {
     mainRef.current?.scrollTo({ top: 0 });
   }, [location]);
   return (
-    <div className="terminal">
+    <div className="terminal" data-focused={focused || undefined}>
       <a href="#workspace-content" className="terminal-skip">
         Skip to workspace
       </a>

@@ -12,16 +12,16 @@ The interface is a research workspace with a restrained financial identity: neut
 
 ## Implemented structure
 
-- Stable primary navigation for the six product areas; horizontal page navigation exposes the selected area's workspaces. Quick access links cover frequently used tools.
+- On desktop the sidebar exposes the active area's workspaces. A focus control can hide the shell without unmounting the current tool.
 - Global search, command navigation, watchlist, and creation controls remain available across workspaces.
 - Region filters reduce the number of market quotes shown at once. Every displayed sparkline uses actual cached observations.
 - The main price workspace has selectable one-week, one-month, and three-month windows. The displayed return corresponds to the selected observations; it is distinct from the daily change on quote tiles.
 - Market pulse exposes its component observations and scoring methodology. It describes conditions and does not issue trading instructions.
 - Sector tiles communicate signed ETF performance. Tile sizes are equal, explicitly not market-cap weights. Each tile links to research and exposes its observation time.
 - Shared surfaces, form controls, metrics, charts, empty states, and navigation follow the same visual tokens across existing tools.
-- Mobile uses horizontal market exploration, a single-column research workspace, compact market factors, and bottom navigation.
+- Mobile uses a single-column research workspace and a bottom-left Tools launcher.
 - Dark mode uses actual black for the canvas, sidebar, toolbar, and content surfaces. Controls retain minimal neutral elevation for visibility.
-- Mobile navigation is an inset floating capsule with a CSS Liquid Glass-inspired material: backdrop blur and saturation, translucent fill, reflective edges, and an inset selected capsule. The content scrolls underneath it with sufficient end-of-page clearance. Safe-area insets, reduced transparency, increased contrast, and browsers without backdrop blur have explicit fallbacks. Native Apple Liquid Glass rendering is not available as a web API.
+- The Tools launcher opens a compact popover with areas, their workspaces, shortcuts, and legal links. Avoid duplicating these destinations in a tab bar or adding a second row above the page.
 
 ## Guardrails
 

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 
 import { ToolSurface } from './tool-ui';
+import { downloadCsv } from '../../lib/csv-export';
 
 type RecordEntry = {
   id: string;
@@ -27,6 +28,16 @@ export default function PortfolioRecords<T extends RecordEntry>({
 }) {
   const [editing, setEditing] = useState<T | null>(null);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [side, setSide] = useState('');
+  const [limit, setLimit] = useState(15);
+  const matches = records
+    .filter(
+      (record) =>
+        record.symbol.toUpperCase().includes(query.trim().toUpperCase()) &&
+        (!side || record.side === side),
+    )
+    .sort((left, right) => right.date.localeCompare(left.date));
   const holdings = new Map<string, number>();
   records.forEach((record) =>
     holdings.set(
@@ -35,11 +46,6 @@ export default function PortfolioRecords<T extends RecordEntry>({
     ),
   );
   function exportRecords() {
-    const escape = (value: unknown) =>
-      '"' +
-      (typeof value === 'string' && /^[=+@\-\t\r]/.test(value) ? "'" : '') +
-      String(value).replaceAll('"', '""') +
-      '"';
     const keys = [
       'date',
       'symbol',
@@ -50,16 +56,10 @@ export default function PortfolioRecords<T extends RecordEntry>({
       'fees',
       'taxes',
     ] as const;
-    const csv = [
-      keys.join(','),
-      ...records.map((record) => keys.map((key) => escape(record[key])).join(',')),
-    ].join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'exchange-time-transactions.csv';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadCsv('exchange-time-transactions.csv', [
+      keys,
+      ...records.map((record) => keys.map((key) => record[key])),
+    ]);
   }
   return (
     <ToolSurface className="portfolio-records">
@@ -81,8 +81,37 @@ export default function PortfolioRecords<T extends RecordEntry>({
           ))}
       </dl>
       <h3 className="mt-5 text-sm font-medium">Transactions · original currency</h3>
+      {(records.length > 1 || query || side) && (
+        <div className="record-filters">
+          <input
+            type="search"
+            className="terminal-input"
+            placeholder="Find ticker"
+            aria-label="Filter transactions by ticker"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setLimit(15);
+            }}
+          />
+          <select
+            className="terminal-input"
+            aria-label="Transaction side"
+            value={side}
+            onChange={(event) => {
+              setSide(event.target.value);
+              setLimit(15);
+            }}
+          >
+            <option value="">All sides</option>
+            <option value="BUY">Buys</option>
+            <option value="SELL">Sales</option>
+          </select>
+        </div>
+      )}
+      {!matches.length && <p role="status">No matching transactions.</p>}
       <div className="record-transactions">
-        {[...records].reverse().map((record) => (
+        {matches.slice(0, limit).map((record) => (
           <article key={record.id}>
             <div>
               <strong>{record.symbol}</strong>
@@ -118,66 +147,77 @@ export default function PortfolioRecords<T extends RecordEntry>({
             >
               Delete
             </button>
+            {editing && editing.id === record.id && (
+              <form
+                className="record-editor"
+                aria-label="Edit transaction"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (
+                    ![editing.shares, editing.price, editing.fees, editing.taxes].every(
+                      Number.isFinite,
+                    ) ||
+                    editing.shares <= 0 ||
+                    editing.price <= 0 ||
+                    editing.fees < 0 ||
+                    editing.taxes < 0 ||
+                    !editing.date
+                  ) {
+                    setError('Enter positive shares and price, non-negative costs, and a date.');
+                    return;
+                  }
+                  onUpdate(editing);
+                  setEditing(null);
+                }}
+              >
+                <h3>Edit {editing.symbol}</h3>
+                {(['shares', 'price', 'fees', 'taxes'] as const).map((key) => (
+                  <label className="terminal-label" key={key}>
+                    {key}
+                    <input
+                      className="terminal-input"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={editing[key]}
+                      onChange={(event) =>
+                        setEditing({ ...editing, [key]: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                ))}
+                <label className="terminal-label">
+                  Date
+                  <input
+                    className="terminal-input"
+                    type="date"
+                    required
+                    value={editing.date}
+                    onChange={(event) => setEditing({ ...editing, date: event.target.value })}
+                  />
+                </label>
+                {error && <p role="alert">{error}</p>}
+                <div className="flex gap-2">
+                  <button className="terminal-button primary" type="submit">
+                    Save transaction
+                  </button>
+                  <button
+                    className="terminal-button"
+                    type="button"
+                    onClick={() => setEditing(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </article>
         ))}
       </div>
-      {editing && (
-        <form
-          className="record-editor"
-          aria-label="Edit transaction"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (
-              ![editing.shares, editing.price, editing.fees, editing.taxes].every(
-                Number.isFinite,
-              ) ||
-              editing.shares <= 0 ||
-              editing.price <= 0 ||
-              editing.fees < 0 ||
-              editing.taxes < 0 ||
-              !editing.date
-            ) {
-              setError('Enter positive shares and price, non-negative costs, and a date.');
-              return;
-            }
-            onUpdate(editing);
-            setEditing(null);
-          }}
-        >
-          <h3>Edit {editing.symbol}</h3>
-          {(['shares', 'price', 'fees', 'taxes'] as const).map((key) => (
-            <label className="terminal-label" key={key}>
-              {key}
-              <input
-                className="terminal-input"
-                type="number"
-                min="0"
-                step="any"
-                value={editing[key]}
-                onChange={(event) => setEditing({ ...editing, [key]: Number(event.target.value) })}
-              />
-            </label>
-          ))}
-          <label className="terminal-label">
-            Date
-            <input
-              className="terminal-input"
-              type="date"
-              required
-              value={editing.date}
-              onChange={(event) => setEditing({ ...editing, date: event.target.value })}
-            />
-          </label>
-          {error && <p role="alert">{error}</p>}
-          <div className="flex gap-2">
-            <button className="terminal-button primary" type="submit">
-              Save transaction
-            </button>
-            <button className="terminal-button" type="button" onClick={() => setEditing(null)}>
-              Cancel
-            </button>
-          </div>
-        </form>
+      {matches.length > limit && (
+        <button className="terminal-button" onClick={() => setLimit((value) => value + 15)}>
+          Show more transactions ({matches.length - limit})
+        </button>
       )}
     </ToolSurface>
   );

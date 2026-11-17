@@ -48,6 +48,21 @@ try {
           !document.querySelector('.workspace-loading'),
       );
       await page.evaluate(() => document.fonts.ready);
+      if (view === 'LoanPlanner' && width >= 1024) {
+        await page.type('.planner-field input', '1200');
+        await page.click('.workspace-focus');
+        await page.waitForSelector('.terminal-sidebar', { hidden: true });
+        assert.equal(await page.$eval('.planner-field input', input => input.value), '1200');
+        await page.click('.workspace-focus');
+        await page.waitForSelector('.terminal-sidebar', { visible: true });
+      }
+      if (view === 'SectorAnalysis') {
+        await page.click('[aria-label="Sector view"] button:nth-child(2)');
+        await page.waitForSelector('.market-sectors table a');
+        assert.equal(await page.$('.sector-heatmap'), null);
+        await page.click('[aria-label="Sector view"] button');
+        await page.waitForSelector('.sector-heatmap');
+      }
       if (['EarningsCalendar', 'DividendCalendar'].includes(view)) {
         await page.waitForSelector('.calendar-week-strip button');
         assert.equal(await page.$$eval('.calendar-week-strip button', (nodes) => nodes.length), 7);

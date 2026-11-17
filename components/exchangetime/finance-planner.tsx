@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { z } from 'zod';
 
+import { downloadCsv } from '@/lib/csv-export';
 import { balanceSchema, historySchema, goalSchema } from '@/lib/record-schemas';
 
 import FinancialTooltip from './financial-tooltip';
@@ -66,7 +67,7 @@ export function NetWorth() {
           <div key={label} className="terminal-metric">
             <p>{label}</p>
             <strong>
-              {index === 3 ? Number(amount).toFixed(1) + '%' : currency(Number(amount))}
+              {!ready || error ? '—' : index === 3 ? (assets ? Number(amount).toFixed(1) + '%' : '—') : currency(Number(amount))}
             </strong>
           </div>
         ))}
@@ -122,7 +123,12 @@ export function NetWorth() {
                     className="terminal-icon"
                     title={'Remove ' + record.name}
                     aria-label={'Remove ' + record.name}
-                    onClick={() => save(records.filter((item) => item.id !== record.id))}
+                    onClick={() => {
+                      if (window.confirm('Remove ' + record.name + ' from the balance sheet?') &&
+                        save(records.filter(item => item.id !== record.id)) && editing === record.id) {
+                        setEditing(null); setValue(''); setName('');
+                      }
+                    }}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -272,6 +278,18 @@ export function NetWorth() {
             </ResponsiveContainer>
           </div>
         )}
+        {history.records.length > 0 && <details className="instrument-observations">
+          <summary>Saved snapshots · {history.records.length}</summary>
+          <button type="button" className="terminal-button" onClick={() => downloadCsv('net-worth-history.csv', [
+            ['Date (UTC)', 'Assets (EUR)', 'Liabilities (EUR)', 'Net worth (EUR)'],
+            ...history.records.map(row => [row.date, row.assets, row.liabilities, row.net]),
+          ])}>Export snapshots</button>
+          <div className="tool-table-scroll" role="region" tabIndex={0} aria-label="Saved balance sheets">
+            <table><thead><tr><th>Date</th><th>Assets</th><th>Liabilities</th><th>Net worth</th></tr></thead>
+              <tbody>{[...history.records].reverse().map(row => <tr key={row.date}><td>{row.date}</td>
+                <td>{currency(row.assets)}</td><td>{currency(row.liabilities)}</td><td>{currency(row.net)}</td></tr>)}</tbody></table>
+          </div>
+        </details>}
       </div>
     </section>
   );
@@ -340,17 +358,18 @@ export function FinancialGoals() {
                   className="terminal-icon"
                   title={'Remove ' + goal.name}
                   aria-label={'Remove ' + goal.name}
-                  onClick={() => save(records.filter((item) => item.id !== goal.id))}
+                  onClick={() => {
+                    if (window.confirm('Delete the goal “' + goal.name + '”?') &&
+                      save(records.filter(item => item.id !== goal.id)) && editing === goal.id) {
+                      setEditing(null); setName(''); setTarget('');
+                    }
+                  }}
                 >
                   <Trash2 size={14} />
                 </button>
               </div>
-              <div className="my-4 h-1.5 overflow-hidden rounded bg-secondary">
-                <div
-                  className="h-full bg-emerald-300"
-                  style={{ width: Math.min(100, (goal.saved / math.futureTarget) * 100) + '%' }}
-                />
-              </div>
+              <progress className="goal-progress" aria-label={goal.name + ' savings progress'} max={math.futureTarget}
+                value={Math.min(goal.saved, math.futureTarget)} />
               <div className="flex flex-wrap justify-between gap-3">
                 <p className="terminal-note">
                   {currency(goal.saved)} saved / {currency(math.futureTarget)} inflation-adjusted

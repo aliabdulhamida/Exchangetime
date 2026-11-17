@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
+import { downloadCsv } from '@/lib/csv-export';
 import {
   defaultInsiderFilters,
   filterInsiderTrades,
@@ -203,7 +204,14 @@ function FilingBatch({ symbol, filters }: { symbol: string; filters: InsiderFilt
               : ' Filings may lag trades.'}
           </p>
           {matches.length ? (
-            <TransactionTable rows={matches} source={data.source} />
+            <>
+              <TransactionTable rows={matches} source={data.source} />
+              <button className="terminal-button" onClick={() => downloadCsv('insider-trades-batch-' + (page + 1) + '.csv', [
+                ['Source', 'Retrieved at', 'Ticker', 'Insider', 'Role', 'Side', 'Traded', 'Filed', 'Units', 'Price', 'Gross value', 'Filing URL'],
+                ...matches.map(row => [data.source, data.retrievedAt, row.symbol, row.insider ?? '', row.role ?? '', row.side,
+                  row.traded ?? '', row.filed ?? '', row.quantity ?? '', row.price ?? '', row.value ?? '', row.filingUrl ?? '']),
+              ])}>Export matching trades</button>
+            </>
           ) : (
             <p className="terminal-empty">
               {!data.scanned

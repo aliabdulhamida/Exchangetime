@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { researchUrl } from './product-model';
+import { ToolSegmented } from './tool-ui';
 import { useMarketSeries, seriesChange, signedPercent } from './use-market-series';
 
 export const sectors = [
@@ -21,9 +22,14 @@ export const sectors = [
   ['Materials', 'XLB'],
 ];
 
-export default function SectorPerformance({ compact = false }: { compact?: boolean }) {
-  const { entries, refresh } = useMarketSeries(sectors.map(([, symbol]) => symbol));
+export default function SectorPerformance() {
+  const feed = useMarketSeries(sectors.map(([, symbol]) => symbol));
+  return <SectorView {...feed} />;
+}
+
+export function SectorView({ entries, refresh, compact = false }: ReturnType<typeof useMarketSeries> & {compact?: boolean}) {
   const [horizon, setHorizon] = useState(1);
+  const [display, setDisplay] = useState('map');
   const rows = sectors
     .map(([name, symbol]) => ({
       name,
@@ -36,7 +42,8 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
     <section className="market-sectors terminal-panel">
       <div className="terminal-section-heading">
         <div>
-          <h2>Sector performance</h2>
+          {compact ? <h2>Sector performance</h2> : <ToolSegmented value={display} onChange={setDisplay}
+            label="Sector view" options={[{value: 'map', label: 'Heatmap'}, {value: 'table', label: 'Table'}]} />}
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -59,7 +66,7 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
           </button>
         </div>
       </div>
-      <div
+      {(compact || display === 'map') && <div
         className="sector-heatmap"
         aria-label="Sector performance heatmap, equal-sized ETF proxies"
       >
@@ -90,7 +97,7 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
           >
             <span className="sector-tile-symbol">
               {row.symbol}
-              <span aria-hidden>{row.change === null ? '—' : row.change < 0 ? '↘' : '↗'}</span>
+              <span aria-hidden>{row.change === null ? '—' : row.change === 0 ? '→' : row.change < 0 ? '↘' : '↗'}</span>
             </span>
             <span className="sector-tile-name">{row.name}</span>
             <strong>
@@ -103,7 +110,7 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
             {row.entry?.error && row.entry.data && <small>Stale</small>}
           </Link>
         ))}
-      </div>
+      </div>}
       {rows.some((row) => row.entry?.error) && <p role="status" className="terminal-note mt-3">Some feeds could not refresh.</p>}
       <details className="data-details">
         <summary>Data details</summary>
@@ -112,7 +119,7 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
           {rows.map(row => <div key={row.symbol}><dt>{row.symbol}</dt><dd>{row.entry?.data?.observedAt ? new Date(row.entry.data.observedAt).toLocaleString() : 'Observation unavailable'}</dd></div>)}
         </dl>
       </details>
-      {!compact && (
+      {!compact && display === 'table' && (
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -128,7 +135,7 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
               {rows.map((row) => (
                 <tr key={row.symbol} className="border-b border-border">
                   <td className="py-4">
-                    {row.name}
+                    <Link className="hover:underline" href={researchUrl(row.symbol, true)}>{row.name}</Link>
                     <span className="ml-2 text-xs text-muted-foreground">{row.symbol}</span>
                   </td>
                   {[1, 5, 21].map((period) => (

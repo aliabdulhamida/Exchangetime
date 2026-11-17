@@ -8,6 +8,7 @@ import { researchUrl, workspaceUrl } from '@/components/exchangetime/product-mod
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { downloadCsv } from '@/lib/csv-export';
 import { matchesValuationTrend, valuationMeasures, type Measure, type ScreenerRow, type Trend } from '@/lib/market-screen';
 import { formatQuote } from '@/lib/research-history';
 
@@ -28,6 +29,7 @@ type ScreenerPayload = {
 };
 
 const TAB_ORDER: ScreenerKey[] = ['gainers', 'losers', 'movers', 'mostActive'];
+const listNames: Record<ScreenerKey, string> = { gainers: 'Gainers', losers: 'Losers', movers: 'Movers', mostActive: 'Most active' };
 const REFRESH_INTERVAL_MS = 3 * 60 * 1000;
 
 function formatAsOf(unixSeconds: number | null): string {
@@ -203,7 +205,7 @@ export default function MarketScreener() {
   useEffect(() => {
     void fetchData(false);
     const interval = window.setInterval(() => {
-      void fetchData(true);
+      if (document.visibilityState === 'visible') void fetchData(true);
     }, REFRESH_INTERVAL_MS);
     return () => window.clearInterval(interval);
   }, [fetchData]);
@@ -237,6 +239,11 @@ export default function MarketScreener() {
 
   const fetchedAtText = formatFetchedAt(payload?.fetchedAt || null);
   const asOfText = formatAsOf(activeList?.asOf || null);
+  const criteria = [minVolume !== '0', minRelative !== '0', ceiling !== '', trend !== 'any'].filter(Boolean).length;
+  function resetFilters() {
+    setQuery(''); setMinVolume('0'); setMinRelative('0'); setCeiling(''); setTrend('any');
+    setOrder('provider'); setMeasure('trailingPE'); setName(''); setNotice('');
+  }
   const emptyText = !payload || payload.unavailable?.includes(activeTab) ? 'This feed is unavailable. Try refreshing.'
     : !activeList?.rows.length ? 'The provider returned no stocks in this list.' : 'No stocks match these filters.';
 
@@ -246,7 +253,7 @@ export default function MarketScreener() {
         <div className="flex w-max min-w-full gap-2">
           {TAB_ORDER.map((key) => {
             const isActive = activeTab === key;
-            const title = payload?.lists?.[key]?.title || key;
+            const title = listNames[key];
             return (
               <button
                 key={key}
@@ -267,11 +274,6 @@ export default function MarketScreener() {
       </div>
 
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-xs text-muted-foreground">
-          <p>
-            Yahoo Finance · Refresh every 3 min · May be delayed · {asOfText} · {fetchedAtText}
-          </p>
-        </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <Input
             value={query}
@@ -295,7 +297,9 @@ export default function MarketScreener() {
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-end gap-3 border-y py-3 text-xs">
+      <details className="screen-filters">
+        <summary>Filters & order <span>{criteria ? criteria + ' active' : 'Edit'}</span></summary>
+        <div className="screen-fields">
         <label>
           Minimum volume
           <select
@@ -347,12 +351,9 @@ export default function MarketScreener() {
             <option value="any">Any trend</option><option value="above">Above average</option><option value="below">Below average</option>
           </select>
         </label>
-        <span aria-live="polite">
-          {activeList && filteredRows.length + ' of ' + activeList.rows.length + ' stocks'}
-        </span>
-      </div>
-      <p className="screener-universe">Universe: loaded market-mover lists · Not a whole-market screen</p>
-      <details className="data-details"><summary>Screen methodology</summary><p>Filters apply to the loaded list. A valuation limit includes only reported positive multiples. Missing inputs never qualify for an active criterion.</p></details>
+        </div>
+        <button className="terminal-button" type="button" onClick={resetFilters}>Reset filters & order</button>
+      </details>
       <details className="mb-3 text-sm">
         <summary className="cursor-pointer">Saved screens ({saved.length})</summary>
         <form
@@ -421,6 +422,18 @@ export default function MarketScreener() {
           . Movers includes available feeds only.
         </p>
       )}
+
+      <div className="screen-result-heading">
+        <p role="status">{activeList ? filteredRows.length + ' of ' + activeList.rows.length + ' stocks' : 'Market-mover list'}</p>
+        {filteredRows.length > 0 && <button type="button" className="terminal-button" onClick={() => downloadCsv('screen-' + activeTab + '.csv', [
+          ['List', 'Fetched at', 'Symbol', 'Company', 'Currency', 'Price', 'Change (%)', 'Volume', valuationMeasures[measure]],
+          ...filteredRows.map(row => [listNames[activeTab], payload?.fetchedAt ?? '', row.symbol, row.name, row.currency ?? '',
+            row.price ?? '', row.changePercent ?? '', row.volume ?? '', row[measure] ?? '']),
+        ])}>Export results</button>}
+      </div>
+      <details className="data-details mb-3"><summary>Yahoo Finance · Market movers only · May be delayed</summary>
+        <p>{asOfText} · {fetchedAtText} · Refresh every 3 minutes. Filters cover this list, not the whole market. Valuation limits require a reported positive multiple.</p>
+      </details>
       {error && (
         <Alert variant="destructive" className="mb-3">
           <div className="flex items-center gap-2">
@@ -434,7 +447,7 @@ export default function MarketScreener() {
       )}
 
       <div className="md:hidden">
-        <div className="max-h-[62vh] space-y-2 overflow-y-auto rounded-xl border border-border/70 bg-card/20 p-2">
+        <div className="screen-mobile-list">
           {loading && !payload ? (
             Array.from({ length: 6 }).map((_, index) => (
               <div

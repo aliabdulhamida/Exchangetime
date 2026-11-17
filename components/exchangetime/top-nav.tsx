@@ -24,7 +24,7 @@ import { isPriceSymbol } from '@/lib/asset-directory';
 import { rankWorkspaceCommand } from '@/lib/workspace-search';
 
 import AssetSearchResults from './asset-search-results';
-import { workspaces, sections, workspaceUrl, workspaceDescriptions } from './product-model';
+import { workspaces, sections, workspaceUrl, workspaceDescriptions, workspaceAliases } from './product-model';
 
 const WatchlistMenu = dynamic(() => import('./watchlist-menu'), { ssr: false });
 const TuneInRadioButton = dynamic(() => import('./tunein-radio-button'), { ssr: false });
@@ -296,7 +296,7 @@ export default function TopNav() {
                       <CommandItem
                         key={item.key}
                         value={item.label}
-                        keywords={[section, workspaceDescriptions[item.key] || '']}
+                        keywords={[section, workspaceDescriptions[item.key] || '', ...(workspaceAliases[item.key] ?? [])]}
                         onSelect={() => visit(workspaceUrl(item.key))}
                       >
                         {item.label}

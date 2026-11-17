@@ -27,6 +27,10 @@ Market-series caching and in-flight request deduplication are retained. Visible 
 
 ## Validation
 
+Comparisons keep the two submitted tickers in the URL (`symbol` and `against`). Return windows use shared observations only and rebase both series to 100. The observation table and CSV use that same window; max drawdown uses those same local-currency prices, not a total-return or FX-adjusted series. Market pulse requires the sector and VIX observations to match the S&P 500 UTC date.
+
+Loan schedules reconcile annual principal, interest and remaining balance to the repayment model. Net worth history exports only user-saved snapshots. Insider exports are scoped to the matching rows of the current provider batch, while the journal explicitly exports all trades.
+
 Start the development server, then run:
 
 ```sh
@@ -34,10 +38,15 @@ pnpm typecheck
 pnpm lint:strict
 pnpm test:unit
 pnpm test:browser
+node scripts/check-refined-surfaces.mjs
 ```
 
 Set `CHECK_BASE_URL` to test a different local server. Browser checks use isolated browser profiles, not the user's saved portfolio. The recovery check deliberately aborts API requests and seeds an explicitly test-only transaction in that isolated profile.
 
 Coverage includes touch/desktop number entry, unsaved-draft protection, missing-FX record editing, compact tools navigation, library/radio discovery, English legal routes, light/dark shell geometry and all 28 dashboard tool layouts on mobile and desktop. Layout checks do not certify every provider's data or every possible trading strategy. Keep independent calculation tests and real-device Safari checks.
+
+`scripts/check-analysis-workflows.mjs` exercises comparison deep links, rebasing, loan balances, and watchlist sorting and refresh failures with isolated test-only responses.
+
+The exchange directory and overview strip share one exchange-local session calculation. It handles configured breaks, early closes, dates crossing UTC midnight, and calendar-year coverage. It is a scheduled-hours indicator, not a live halt feed. Tokyo regular equity sessions follow the [JPX trading schedule](https://www.jpx.co.jp/english/equities/trading/domestic/01.html). Exchange favorites stay on the device.
 
 Do not edit application source while browser checks run: development hot reload can invalidate the very navigation state being tested.

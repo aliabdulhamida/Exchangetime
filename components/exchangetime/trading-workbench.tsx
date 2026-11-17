@@ -4,6 +4,7 @@ import { Download, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { z } from 'zod';
 
+import { downloadCsv } from '@/lib/csv-export';
 import { tradeSchema } from '@/lib/record-schemas';
 
 import { useComposeAction } from './use-compose-action';
@@ -224,23 +225,7 @@ export function TradeJournal() {
       trade.notes,
       profit(trade),
     ]);
-    const csv = [header, ...rows]
-      .map((row) =>
-        row
-          .map((cell) => {
-            const text = String(cell);
-            const safe = typeof cell === 'string' && /^[=+@\t\r-]/.test(text) ? "'" + text : text;
-            return '"' + safe.replace(/"/g, '""') + '"';
-          })
-          .join(','),
-      )
-      .join('\r\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'exchange-time-journal.csv';
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadCsv('exchange-time-journal.csv', [header, ...rows]);
   }
   return (
     <section className="space-y-6">
@@ -248,6 +233,7 @@ export function TradeJournal() {
         <label className="terminal-label">
           Journal currency
           <select
+            disabled={editing !== null}
             className="terminal-input"
             value={currency}
             onChange={(event) => setCurrency(event.target.value as typeof currency)}
@@ -259,7 +245,7 @@ export function TradeJournal() {
         </label>
         <button className="terminal-button" disabled={!records.length} onClick={exportJournal}>
           <Download size={14} />
-          Export CSV
+          Export all trades
         </button>
       </div>
       <div className="terminal-metrics">
@@ -340,7 +326,13 @@ export function TradeJournal() {
                         className="terminal-icon"
                         title={'Remove ' + trade.symbol + ' trade'}
                         aria-label={'Remove ' + trade.symbol + ' trade'}
-                        onClick={() => save(records.filter((item) => item.id !== trade.id))}
+                        onClick={() => {
+                          if (window.confirm('Delete the ' + trade.symbol + ' trade from ' + trade.date + '?') &&
+                            save(records.filter(item => item.id !== trade.id))) {
+                            if (editing === trade.id) { setEditing(null); setSymbol(''); }
+                            setMessage('Trade deleted.');
+                          }
+                        }}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -372,7 +364,13 @@ export function TradeJournal() {
               setup,
               notes,
             };
-            if (!tradeSchema.element.safeParse(trade).success) return;
+            const validation = tradeSchema.element.safeParse(trade);
+            if (!trade.symbol) { setMessage('Enter a ticker symbol.'); return; }
+            if (!validation.success) {
+              const issue = validation.error.issues[0];
+              setMessage(String(issue.path[0] ?? 'Trade') + ': ' + issue.message);
+              return;
+            }
             if (save([...records.filter((item) => item.id !== editing), trade])) {
               setSymbol('');
               setEntry('');

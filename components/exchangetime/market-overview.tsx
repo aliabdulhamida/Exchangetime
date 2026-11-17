@@ -16,7 +16,7 @@ import DataFreshness from './data-freshness';
 import MarketChart, { Sparkline } from './market-chart';
 import MarketSessions from './market-sessions';
 import { researchUrl, workspaceUrl } from './product-model';
-import SectorPerformance, { sectors } from './sector-performance';
+import { SectorView, sectors } from './sector-performance';
 import { useMarketSeries, seriesChange, signedPercent } from './use-market-series';
 
 const instruments = [
@@ -114,20 +114,25 @@ export default function MarketOverview() {
       ? (chartData.at(-1)!.price / chartData[0].price - 1) * 100
       : null;
   const selectedAsset = instruments.find(({ symbol }) => symbol === selected)!;
+  const spy = entries['^GSPC']?.data;
+  const sessionDate = spy && new Date(spy.observedAt).toISOString().slice(0, 10);
+  const aligned = (symbol: string) => {
+    const data = entries[symbol]?.data;
+    return data && new Date(data.observedAt).toISOString().slice(0, 10) === sessionDate ? data : undefined;
+  };
   const breadthValues = sectors
-    .map(([, symbol]) => seriesChange(entries[symbol]?.data))
+    .map(([, symbol]) => seriesChange(aligned(symbol)))
     .filter((value): value is number => value !== null);
   const breadth =
     breadthValues.length >= 8
       ? (breadthValues.filter((value) => value > 0).length / breadthValues.length) * 100
       : null;
-  const spy = entries['^GSPC']?.data;
   const sma =
     spy && spy.prices.length >= 50
       ? spy.prices.slice(-50).reduce((sum, value) => sum + value, 0) / 50
       : null;
   const positiveTrend = !!(spy && sma && spy.prices.at(-1)! > sma);
-  const vix = entries['^VIX']?.data?.prices.at(-1);
+  const vix = aligned('^VIX')?.prices.at(-1);
   const score =
     breadth !== null && sma && vix !== undefined
       ? Math.round(breadth * 0.4 + (positiveTrend ? 30 : 0) + (vix < 20 ? 30 : vix < 30 ? 15 : 0))
@@ -255,7 +260,7 @@ export default function MarketOverview() {
         .filter((block) => block.visible)
         .map((block) => {
           if (block.key === 'sessions') return <MarketSessions key={block.key} />;
-          if (block.key === 'sectors') return <SectorPerformance key={block.key} compact />;
+          if (block.key === 'sectors') return <SectorView key={block.key} entries={entries} refresh={refresh} compact />;
           if (block.key === 'markets')
             return (
               <div
@@ -464,7 +469,7 @@ export default function MarketOverview() {
                     </dt>
                     <dd>
                       {breadth === null ? '—' : Math.round(breadth) + '%'}
-                      <span>{breadth === null ? 'Awaiting feeds' : 'advancing'}</span>
+                      <span>{breadth === null ? 'Awaiting feeds' : 'advancing'} · {breadthValues.length}/{sectors.length}</span>
                     </dd>
                   </div>
                   <div>
@@ -508,8 +513,8 @@ export default function MarketOverview() {
                   <p>
                     Sector participation contributes up to 40 points. S&P 500 above its 50-session
                     average adds 30. VIX below 20 adds 30; between 20 and 30 adds 15. At least eight
-                    sector feeds are required. Constructive ≥65; defensive ≤35. Delayed observations
-                    can have different timestamps. This descriptive model is not investment advice.
+                    sector feeds and VIX must match the S&P 500 observation date{sessionDate ? ' (' + sessionDate + ' UTC)' : ''}.
+                    Constructive ≥65; defensive ≤35. Intraday observations may be delayed.
                   </p>
                 </details>
                 <Link href={workspaceUrl('EconomicIndicators')} className="market-macro-link">

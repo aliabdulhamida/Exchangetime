@@ -77,6 +77,21 @@ export const workspaceDescriptions: Record<string, string> = {
   HolidayCalendar: 'Check exchange closures and shortened trading sessions.',
 };
 
+export const workspaceAliases: Record<string, string[]> = {
+  MarketOverview: ['indices', 'market pulse'],
+  ExchangeTimes: ['opening hours', 'market clock'],
+  SectorAnalysis: ['heatmap', 'sector rotation'],
+  MarketScreener: ['stock filter', 'market movers'],
+  StockAnalysis: ['fundamentals', 'company news'],
+  InsiderScanner: ['insider trading', 'Form 4'],
+  LoanPlanner: ['mortgage', 'amortization', 'debt payoff'],
+  AssetComparison: ['benchmark', 'relative performance'],
+  FinancialGoals: ['savings plan', 'retirement'],
+  CurrencyConverter: ['FX', 'exchange rate'],
+  PositionSizing: ['risk budget', 'stop loss'],
+  PersonalBudget: ['cash flow', 'monthly expenses'],
+};
+
 export const workflows = [
   { title: 'Understand a market move', steps: ['MarketOverview', 'SectorAnalysis', 'AssetComparison', 'StockAnalysis'] },
   { title: 'Review your investments', steps: ['PortfolioTracker', 'AssetComparison', 'NetWorth', 'FinancialGoals'] },

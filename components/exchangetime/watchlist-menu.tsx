@@ -334,6 +334,8 @@ export default function WatchlistMenu({
   const [changes, setChanges] = useState<{ [ticker: string]: number | null }>({});
   const [daySeries, setDaySeries] = useState<{ [ticker: string]: number[] }>({});
   const [loading, setLoading] = useState(false);
+  const [sort, setSort] = useState('saved');
+  const [unavailable, setUnavailable] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const open = controlledOpen ?? internalOpen;
   const activeWatchlist =
@@ -341,21 +343,24 @@ export default function WatchlistMenu({
   const watchlist = activeWatchlist?.items ?? EMPTY_WATCHLIST;
   const activeWatchlistTitle = activeWatchlist?.title ?? 'Watchlist';
 
-  const requestSequence=useRef(0);
+  const activeRequest = useRef<AbortController | null>(null);
   const [observed,setObserved]=useState<Record<string,string>>({});
   const fetchPrices=useCallback(async()=>{
-    const sequence=++requestSequence.current;
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
     setLoading(true);
     setError(null);
     const nextPrices:Record<string,string>={};
     const nextChanges:Record<string,number|null>={};
     const nextSeries:Record<string,number[]>={};
     const nextObserved:Record<string,string>={};
-    let failed=0;
+    const failed: string[] = [];
     await Promise.allSettled(watchlist.map(async stock=>{
       const symbol=encodeURIComponent(stock.ticker);
-      const quoteRequest=fetch('/api/quote?symbol='+symbol,{cache:'no-store',signal:AbortSignal.timeout(15000)});
-      const chartRequest=fetch('/api/quote?symbol='+symbol+'&chart=1&range=1d&interval=5m&includePrePost=false',{signal:AbortSignal.timeout(15000)});
+      const quoteRequest=fetch('/api/quote?symbol='+symbol,{cache:'no-store',signal:controller.signal});
+      const chartRequest=fetch('/api/quote?symbol='+symbol+'&chart=1&range=1d&interval=5m&includePrePost=false',{signal:controller.signal});
       const [quoteResult,chartResult]=await Promise.allSettled([quoteRequest,chartRequest]);
       try {
         if(quoteResult.status!=='fulfilled'||!quoteResult.value.ok) throw new Error('Unavailable');
@@ -364,7 +369,7 @@ export default function WatchlistMenu({
         nextPrices[stock.ticker]=formatQuote(quote.price, quote.meta?.instrumentType === 'INDEX' ? 'points' : quote.currency);
         nextChanges[stock.ticker]=typeof quote.previousClose==='number'&&quote.previousClose>0?(quote.price/quote.previousClose-1)*100:null;
         nextObserved[stock.ticker]=quote.meta?.regularMarketTime?new Date(quote.meta.regularMarketTime*1000).toLocaleString():'Time unavailable';
-      } catch { failed++;nextPrices[stock.ticker]='Unavailable';nextChanges[stock.ticker]=null; }
+      } catch { failed.push(stock.ticker); }
       try {
         if(chartResult.status==='fulfilled'&&chartResult.value.ok) {
           const series=extractWatchlistSparklineSeries(await chartResult.value.json());
@@ -372,9 +377,15 @@ export default function WatchlistMenu({
         }
       } catch {}
     }));
-    if(sequence!==requestSequence.current) return;
-    setPrices(nextPrices);setChanges(nextChanges);setDaySeries(nextSeries);setObserved(nextObserved);
-    setError(failed?failed+' quote feed(s) unavailable. Try reloading.':null);
+    window.clearTimeout(timeout);
+    if(activeRequest.current !== controller) return;
+    activeRequest.current = null;
+    setPrices(previous => ({...previous, ...nextPrices}));
+    setChanges(previous => ({...previous, ...nextChanges}));
+    setDaySeries(nextSeries);
+    setObserved(previous => ({...previous, ...nextObserved}));
+    setUnavailable(failed);
+    setError(failed.length ? 'Quote refresh unavailable: ' + failed.join(', ') : null);
     setLoading(false);
   },[watchlist]);
 
@@ -419,31 +430,31 @@ export default function WatchlistMenu({
     setInputError(null);
     setEditingTitle(false);
     setTitleDraft(activeWatchlistTitle);
-    setPrices({});
-    setChanges({});
-    setDaySeries({});
   }, [activeWatchlistId, activeWatchlistTitle, suggestedTicker]);
 
   useEffect(() => {
-    if (watchlist.length === 0) return;
-
-    let isMounted = true;
-    fetchPrices().catch((err) => {
-      if (typeof window !== 'undefined') console.error('fetchPrices error', err);
-    });
-
-    const interval = setInterval(() => {
-      if (!isMounted) return;
-      fetchPrices().catch((err) => {
-        if (typeof window !== 'undefined') console.error('fetchPrices error', err);
-      });
-    }, 60000);
+    if (!open || !watchlist.length) { setError(null); setLoading(false); return; }
+    function update() {
+      if (document.visibilityState === 'visible' && !activeRequest.current) void fetchPrices();
+    }
+    update();
+    document.addEventListener('visibilitychange', update);
+    const interval = setInterval(update, 60000);
 
     return () => {
-      isMounted = false;
+      activeRequest.current?.abort();
+      activeRequest.current = null;
+      document.removeEventListener('visibilitychange', update);
       clearInterval(interval);
     };
-  }, [watchlist.length, fetchPrices]);
+  }, [open, watchlist.length, fetchPrices]);
+
+  const sorted = [...watchlist];
+  if (sort === 'ticker') sorted.sort((left, right) => left.ticker.localeCompare(right.ticker));
+  if (sort === 'change') {
+    const rank = (ticker: string) => unavailable.includes(ticker) ? -Infinity : changes[ticker] ?? -Infinity;
+    sorted.sort((left, right) => rank(right.ticker) - rank(left.ticker));
+  }
 
   const finishTitleEdit = () => {
     const nextTitle = sanitizeWatchlistTitle(titleDraft);
@@ -576,9 +587,11 @@ export default function WatchlistMenu({
                 <RotateCw className={`h-4 w-4${loading ? ' animate-spin' : ''}`} />
               </button>
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {watchlist.length} {watchlist.length === 1 ? 'symbol' : 'symbols'}
-            </p>
+            <div className="watchlist-sort"><span>{watchlist.length} {watchlist.length === 1 ? 'symbol' : 'symbols'}</span>
+              {watchlist.length > 1 && <select aria-label="Sort watchlist" value={sort} onChange={event => setSort(event.target.value)}>
+                <option value="saved">Saved order</option><option value="change">Top movers (%)</option><option value="ticker">Ticker A–Z</option>
+              </select>}
+            </div>
             <div className="mt-2 flex items-center gap-1.5">
               <select
                 value={activeWatchlistId}
@@ -619,14 +632,14 @@ export default function WatchlistMenu({
               </div>
             ) : (
               <div className="space-y-2">
-                {watchlist.map((stock, idx) => {
+                {sorted.map((stock) => {
                   const tickerPrice = prices[stock.ticker];
                   const tickerChange = changes[stock.ticker];
                   const hasTickerChange = typeof tickerChange === 'number' && Number.isFinite(tickerChange);
 
                   return (
                     <div
-                      key={stock.ticker + idx}
+                      key={stock.ticker}
                       className="watchlist-row px-2.5 py-2 transition-colors"
                     >
                       <div className="flex items-center gap-2">
@@ -634,8 +647,8 @@ export default function WatchlistMenu({
                           {stock.ticker}
                         </Link>
                         <span className="ml-auto text-right font-mono text-xs text-foreground">
-                          {loading ? (
-                            <span className="text-muted-foreground">...</span>
+                          {loading && tickerPrice === undefined ? (
+                            <span className="text-muted-foreground">…</span>
                           ) : tickerPrice !== undefined ? (
                             <>
                               {tickerPrice}
@@ -655,7 +668,7 @@ export default function WatchlistMenu({
                               )}
                             </>
                           ) : (
-                            <span className="text-muted-foreground">...</span>
+                            <span className="text-muted-foreground">Unavailable</span>
                           )}
                         </span>
                         <button
@@ -669,7 +682,7 @@ export default function WatchlistMenu({
                                 watchlistItem.id === activeWatchlistId
                                   ? {
                                       ...watchlistItem,
-                                      items: watchlistItem.items.filter((_, itemIndex) => itemIndex !== idx),
+                                      items: watchlistItem.items.filter(item => item.ticker !== stock.ticker),
                                     }
                                   : watchlistItem,
                               ),
@@ -686,7 +699,7 @@ export default function WatchlistMenu({
                       ) : loading ? (
                         <div className="mt-2 h-6 animate-pulse rounded-md bg-secondary/35" />
                       ) : null}
-                      <p className="mt-2 text-[9px] text-muted-foreground">{observed[stock.ticker]?'Observed '+observed[stock.ticker]:'Observation time unavailable'}</p>
+                      <p className="mt-2 text-[11px] text-muted-foreground">{unavailable.includes(stock.ticker) && tickerPrice !== undefined ? 'Stale · ' : ''}{observed[stock.ticker]?'Observed '+observed[stock.ticker]:'Observation time unavailable'}</p>
                     </div>
                   );
                 })}
