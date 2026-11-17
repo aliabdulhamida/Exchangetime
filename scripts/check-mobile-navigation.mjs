@@ -18,17 +18,18 @@ try {
       ),
       0,
     );
-    assert.equal(
-      await page.$eval('.workspace-picker', (node) => getComputedStyle(node).display),
-      'none',
-    );
-    await page.click('.terminal-bottom-nav a[href="/blog"]');
+    assert.equal(await page.$('.workspace-picker'), null);
+    assert.equal(await page.$eval('.workspace-main-topics', node => getComputedStyle(node).display), 'none');
+    assert.equal(await page.$$eval('.terminal-bottom-nav a', nodes => nodes.length), 6);
+    await page.locator('button[aria-label="More navigation"]').click();
+    await page.waitForSelector('.mobile-navigation-services a[href="/blog"]', { visible: true });
+    await page.click('.mobile-navigation-services a[href="/blog"]');
     await page.waitForFunction(() => location.pathname === '/blog');
     await page.waitForSelector('h1');
     assert.equal(await page.$eval('h1', (heading) => heading.textContent), 'Research library');
     await page.locator('button[aria-label="More navigation"]').click();
     await page.waitForSelector('.mobile-navigation-sheet', { visible: true });
-    assert.equal(await page.$$eval('.mobile-navigation-areas a', (nodes) => nodes.length), 6);
+    assert.equal(await page.$$eval('.mobile-navigation-services > *', (nodes) => nodes.length), 4);
     await page.screenshot({ path: '/tmp/mobile-nav-' + width + '.png' });
     const radio = await page.$('.mobile-navigation-sheet');
     const items = await radio.$$('button');

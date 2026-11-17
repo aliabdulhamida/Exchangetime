@@ -44,34 +44,31 @@ export default function Preferences() {
   }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto">
+      <DialogContent className="preferences-panel max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Workspace preferences</DialogTitle>
-          <DialogDescription>Display and navigation preferences for this device.</DialogDescription>
+          <DialogDescription className="sr-only">Display and navigation preferences for this device.</DialogDescription>
         </DialogHeader>
-        <label className="terminal-label">
-          Appearance
-          <select
-            className="et-tool-select"
-            value={theme || 'system'}
-            onChange={(event) => setTheme(event.target.value)}
-          >
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-            <option value="system">Automatic</option>
-          </select>
-        </label>
-        <label className="terminal-label">
-          Display density
-          <select
-            className="et-tool-select"
-            value={density}
-            onChange={(event) => setDensity(event.target.value)}
-          >
-            <option value="comfortable">Comfortable</option>
-            <option value="compact">Compact</option>
-          </select>
-        </label>
+        <fieldset className="preference-options">
+          <legend>Appearance</legend>
+          <div className="preference-segmented">
+            {['system', 'light', 'dark'].map((option) => (
+              <button key={option} type="button" aria-pressed={(theme || 'system') === option} onClick={() => setTheme(option)}>
+                {option === 'system' ? 'Automatic' : option === 'light' ? 'Light' : 'Dark'}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="preference-options">
+          <legend>Display density</legend>
+          <div className="preference-segmented">
+            {['comfortable', 'compact'].map((option) => (
+              <button key={option} type="button" aria-pressed={density === option} onClick={() => setDensity(option)}>
+                {option === 'compact' ? 'Compact' : 'Comfortable'}
+              </button>
+            ))}
+          </div>
+        </fieldset>
         <label className="terminal-label">
           Default workspace
           <select
@@ -96,7 +93,10 @@ export default function Preferences() {
         <p role="status" className="text-xs text-muted-foreground">
           {notice}
         </p>
-        <PersonalBackup />
+        <details className="preferences-backup">
+          <summary>Personal data & backup</summary>
+          <PersonalBackup />
+        </details>
       </DialogContent>
     </Dialog>
   );

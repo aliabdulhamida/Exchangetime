@@ -7,6 +7,7 @@ import '@/styles/terminal.css';
 import '@/styles/product.css';
 import '@/styles/button-animations.css';
 import '@/styles/toggle-button.css';
+import NumericKeypad from '@/components/numeric-keypad';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -37,6 +38,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
@@ -62,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           disableTransitionOnChange
         >
           {children}
+          <NumericKeypad />
         </ThemeProvider>
 
         {/* Global Toasts */}

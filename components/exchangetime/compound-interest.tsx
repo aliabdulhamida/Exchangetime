@@ -44,7 +44,6 @@ const axisCurrencyLabel = (value: number): string => {
 };
 
 export default function CompoundInterestCalculator() {
-  const [mobilePanel, setMobilePanel] = useState<'inputs' | 'results'>('inputs');
   const [initialCapital, setInitialCapital] = useState(0);
   const [contributionAmount, setContributionAmount] = useState(0);
   const [annualRatePct, setAnnualRatePct] = useState(5);
@@ -153,44 +152,12 @@ export default function CompoundInterestCalculator() {
 
   return (
     <div className="compound-workspace flex w-full flex-col gap-4 xl:flex-row xl:items-start">
-      <div className="xl:hidden">
-        <div className="tool-segmented grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
-          <button
-            type="button"
-            onClick={() => setMobilePanel('inputs')}
-            className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-              mobilePanel === 'inputs'
-                ? 'bg-foreground text-background'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-            aria-pressed={mobilePanel === 'inputs'}
-          >
-            Inputs
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobilePanel('results')}
-            className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-              mobilePanel === 'results'
-                ? 'bg-foreground text-background'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-            aria-pressed={mobilePanel === 'results'}
-          >
-            Results
-          </button>
-        </div>
-      </div>
-
       <form
-        className={`compound-input-surface w-full rounded-xl border border-border bg-background/40 p-4 sm:p-5 xl:block xl:max-w-md ${
-          mobilePanel === 'inputs' ? 'block' : 'hidden'
-        }`}
+        className="compound-input-surface w-full rounded-xl border border-border bg-background/40 p-4 sm:p-5 xl:max-w-md"
         onSubmit={(event) => event.preventDefault()}
       >
         <div className="mb-4">
-          <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Inputs</p>
-          <h3 className="text-base font-semibold text-foreground">Projection Setup</h3>
+          <h3 className="text-base font-semibold text-foreground">Your plan</h3>
         </div>
 
         <div className="space-y-3">
@@ -387,9 +354,7 @@ export default function CompoundInterestCalculator() {
       </form>
 
       <div
-        className={`compound-results w-full min-w-0 flex-1 flex-col gap-3 xl:flex ${
-          mobilePanel === 'results' ? 'flex' : 'hidden'
-        }`}
+        className="compound-results flex w-full min-w-0 flex-1 flex-col gap-3"
       >
         <div className="rounded-xl border border-border bg-gradient-to-r from-card via-card to-background px-4 py-4 sm:px-5">
           <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">

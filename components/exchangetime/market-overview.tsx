@@ -143,6 +143,13 @@ export default function MarketOverview() {
   return (
     <section className="market-overview">
       <div className="market-overview-toolbar">
+        <select className="market-region-select" aria-label="Market region" value={region} onChange={event => {
+          setRegion(event.target.value);
+          const first = instruments.find(asset => event.target.value === 'All' || asset.region === event.target.value);
+          if (first) setSelected(first.symbol);
+        }}>
+          {['United States', 'Europe', 'Asia', 'Alternatives', 'All'].map(item => <option key={item}>{item}</option>)}
+        </select>
         <div className="market-region-tabs" aria-label="Market region">
           {['United States', 'Europe', 'Asia', 'Alternatives', 'All'].map((item) => (
             <button
@@ -252,7 +259,7 @@ export default function MarketOverview() {
             return (
               <div
                 key={block.key}
-                className="market-quotes et-scrollbar"
+                className="market-quotes market-instrument-list et-scrollbar"
                 aria-label="Global market quotes"
               >
                 {instruments
@@ -434,9 +441,6 @@ export default function MarketOverview() {
                   <h2>Market pulse</h2>
                   <span className="market-model-badge">Model</span>
                 </div>
-                <p className="terminal-note">
-                  US equities · S&amp;P 500 trend, volatility and sector breadth
-                </p>
                 <div className="market-pulse-score">
                   <strong>
                     {score ?? '—'}
@@ -528,14 +532,15 @@ export default function MarketOverview() {
           All panels are hidden. Open Customize to restore your dashboard.
         </p>
       )}
-      <div className="market-data-disclosure">
-        <span className="session-dot" />
+      {hasStaleData && <p role="status" className="terminal-note">Some feeds could not refresh; retained data is marked stale.</p>}
+      <details className="data-details">
+        <summary>Data details</summary>
         <p>
           Yahoo Finance · Daily observations · Provider delays vary.
-          {hasStaleData && ' Some feeds could not refresh; retained data is marked stale.'} Charts
+          Charts
           and models use the latest available observations, not streaming prices.
         </p>
-      </div>
+      </details>
     </section>
   );
 }

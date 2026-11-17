@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, Globe2, MoreHorizontal, PieChart, Radio, Settings2, Star } from 'lucide-react';
+import { BookOpen, MoreHorizontal, Radio, Settings2, Star } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -13,7 +13,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 
-import { sections, workspaceUrl } from './product-model';
+import { navigationTopics } from './navigation-topics';
 
 export default function MobileNavigation() {
   const pathname = usePathname();
@@ -27,43 +27,21 @@ export default function MobileNavigation() {
     setOpen(false);
     window.dispatchEvent(new Event(event));
   }
-  const primary =
-    pathname === '/dashboard' && (current in sections.Markets || current === 'PortfolioTracker');
   return (
     <>
       <nav className="terminal-bottom-nav" aria-label="Mobile navigation">
         <div className="terminal-bottom-items">
-          <Link
-            href={workspaceUrl('MarketOverview')}
-            aria-current={
-              pathname === '/dashboard' && current in sections.Markets ? 'page' : undefined
-            }
-          >
-            <Globe2 size={20} />
-            <span>Markets</span>
-          </Link>
-          <Link
-            href={workspaceUrl('PortfolioTracker')}
-            aria-current={
-              pathname === '/dashboard' && current === 'PortfolioTracker' ? 'page' : undefined
-            }
-          >
-            <PieChart size={20} />
-            <span>Portfolio</span>
-          </Link>
-          <button onClick={() => action('et-watchlist')}>
-            <Star size={20} />
-            <span>Watchlist</span>
-          </button>
-          <Link href="/blog" aria-current={pathname?.startsWith('/blog') ? 'page' : undefined}>
-            <BookOpen size={20} />
-            <span>Research</span>
-          </Link>
+          {navigationTopics.map(({ section, label, Icon, href, tools }) => (
+            <Link key={section} aria-label={section} href={href} aria-current={pathname === '/dashboard' && current in tools ? 'page' : undefined}>
+              <Icon size={20} aria-hidden />
+              <span>{label}</span>
+            </Link>
+          ))}
           <button
             aria-label="More navigation"
             aria-expanded={open}
             aria-haspopup="dialog"
-            data-active={open || (!primary && !pathname?.startsWith('/blog'))}
+            data-active={open || pathname !== '/dashboard'}
             onClick={() => setOpen(true)}
           >
             <MoreHorizontal size={20} />
@@ -78,6 +56,10 @@ export default function MobileNavigation() {
             <SheetDescription className="sr-only">Choose an area, radio or settings.</SheetDescription>
           </SheetHeader>
           <div className="mobile-navigation-services">
+            <button onClick={() => action('et-watchlist')}>
+              <Star size={19} />
+              Watchlist
+            </button>
             <Link href="/blog" onClick={() => setOpen(false)}>
               <BookOpen size={19} />
               Research library
@@ -91,21 +73,6 @@ export default function MobileNavigation() {
               Preferences
             </button>
           </div>
-          <nav aria-label="Browse areas" className="mobile-navigation-areas">
-            {Object.entries(sections).map(([section, items]) => (
-              <Link
-                key={section}
-                href={workspaceUrl(Object.keys(items)[0])}
-                onClick={() => setOpen(false)}
-              >
-                <span>{section}</span>
-                <small>
-                  {Object.keys(items).length}{' '}
-                  {Object.keys(items).length === 1 ? 'workspace' : 'workspaces'}
-                </small>
-              </Link>
-            ))}
-          </nav>
           <div className="mobile-navigation-legal">
             <Link href="/impressum" onClick={() => setOpen(false)}>
               Legal notice

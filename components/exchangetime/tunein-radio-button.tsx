@@ -46,7 +46,7 @@ function RadioPlayer() {
   const [stationId, setStationId] = useState('');
   const station = TUNEIN_EMBEDS.find(item => item.id === stationId);
   return (
-    <div className="p-3">
+    <div className="radio-player p-3">
       <label className="planner-field">Radio station
         <select className="terminal-input" value={stationId} onChange={event => setStationId(event.target.value)}>
           <option value="">Choose a station</option>
@@ -56,7 +56,7 @@ function RadioPlayer() {
       {station ? <>
         <iframe key={station.id} src={station.src} className="mt-2 w-full border-0" height={RADIO_EMBED_HEIGHT} title={station.title} allow="autoplay" />
         <button className="terminal-button mt-2" onClick={() => setStationId('')}>Disconnect player</button>
-      </> : <p className="terminal-note mt-2">Selecting a station connects to TuneIn. No player loads until you choose one.</p>}
+      </> : <p className="terminal-note mt-2">Connects to TuneIn when selected.</p>}
     </div>
   );
 }
@@ -456,12 +456,10 @@ export default function TuneInRadioButton({
             >
               <div
                 id={modalId}
-                className="et-dropdown-panel w-[320px] max-w-[calc(100vw-1rem)] overflow-hidden p-2"
+                className="et-dropdown-panel w-[320px] max-w-[calc(100vw-1rem)] overflow-hidden p-0"
                 style={{ pointerEvents: 'auto' }}
               >
-                <div className="overflow-hidden rounded-lg border border-border/70 bg-card/70">
-                  <RadioPlayer />
-                </div>
+                <RadioPlayer />
               </div>
             </div>,
             document.body,

@@ -104,12 +104,14 @@ export default function SectorPerformance({ compact = false }: { compact?: boole
           </Link>
         ))}
       </div>
-      <p className="terminal-note mt-3">
-        US sector ETF proxies · Source Yahoo Finance · Change over {horizon} trading session{horizon > 1 ? 's' : ''} · Equal
-        tile sizes, not market-cap weighted. Quotes may be delayed. Hover a sector for its
-        observation time.
-        {rows.some((row) => row.entry?.error) && ' Some feeds could not refresh.'}
-      </p>
+      {rows.some((row) => row.entry?.error) && <p role="status" className="terminal-note mt-3">Some feeds could not refresh.</p>}
+      <details className="data-details">
+        <summary>Data details</summary>
+        <p>Source: Yahoo Finance. US sector ETF proxies; change over {horizon} trading session{horizon > 1 ? 's' : ''}. Equal tile sizes, not market-cap weighted. Quotes may be delayed.</p>
+        <dl>
+          {rows.map(row => <div key={row.symbol}><dt>{row.symbol}</dt><dd>{row.entry?.data?.observedAt ? new Date(row.entry.data.observedAt).toLocaleString() : 'Observation unavailable'}</dd></div>)}
+        </dl>
+      </details>
       {!compact && (
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-left text-sm">

@@ -9,12 +9,11 @@ import Content from './content';
 import Layout from './layout';
 import { workflows, workspaces, workspaceUrl } from './product-model';
 import { usePinnedWorkspaces } from './use-pinned-workspaces';
-import WorkspaceTitle from './workspace-title';
+import WorkspaceTitle, { WorkspaceNavigation } from './workspace-title';
 
 export default function Dashboard({ view }: { view?: string }) {
   const router = useRouter();
   const current = workspaces.find((item) => item.key === view) ?? workspaces[0];
-  const peers = workspaces.filter((item) => item.section === current.section);
   const { pins, toggle, notice } = usePinnedWorkspaces();
   const nextSteps = [
     ...new Set(
@@ -41,6 +40,7 @@ export default function Dashboard({ view }: { view?: string }) {
   }, [router, view]);
   return (
     <Layout>
+      <WorkspaceNavigation current={current} />
       <div className="terminal-heading">
         <div>
           <h1>
@@ -67,37 +67,6 @@ export default function Dashboard({ view }: { view?: string }) {
         </button>
       </div>
       {notice && <p role="alert">{notice}</p>}
-      {peers.length > 1 && (
-        <>
-          <label className="workspace-picker">
-            {current.section}
-            <select
-              value={current.key}
-              onChange={(event) => router.push(workspaceUrl(event.target.value))}
-            >
-              {peers.map((item) => (
-                <option key={item.key} value={item.key}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <nav
-            aria-label={current.section + ' workspaces'}
-            className="terminal-tabs workspace-tabs"
-          >
-            {peers.map((item) => (
-              <Link
-                key={item.key}
-                href={workspaceUrl(item.key)}
-                aria-current={item.key === current.key ? 'page' : undefined}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </>
-      )}
       <div className="workspace-content" data-workspace={current.key}>
         <Content key={current.key} workspace={current.key} />
       </div>

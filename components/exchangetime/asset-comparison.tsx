@@ -57,7 +57,8 @@ export default function AssetComparison() {
           <Line name={pair[1]} dataKey="benchmark" stroke="var(--app-secondary)" strokeDasharray="5 4" strokeWidth={2} dot={false} isAnimationActive={false} />
         </LineChart></ResponsiveContainer>
       </div>
-      <p className="terminal-note">Solid: {pair[0]} · Dashed: {pair[1]}. Indexed to 100 on the first shared UTC date. Local-currency price returns, not total returns; no FX conversion or dividends.</p>
+      <p className="terminal-note">Solid: {pair[0]} · Dashed: {pair[1]}</p>
+      <details className="data-details"><summary>Data details</summary><p>Indexed to 100 on the first shared UTC date. Local-currency price returns, not total returns; no FX conversion or dividends.</p></details>
     </>}
     <p className="workspace-source">Source: Yahoo Finance · Daily prices, possibly delayed. The current session can change before close. Last common observation: {last?.date ?? 'unavailable'}.</p>
   </section>;

@@ -54,9 +54,14 @@ try {
       }
       if (view === 'CompoundInterest') {
         const input = await page.$('form input[type="number"]');
-        await input.click({ clickCount: 3 });
-        await input.type('1000');
-        if (width < 1280) await page.click('.tool-segmented button:last-child');
+        await input.click();
+        await page.waitForSelector('.numeric-keypad');
+        assert.equal(await input.evaluate(node => node.inputMode), 'none');
+        await page.click('.numeric-keypad footer button:nth-child(2)');
+        for (const digit of '1000') await page.click(`.numeric-keypad button[aria-label="${digit}"]`);
+        await page.click('.numeric-keypad .keypad-done');
+        assert.equal(await input.evaluate(node => node.value), '1000');
+        assert.equal(await page.$('.numeric-keypad'), null);
       }
       if (view === 'PortfolioTracker') {
         await page.waitForSelector('.portfolio-start .tool-empty-state');

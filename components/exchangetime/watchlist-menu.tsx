@@ -522,7 +522,7 @@ export default function WatchlistMenu({
         align={align}
         side={side}
         sideOffset={sideOffset}
-        className={contentClassName}
+        className={`watchlist-panel ${contentClassName || ''}`}
       >
         <div className="overflow-hidden rounded-[inherit]">
           <p className="border-b border-border px-3 py-2 text-[10px] text-muted-foreground">Yahoo Finance · Refresh 60s · Quotes may be delayed</p>
@@ -627,7 +627,7 @@ export default function WatchlistMenu({
                   return (
                     <div
                       key={stock.ticker + idx}
-                      className="rounded-lg border border-border/70 bg-card/60 px-2.5 py-2 transition-colors hover:border-border hover:bg-card"
+                      className="watchlist-row px-2.5 py-2 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <Link href={workspaceUrl('StockAnalysis')+'&symbol='+encodeURIComponent(stock.ticker)} onClick={()=>{setInternalOpen(false);onOpenChange?.(false);}} className="inline-flex min-w-[58px] items-center rounded-md bg-secondary/50 px-1.5 py-0.5 text-xs font-semibold text-foreground hover:underline">
