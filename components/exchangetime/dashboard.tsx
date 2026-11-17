@@ -9,7 +9,7 @@ import Content from './content';
 import Layout from './layout';
 import { workflows, workspaces, workspaceUrl } from './product-model';
 import { usePinnedWorkspaces } from './use-pinned-workspaces';
-import WorkspaceTitle, { WorkspaceNavigation } from './workspace-title';
+import WorkspaceTitle from './workspace-title';
 
 export default function Dashboard({ view }: { view?: string }) {
   const router = useRouter();
@@ -40,12 +40,10 @@ export default function Dashboard({ view }: { view?: string }) {
   }, [router, view]);
   return (
     <Layout>
-      <WorkspaceNavigation current={current} />
       <div className="terminal-heading">
         <div>
           <h1>
             <WorkspaceTitle
-              current={current}
               title={
                 current.key === 'MarketOverview'
                   ? 'Market overview'

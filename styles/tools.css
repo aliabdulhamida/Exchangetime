@@ -5,6 +5,23 @@
   background: var(--app-surface);
   min-width: 0;
 }
+.financial-chart-tooltip { min-width: 160px; max-width: min(280px, 80vw); border: 1px solid var(--app-control-border); border-radius: 14px; background: var(--app-surface); color: var(--app-text); box-shadow: 0 8px 28px #00000020; padding: 14px 16px; font-size: 12px; }
+.financial-chart-tooltip > p { color: var(--app-secondary); font-size: 11px; margin-bottom: 10px; }
+.financial-chart-tooltip dl { display: grid; gap: 10px; }
+.financial-chart-tooltip dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; }
+.financial-chart-tooltip dt { display: inline-flex; align-items: center; gap: 7px; color: var(--app-secondary); }
+.financial-chart-tooltip dt > span { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.financial-chart-tooltip dd { font-size: 15px; font-weight: 550; font-variant-numeric: tabular-nums; letter-spacing: -0.025em; }
+.terminal .net-worth-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.terminal .net-worth-summary .terminal-metric { padding: 14px; border: 0; border-radius: 14px; background: var(--app-surface); min-width: 0; }
+.terminal .net-worth-summary .terminal-metric p { font-size: 12px; }
+.terminal .net-worth-summary .terminal-metric strong { display: block; font-size: clamp(17px, 3vw, 24px); font-weight: 500; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.terminal .net-worth-summary .terminal-metric:first-child { grid-column: 1 / -1; padding: 8px 0 20px; background: transparent; }
+.terminal .net-worth-summary .terminal-metric:first-child strong { font-size: clamp(40px, 6vw, 58px); line-height: 1.15; margin-top: 10px; font-weight: 450; letter-spacing: -0.055em; }
+.terminal .planner-layout > section:not(.planner-result) { padding: 8px 0; background: transparent; border: 0; border-radius: 0; }
+.terminal .planner-result { background: var(--app-surface); border-radius: 20px; }
+.planner-result dd { font-variant-numeric: tabular-nums; font-weight: 500; }
+.planner-result dl > div:first-child dd { font-size: clamp(30px, 4vw, 42px); letter-spacing: -0.045em; }
 .tool-segmented-control { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 14px; background: var(--app-inset); }
 .tool-segmented-control.is-full-width { display: flex; width: 100%; }
 .tool-segmented-control button { min-height: 36px; padding: 8px 12px; border-radius: 10px; color: var(--app-secondary); font-size: 12px; }
@@ -527,9 +544,6 @@
   background: var(--app-surface);
   padding: 14px;
   margin-inline: 0;
-}
-.workspace-content[data-workspace='NetWorth'] .terminal-metric:first-child {
-  background: var(--app-blue-soft);
 }
 .workspace-content[data-workspace='MarketScreener'] table {
   font-variant-numeric: tabular-nums;

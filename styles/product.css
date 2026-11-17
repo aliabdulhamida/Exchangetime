@@ -89,77 +89,6 @@
   font-size: 11px;
   line-height: 1.6;
 }
-.workspace-hierarchy {
-  min-width: 0;
-  margin-bottom: 20px;
-}
-.workspace-hierarchy nav {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-}
-.workspace-hierarchy a {
-  flex-shrink: 0;
-  white-space: nowrap;
-  color: var(--app-secondary);
-  padding: 9px 12px;
-  font-size: 12px;
-  line-height: 1.4;
-}
-.workspace-main-topics {
-  padding: 0;
-  background: transparent;
-  border-radius: 0;
-}
-.workspace-main-topics a {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-  flex: 1 0 0;
-  padding: 4px 2px 12px;
-  font-size: 10px;
-}
-.workspace-topic-icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
-  background: var(--app-surface);
-  color: var(--app-text);
-}
-.workspace-main-topics a[aria-current] {
-  background: transparent;
-  color: var(--app-text);
-  font-weight: 550;
-  border-radius: 10px;
-  box-shadow: none;
-}
-.workspace-main-topics a[aria-current] .workspace-topic-icon {
-  background: var(--app-text);
-  color: var(--app-canvas);
-}
-.workspace-hierarchy .workspace-subtopics {
-  padding-block: 10px;
-  gap: 6px;
-  margin-inline: 0;
-}
-.workspace-subtopics a {
-  padding: 9px 13px;
-  border: 0;
-  border-radius: 999px;
-  font-size: 12px;
-}
-.workspace-subtopics a[aria-current] {
-  background: var(--app-text);
-  color: var(--app-canvas);
-  font-weight: 500;
-}
 .market-region-select { display: none; }
 .tools-topic-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 16px; }
 .tools-topic-options button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; border-radius: 12px; background: var(--app-surface); font-size: 12px; }
@@ -191,12 +120,13 @@
 .tools-popover header { display: flex; align-items: center; justify-content: space-between; padding: 0 0 14px; font-size: 14px; letter-spacing: -0.025em; }
 .tools-popover header strong { font-weight: 550; }
 .tools-popover header button { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 11px; background: var(--app-inset); color: var(--app-secondary); }
-.tools-popover-browser { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; }
+.tools-popover-browser { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; }
 .tools-popover-areas { display: flex; flex-direction: column; gap: 3px; padding-right: 8px; }
-.tools-popover-areas button { display: flex; align-items: center; gap: 7px; padding: 11px 6px; border-radius: 10px; font-size: 10px; color: var(--app-secondary); }
+.tools-popover-areas button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 8px; border-radius: 10px; font-size: 12px; color: var(--app-secondary); }
+.tools-popover-areas svg { flex-shrink: 0; }
 .tools-popover-areas button[aria-pressed='true'] { background: var(--app-inset); color: var(--app-text); }
 .tools-popover-list { max-height: 270px; overflow-y: auto; overscroll-behavior: contain; }
-.tools-popover-list a { display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 12px 8px; min-height: 44px; border-radius: 10px; font-size: 12px; line-height: 1.4; }
+.tools-popover-list a { display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 12px 10px; min-height: 44px; border-radius: 10px; font-size: 13px; line-height: 1.4; }
 .tools-popover-list a[aria-current] { background: var(--app-inset); color: var(--app-text); font-weight: 550; }
 .tools-popover-list a:hover { background: var(--app-inset); }
 .tools-popover-list { background: var(--app-canvas); border-radius: 14px; padding: 4px; }
@@ -204,9 +134,13 @@
 .tools-popover:focus { outline: none; }
 .tools-popover-list svg { flex-shrink: 0; }
 .tools-popover-shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; border-top: 1px solid var(--app-separator); margin-top: 12px; padding-top: 12px; }
-.tools-popover-shortcuts > * { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 48px; border-radius: 10px; font-size: 10px; }
+.tools-popover-shortcuts > * { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 48px; border-radius: 10px; font-size: 11px; }
 .tools-popover-shortcuts > *:hover { background: var(--app-surface); }
-.tools-popover-legal { font-size: 10px; color: var(--app-secondary); margin-top: 10px; }
+.tools-popover-legal { font-size: 11px; color: var(--app-secondary); margin-top: 10px; }
+@media (max-width: 360px) {
+  .tools-popover { padding: 12px; }
+  .tools-popover-browser { grid-template-columns: 100px minmax(0, 1fr); gap: 6px; }
+}
 .tools-popover-legal summary { cursor: pointer; padding: 6px; }
 .tools-popover-legal > a, .tools-popover-legal > span { display: block; padding: 7px; }
 @media (max-width: 1023px) {
@@ -250,8 +184,18 @@
 }
 .terminal-sidebar {
   border: 0;
-  width: 220px;
+  width: 232px;
   padding: 0 12px;
+}
+.terminal-subnavigation { display: grid; gap: 3px; margin: 4px 0 12px 20px; padding-left: 10px; border-left: 1px solid var(--app-separator); }
+.terminal-subnavigation a { display: block; padding: 9px 10px; border-radius: 9px; color: var(--app-secondary); font-size: 12px; line-height: 1.4; }
+.terminal-subnavigation a[aria-current='page'] { background: var(--app-surface); color: var(--app-text); font-weight: 550; }
+.terminal-subnavigation a:hover, .terminal-shortcut[aria-current='page'] { color: var(--app-text); }
+.terminal-subnavigation a:focus-visible { outline: 2px solid var(--app-secondary); outline-offset: 2px; }
+@media (min-width: 1024px) {
+  .terminal .terminal-topbar { height: 64px; }
+  .terminal .terminal-main { padding-top: 12px; }
+  .terminal .terminal-heading h1 { font-size: clamp(28px, 2.5vw, 36px); }
 }
 .terminal-brand-row {
   padding-left: 12px;
@@ -630,9 +574,10 @@
 .market-time-ranges button {
   border-radius: 999px;
   min-width: 36px;
-  min-height: 30px;
-  font-size: 11px;
+  min-height: 34px;
+  font-size: 12px;
 }
+@media (pointer: coarse) { .market-time-ranges button { min-height: 44px; min-width: 44px; } }
 .market-time-ranges button[aria-pressed='true'] {
   background: var(--app-surface);
 }

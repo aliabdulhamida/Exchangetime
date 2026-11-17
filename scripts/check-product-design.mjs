@@ -39,6 +39,7 @@ try {
     await page.click('button[aria-label="Search assets and workspaces"]');
     await page.waitForSelector('[role="dialog"]');
     await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
     await page.screenshot({ path: '/tmp/exchangetime-design-' + theme + '-' + width + '.png' });
     assert.deepEqual(errors, []);
     await page.close();

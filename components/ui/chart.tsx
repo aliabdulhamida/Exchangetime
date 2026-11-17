@@ -161,13 +161,14 @@ const ChartTooltipContent = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          'min-w-[3.5rem] max-w-[7rem] rounded bg-white/95 dark:bg-[#18181b]/95 border border-gray-200 dark:border-[#23232a] px-2 py-0.5 text-[13px] flex flex-col gap-0.5 transition-all duration-150',
+          'financial-chart-tooltip flex flex-col gap-2',
           className,
         )}
       >
+        {tooltipLabel}
         <div className="flex items-center gap-1.5">
           {payload[0]?.value !== undefined && (
-            <span className="font-mono font-semibold text-gray-900 dark:text-gray-100 text-[15px]">
+            <span className="font-medium tabular-nums text-[var(--app-text)] text-[15px]">
               {payload[0].value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </span>
           )}

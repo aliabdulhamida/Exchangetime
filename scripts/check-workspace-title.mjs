@@ -8,10 +8,9 @@ try {
     const page = await browser.newPage();
     await page.setViewport({ width, height: 900, hasTouch: width < 1024, isMobile: width < 1024 });
     await page.goto(base + '/dashboard?view=MarketOverview', { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.workspace-hierarchy');
     await page.waitForSelector('.market-history');
+    assert.equal(await page.$('.workspace-hierarchy'), null);
     if (width < 1024) {
-      assert.equal(await page.$eval('.workspace-hierarchy', node => getComputedStyle(node).display), 'none');
       await page.click('button[aria-label="Choose tools"]');
       await page.waitForSelector('.tools-popover');
       await page.$eval('.tools-popover', node => Promise.all(node.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))));
@@ -23,9 +22,9 @@ try {
       await page.waitForFunction(() => !document.querySelector('.tools-popover'));
       assert.equal(await page.$('.tools-popover'), null);
     } else {
-      await page.click('.workspace-main-topics a[href$="StockAnalysis"]');
-      await page.waitForFunction(() => document.querySelector('.workspace-subtopics')?.getAttribute('aria-label') === 'Research tools');
-      await page.click('.workspace-subtopics a[href$="InsiderScanner"]');
+      await page.click('.terminal-sidebar .terminal-section[href$="StockAnalysis"]');
+      await page.waitForSelector('.terminal-subnavigation[aria-label="Research tools"]');
+      await page.click('.terminal-subnavigation a[href$="InsiderScanner"]');
       await page.waitForFunction(() => location.search.includes('InsiderScanner'));
     }
     await page.goBack();

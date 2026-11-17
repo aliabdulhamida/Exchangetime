@@ -7,6 +7,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { isPriceSymbol } from '@/lib/asset-directory';
 import { comparePortfolio, type PortfolioObservation } from '@/lib/portfolio-risk';
 
+import FinancialTooltip from './financial-tooltip';
 import { signedPercent, useMarketSeries, type MarketSeries } from './use-market-series';
 
 function observations(series?: MarketSeries): PortfolioObservation[] {
@@ -52,7 +53,7 @@ export default function AssetComparison() {
       <div className="h-64" role="img" aria-label={'Indexed closing prices for ' + pair.join(' and ')}>
         <ResponsiveContainer width="100%" height="100%"><LineChart data={points} margin={{ left: 0, right: 10, top: 10, bottom: 5 }}>
           <CartesianGrid vertical={false} stroke="var(--chart-grid)" /><XAxis dataKey="date" minTickGap={50} tick={{ fontSize: 10 }} /><YAxis domain={['auto','auto']} width={42} tick={{ fontSize: 10 }} />
-          <Tooltip contentStyle={{ background: 'var(--app-surface)', borderColor: 'var(--app-separator)' }} formatter={value => Number(value).toFixed(2)} />
+          <Tooltip content={<FinancialTooltip formatValue={value => value.toFixed(2)} />} />
           <Line name={pair[0]} dataKey="portfolio" stroke="var(--chart-color)" strokeWidth={2} dot={false} isAnimationActive={false} />
           <Line name={pair[1]} dataKey="benchmark" stroke="var(--app-secondary)" strokeDasharray="5 4" strokeWidth={2} dot={false} isAnimationActive={false} />
         </LineChart></ResponsiveContainer>

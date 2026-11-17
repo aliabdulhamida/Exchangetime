@@ -45,11 +45,7 @@ export default function TerminalNav() {
               <span />
               <span />
             </span>
-            {!collapsed && (
-              <span>
-                Exchange Time<span className="terminal-brand-caption">Your market perspective</span>
-              </span>
-            )}
+            {!collapsed && <span>Exchange Time</span>}
           </Link>
           {!collapsed && (
             <button
@@ -85,24 +81,38 @@ export default function TerminalNav() {
             const Icon = icons[section as keyof typeof icons];
             const active = pathname === '/dashboard' && current in items;
             return (
-              <Link
-                key={section}
-                href={workspaceUrl(Object.keys(items)[0])}
-                className={'terminal-section ' + (active ? 'is-active' : '')}
-                title={section}
-                aria-current={active ? 'true' : undefined}
-              >
-                <Icon size={18} />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1">{section}</span>
-                    {active && <span className="terminal-active-dot" />}
-                  </>
+              <div key={section} className="terminal-nav-group">
+                <Link
+                  href={workspaceUrl(Object.keys(items)[0])}
+                  className={'terminal-section ' + (active ? 'is-active' : '')}
+                  title={section}
+                  aria-current={active ? 'true' : undefined}
+                >
+                  <Icon size={18} />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1">{section}</span>
+                      {active && <span className="terminal-active-dot" />}
+                    </>
+                  )}
+                </Link>
+                {active && !collapsed && (
+                  <nav className="terminal-subnavigation" aria-label={section + ' tools'}>
+                    {Object.entries(items).map(([key, label]) => (
+                      <Link
+                        key={key}
+                        href={workspaceUrl(key)}
+                        aria-current={current === key ? 'page' : undefined}
+                      >
+                        {label}
+                      </Link>
+                    ))}
+                  </nav>
                 )}
-              </Link>
+              </div>
             );
           })}
-          {!collapsed && <p className="terminal-nav-label mt-8">Pinned workspaces</p>}
+          {!collapsed && <p className="terminal-nav-label mt-8">Pinned</p>}
           <div className="terminal-shortcuts">
             {pins
               .map((key) => [workspaces.find((item) => item.key === key)!.label, key])
@@ -112,6 +122,7 @@ export default function TerminalNav() {
                   href={workspaceUrl(key)}
                   title={label}
                   className="terminal-shortcut"
+                  aria-current={pathname === '/dashboard' && current === key ? 'page' : undefined}
                 >
                   <span className="terminal-shortcut-dot" />
                   {!collapsed && label}
@@ -148,11 +159,6 @@ export default function TerminalNav() {
             <Settings2 size={16} />
             {!collapsed && 'Preferences'}
           </button>
-          {!collapsed && (
-            <Link href="/settings/privacy-policy" className="terminal-privacy">
-              Privacy & data
-            </Link>
-          )}
         </div>
       </aside>
     </>

@@ -11,6 +11,8 @@ import {
   YAxis,
 } from 'recharts';
 
+import FinancialTooltip from './financial-tooltip';
+
 export const Sparkline = memo(function Sparkline({
   prices,
   negative = false,
@@ -57,7 +59,7 @@ export default function MarketChart({
             <stop offset="100%" stopColor="var(--chart-color)" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid stroke="var(--chart-grid)" vertical={false} strokeDasharray="3 5" />
+        <CartesianGrid stroke="var(--chart-grid)" strokeOpacity={0.6} vertical={false} strokeDasharray="2 6" />
         <XAxis
           dataKey="date"
           type="number"
@@ -67,7 +69,7 @@ export default function MarketChart({
           tickFormatter={(value) =>
             new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
           }
-          tick={{ fill: 'var(--app-secondary)', fontSize: 10 }}
+          tick={{ fill: 'var(--app-secondary)', fontSize: 11 }}
           tickLine={false}
           axisLine={false}
         />
@@ -76,26 +78,15 @@ export default function MarketChart({
           orientation="right"
           width={58}
           tickMargin={12}
-          tick={{ fill: 'var(--app-tertiary)', fontSize: 10 }}
+          tickCount={4}
+          tick={{ fill: 'var(--app-secondary)', fontSize: 11 }}
           tickFormatter={(value) => Number(value).toLocaleString()}
           tickLine={false}
           axisLine={false}
         />
         <Tooltip
+          content={<FinancialTooltip labelFormatter={value => new Date(Number(value)).toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' })} />}
           cursor={{ stroke: 'var(--app-secondary)', strokeDasharray: '3 3' }}
-          labelFormatter={(value) =>
-            new Date(Number(value)).toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' })
-          }
-          formatter={(value) => [
-            Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 }),
-            currency || 'Price',
-          ]}
-          contentStyle={{
-            background: 'var(--app-surface)',
-            border: '1px solid var(--app-separator)',
-            color: 'var(--app-text)',
-            borderRadius: 10,
-          }}
         />
         <Area
           dataKey="price"

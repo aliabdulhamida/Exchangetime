@@ -15,6 +15,7 @@ import { z } from 'zod';
 
 import { balanceSchema, historySchema, goalSchema } from '@/lib/record-schemas';
 
+import FinancialTooltip from './financial-tooltip';
 import { useComposeAction } from './use-compose-action';
 import { useLocalRecords } from './use-local-records';
 
@@ -55,7 +56,7 @@ export function NetWorth() {
   }
   return (
     <section className="space-y-6">
-      <div className="terminal-metrics">
+      <div className="terminal-metrics net-worth-summary">
         {[
           ['Net worth', net],
           ['Total assets', assets],
@@ -249,21 +250,16 @@ export function NetWorth() {
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history.records}>
-                <CartesianGrid stroke="#2b2e34" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: '#969eaa', fontSize: 10 }} />
+                <CartesianGrid stroke="var(--chart-grid)" strokeOpacity={0.6} vertical={false} strokeDasharray="2 6" />
+                <XAxis dataKey="date" tick={{ fill: 'var(--app-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={40} />
                 <YAxis
                   tickFormatter={(value) => currency(value)}
-                  tick={{ fill: '#969eaa', fontSize: 10 }}
+                  tick={{ fill: 'var(--app-secondary)', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
                   width={85}
                 />
-                <Tooltip
-                  formatter={(value) => currency(Number(value))}
-                  contentStyle={{
-                    background: 'var(--app-surface)',
-                    border: '1px solid var(--app-separator)',
-                    color: 'var(--app-text)',
-                  }}
-                />
+                <Tooltip content={<FinancialTooltip formatValue={value => currency(value)} />} />
                 <Area
                   type="monotone"
                   dataKey="net"
