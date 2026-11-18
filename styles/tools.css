@@ -1,3 +1,65 @@
+.record-error { padding: 16px; border: 1px solid var(--app-control-border); background: var(--app-surface); border-radius: 14px; margin-block: 16px; font-size: 13px; }
+.record-error p { line-height: 1.6; }
+.record-error > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.goal-progress-label { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--app-secondary); margin-block: -6px 12px; }
+.goal-preview { background: var(--app-canvas); border-radius: 16px; padding: 18px; }
+.goal-preview-amount { display: block; font-size: clamp(28px,4vw,38px); font-weight: 500; letter-spacing: -.045em; font-variant-numeric: tabular-nums; margin-block: 4px 16px; }
+.goal-preview dl > div { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; padding-block: 5px; }
+.goal-preview dt { color: var(--app-secondary); }
+.goal-preview dd { font-variant-numeric: tabular-nums; text-align: right; }
+.goal-projection-details { margin-top: 16px; font-size: 12px; }
+.goal-projection-details summary { cursor: pointer; }
+.sizing-cash-toggle { display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 1.5; padding-block: 8px; cursor: pointer; }
+.sizing-cash-toggle input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--app-text); }
+.sizing-warning { padding: 12px 14px; background: var(--app-inset); border-radius: 12px; font-size: 13px; line-height: 1.6; }
+.journal-filters { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+.journal-filters label { min-width: 0; }
+.journal-filters input { min-width: 0; max-width: 100%; }
+.journal-selection { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--app-secondary); }
+.journal-selection p { margin-right: auto; }
+.journal-review { font-size: 13px; border-bottom: 1px solid var(--app-separator); padding-bottom: 16px; }
+.journal-review summary { cursor: pointer; }
+.journal-review dl { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; padding-top: 14px; }
+.journal-review dt { color: var(--app-secondary); font-size: 12px; }
+.journal-review dd { font-variant-numeric: tabular-nums; font-weight: 550; margin-top: 5px; }
+@media (max-width: 700px) { .journal-filters, .journal-review dl { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+.currency-workspace { max-width: 720px; margin-inline: auto; }
+.currency-workspace button[aria-pressed=true] { background: var(--app-text); color: var(--app-canvas); border-color: transparent; }
+.currency-result > p:nth-child(2) { font-size: clamp(28px,5vw,44px); font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.currency-result .data-status { margin-top: 16px; }
+.balance-history-summary { display: flex; flex-wrap: wrap; gap: 16px 40px; margin-block: 18px; }
+.balance-history-summary > div { display: grid; gap: 5px; }
+.balance-history-summary span { font-size: 12px; color: var(--app-secondary); }
+.balance-history-summary strong { font-size: 24px; font-weight: 500; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.balance-history-summary p { flex-basis: 100%; font-size: 12px; color: var(--app-secondary); max-width: 580px; line-height: 1.6; }
+.backup-download-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.backup-restore-preview { background: var(--app-surface); border-radius: 16px; padding: 18px; font-size: 13px; }
+.backup-restore-preview h4 { font-weight: 550; margin-bottom: 8px; }
+.backup-restore-preview > p { color: var(--app-secondary); line-height: 1.6; }
+.backup-restore-preview fieldset { margin-block: 16px; }
+.backup-restore-preview fieldset label { display: flex; align-items: center; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--app-separator); cursor: pointer; }
+.backup-restore-preview input[type=checkbox] { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--app-text); }
+.backup-restore-preview fieldset span { flex: 1; }
+.backup-restore-preview small { display: block; color: var(--app-secondary); margin-top: 3px; }
+.backup-replace-confirm { display: flex; align-items: center; gap: 12px; margin-block: 16px; line-height: 1.5; cursor: pointer; }
+.dcf-sensitivity table { min-width: 460px; font-variant-numeric: tabular-nums; }
+.dcf-sensitivity :is(th,td) { padding-block: 12px; white-space: nowrap; }
+.dcf-sensitivity .dcf-base-value { background: var(--app-inset); outline: 1px solid var(--app-control-border); outline-offset: -1px; }
+.dcf-sensitivity-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+.dcf-sensitivity-footer p { flex: 1 1 240px; line-height: 1.6; }
+.budget-export-bar { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.options-model-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.options-model-toolbar p { flex-basis: 100%; }
+.options-risk-alert { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border-radius: 14px; border: 1px solid var(--finance-negative); background: var(--app-surface); }
+.options-risk-alert > svg { flex-shrink: 0; color: var(--finance-negative); margin-top: 2px; }
+.options-risk-alert strong { font-size: 14px; font-weight: 550; }
+.options-risk-alert p { font-size: 12px; color: var(--app-secondary); line-height: 1.6; margin-top: 5px; }
+.market-share-notice { padding: 10px 0; font-size: 12px; color: var(--app-secondary); }
+.market-share-notice input { margin-top: 8px; width: 100%; }
+.watchlist-undo { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; font-size: 13px; background: var(--app-inset); }
+.watchlist-undo button { font-weight: 550; min-height: 40px; text-decoration: underline; text-underline-offset: 3px; }
+.market-pulse-status { padding-block: 12px; font-size: 12px; color: var(--app-secondary); line-height: 1.6; }
+.market-pulse-status button { margin-top: 8px; }
 .workspace-actions {
   display: flex;
   gap: 6px;

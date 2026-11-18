@@ -1,12 +1,14 @@
 'use client';
 
-import { ArrowLeftRight, AlertTriangle, ChevronDown, Clock3 } from 'lucide-react';
+import { ArrowLeftRight, AlertTriangle, ChevronDown } from 'lucide-react';
 // import { SiConvertio } from "react-icons/si"
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import DataFreshness from '@/components/exchangetime/data-freshness';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { conversionValue, parseConversionAmount } from '@/lib/currency-conversion';
 
 const currencies = [
   'USD',
@@ -65,45 +67,60 @@ export default function CurrencyConverter() {
   const [rate, setRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | undefined>();
   const [resultFor, setResultFor] = useState('');
-  const selection = [amount.replace(/,/g, ''), fromCurrency, toCurrency].join('|');
+  const parsedAmount = parseConversionAmount(amount);
+  const selection = [parsedAmount, fromCurrency, toCurrency].join('|');
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => {
+    request.current?.abort();
+    request.current = null;
+    setLoading(false);
+    setError(null);
+    return () => { request.current?.abort(); request.current = null; };
+  }, [selection]);
   // Helper: US-Format mit Tausendertrennzeichen
   const formatNumber = (value: number, opts: Intl.NumberFormatOptions = {}) =>
     new Intl.NumberFormat('en-US', opts).format(value);
 
   const handleConvert = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
     setLoading(true);
     setError(null);
-    setResult(null);
-    setRate(null);
     try {
       // Kommas entfernen, dann parsen
-      const amt = Number(amount.replace(/,/g, ''));
-      if (!Number.isFinite(amt) || amt <= 0) throw new Error('Please enter a valid positive amount');
+      const amt = parseConversionAmount(amount);
+      if (amt === null) throw new Error('Enter a positive amount up to 1,000,000,000,000,000. Use a dot for decimals and groups of three digits after commas.');
       if (fromCurrency === toCurrency)
         throw new Error('Please select different currencies for conversion');
       const symbol = `${fromCurrency}${toCurrency}=X`;
       const url = `/api/quote?symbol=${encodeURIComponent(symbol)}&chart=1&range=5d&interval=1d`;
-      const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      const response = await fetch(url, { signal: controller.signal });
       if (!response.ok) throw new Error('Exchange rate source unavailable. Please retry.');
       const data = await response.json();
+      if (request.current !== controller) return;
       if (data.chart && data.chart.result && data.chart.result[0]) {
         const meta = data.chart.result[0]?.meta;
         const rateVal = meta?.regularMarketPrice;
         if (typeof rateVal !== 'number' || !Number.isFinite(rateVal) || rateVal <= 0) throw new Error('No valid exchange rate was reported.');
+        const converted = conversionValue(amt, rateVal);
+        if (converted === null) throw new Error('The converted amount is outside the supported range.');
         setResultFor(selection);
         setRate(rateVal);
-        setResult(amt * rateVal);
-        setLastUpdated(typeof meta.regularMarketTime === 'number' && meta.regularMarketTime > 0 ? new Date(meta.regularMarketTime * 1000).toLocaleString() : null);
+        setResult(converted);
+        setLastUpdated(typeof meta.regularMarketTime === 'number' && meta.regularMarketTime > 0 ? meta.regularMarketTime * 1000 : undefined);
       } else {
         throw new Error('Exchange rate not available');
       }
     } catch (err: any) {
-      setError(err.message || 'Unknown error');
+      if (request.current === controller) setError(controller.signal.aborted ? 'The rate request timed out. Please retry.' : err.message || 'Exchange rate unavailable');
     } finally {
-      setLoading(false);
+      window.clearTimeout(timeout);
+      if (request.current === controller) { request.current = null; setLoading(false); }
     }
   };
 
@@ -116,7 +133,7 @@ export default function CurrencyConverter() {
   };
 
   return (
-    <div className="rounded-xl px-3 pb-5 pt-2 sm:px-4 sm:pb-6">
+    <div className="currency-workspace rounded-xl px-3 pb-5 pt-2 sm:px-4 sm:pb-6">
 
       <form className="space-y-3.5" onSubmit={handleConvert}>
         <div className="rounded-xl border border-border/70 bg-gradient-to-b from-card/70 via-card/40 to-card/20 p-3.5">
@@ -139,8 +156,8 @@ export default function CurrencyConverter() {
                 setAmount(raw);
               }}
               onBlur={() => {
-                const num = amount.trim() ? Number(amount.replace(/,/g, '')) : NaN;
-                if (!isNaN(num)) {
+                const num = parseConversionAmount(amount);
+                if (num !== null) {
                   // Bei Verlassen formatieren (max 8 Nachkommastellen beibehalten)
                   const decimals = (() => {
                     const m = amount.replace(/,/g, '').match(/\.(\d+)/);
@@ -155,6 +172,7 @@ export default function CurrencyConverter() {
                 }
               }}
               placeholder="Enter amount"
+              aria-describedby="currency-number-format"
               className="h-12 rounded-xl border-border/70 bg-background/70 px-4 pr-16 text-lg font-semibold tracking-tight sm:text-xl"
             />
             <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-border/70 bg-background/80 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
@@ -162,6 +180,7 @@ export default function CurrencyConverter() {
             </div>
           </div>
         </div>
+        <p id="currency-number-format" className="terminal-note">Number format: 1,234.56</p>
 
         <div className="rounded-xl border border-border/70 bg-card/30 p-3.5">
           <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2.5 sm:gap-3.5">
@@ -237,6 +256,7 @@ export default function CurrencyConverter() {
               return (
                 <button
                   key={from + to}
+                  aria-pressed={active}
                   type="button"
                   onClick={() => {
                     setFromCurrency(from);
@@ -279,19 +299,20 @@ export default function CurrencyConverter() {
       )}
 
       {result !== null && rate !== null && selection === resultFor && (
-        <div className="mt-4 rounded-xl border border-border/70 bg-gradient-to-b from-card/80 via-card/55 to-card/35 p-4">
+        <div className="currency-result mt-4 rounded-xl border border-border/70 bg-gradient-to-b from-card/80 via-card/55 to-card/35 p-4" aria-live="polite">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Conversion Result
           </p>
           <p className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            {formatNumber(result, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-            {toCurrency}
+            {formatNumber(result, { style: 'currency', currency: toCurrency })}
           </p>
 
           <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock3 className="h-3.5 w-3.5" />
-            <span>1 {fromCurrency} = {formatNumber(rate, { maximumSignificantDigits: 8 })} {toCurrency} · Yahoo Finance · {lastUpdated ? 'Observed ' + lastUpdated : 'Observation time unavailable'} · May be delayed</span>
+            <span>1 {fromCurrency} = {formatNumber(rate, { maximumSignificantDigits: 8 })} {toCurrency}<br />
+              1 {toCurrency} = {formatNumber(1 / rate, { maximumSignificantDigits: 8 })} {fromCurrency}</span>
           </div>
+          <DataFreshness source="Yahoo Finance" updatedAt={lastUpdated} delay="May be delayed" stale={Boolean(error)} />
+          <details className="data-details"><summary>Rate assumptions</summary><p>Indicative market rate only. Bank spreads, transfer fees and card charges are not included.</p></details>
         </div>
       )}
     </div>

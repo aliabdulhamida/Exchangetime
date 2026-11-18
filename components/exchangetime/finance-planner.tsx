@@ -11,12 +11,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { z } from 'zod';
 
 import { downloadCsv } from '@/lib/csv-export';
+import { projectGoal } from '@/lib/financial-goals';
+import { summarizeBalanceHistory } from '@/lib/net-worth-history';
 import { balanceSchema, historySchema, goalSchema } from '@/lib/record-schemas';
 
 import FinancialTooltip from './financial-tooltip';
+import RecordError from './record-error';
 import { useComposeAction } from './use-compose-action';
 import { useLocalRecords } from './use-local-records';
 
@@ -47,8 +49,11 @@ export function NetWorth() {
     .filter((record) => record.kind === 'liability')
     .reduce((sum, record) => sum + record.value, 0);
   const net = assets - debt;
+  const snapshots = summarizeBalanceHistory(history.records);
   function snapshot() {
     const date = new Date().toISOString().slice(0, 10);
+    if (history.records.some(item => item.date === date) &&
+      !window.confirm('Replace the saved snapshot for ' + date + ' (UTC) with your current balance sheet?')) return;
     const next = [
       ...history.records.filter((item) => item.date !== date),
       { date, assets, liabilities: debt, net },
@@ -83,7 +88,7 @@ export function NetWorth() {
                 !ready || !history.ready || records.length === 0 || !!error || !!history.error
               }
             >
-              Save snapshot
+              Save today’s snapshot
             </button>
           </div>
           {records.length === 0 && (
@@ -242,12 +247,16 @@ export function NetWorth() {
         </form>
       </div>
       {(error || history.error) && (
-        <p role="alert" className="text-sm text-rose-300">
-          {error || history.error}
-        </p>
+        <RecordError message={error || history.error} />
       )}
       <div className="border-t border-border pt-5">
         <h2 className="font-semibold">Net worth history</h2>
+        {snapshots.latest && !history.error && <div className="balance-history-summary">
+          <div><span>Last saved · {snapshots.latest.date} UTC</span><strong>{currency(snapshots.latest.net)}</strong></div>
+          {snapshots.change !== null && <div><span>Change since {snapshots.previous?.date}</span>
+            <strong>{snapshots.change > 0 ? '+' : ''}{currency(snapshots.change)}</strong></div>}
+          <p>Balance changes include deposits, withdrawals, debt changes and revaluations. They are not investment returns.</p>
+        </div>}
         {history.records.length < 2 ? (
           <p className="terminal-empty">
             Save a snapshot on two different days to see your history.
@@ -255,7 +264,7 @@ export function NetWorth() {
         ) : (
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={history.records}>
+              <AreaChart data={snapshots.sorted}>
                 <CartesianGrid stroke="var(--chart-grid)" strokeOpacity={0.6} vertical={false} strokeDasharray="2 6" />
                 <XAxis dataKey="date" tick={{ fill: 'var(--app-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={40} />
                 <YAxis
@@ -267,7 +276,7 @@ export function NetWorth() {
                 />
                 <Tooltip content={<FinancialTooltip formatValue={value => currency(value)} />} />
                 <Area
-                  type="monotone"
+                  type="linear"
                   dataKey="net"
                   name="Net worth"
                   stroke="var(--chart-color)"
@@ -282,12 +291,18 @@ export function NetWorth() {
           <summary>Saved snapshots · {history.records.length}</summary>
           <button type="button" className="terminal-button" onClick={() => downloadCsv('net-worth-history.csv', [
             ['Date (UTC)', 'Assets (EUR)', 'Liabilities (EUR)', 'Net worth (EUR)'],
-            ...history.records.map(row => [row.date, row.assets, row.liabilities, row.net]),
+            ...snapshots.sorted.map(row => [row.date, row.assets, row.liabilities, row.net]),
           ])}>Export snapshots</button>
           <div className="tool-table-scroll" role="region" tabIndex={0} aria-label="Saved balance sheets">
-            <table><thead><tr><th>Date</th><th>Assets</th><th>Liabilities</th><th>Net worth</th></tr></thead>
-              <tbody>{[...history.records].reverse().map(row => <tr key={row.date}><td>{row.date}</td>
-                <td>{currency(row.assets)}</td><td>{currency(row.liabilities)}</td><td>{currency(row.net)}</td></tr>)}</tbody></table>
+            <table><thead><tr><th>Date (UTC)</th><th>Assets</th><th>Liabilities</th><th>Net worth</th><th><span className="sr-only">Actions</span></th></tr></thead>
+              <tbody>{[...snapshots.sorted].reverse().map(row => <tr key={row.date}><td>{row.date}</td>
+                <td>{currency(row.assets)}</td><td>{currency(row.liabilities)}</td><td>{currency(row.net)}</td><td>
+                  <button type="button" className="terminal-icon" aria-label={'Delete snapshot ' + row.date} disabled={!!history.error}
+                    onClick={() => {
+                      if (window.confirm('Delete the saved snapshot for ' + row.date + '? This does not delete your current assets or debts.') &&
+                        history.save(history.records.filter(item => item.date !== row.date))) setNotice('Snapshot deleted.');
+                    }}><Trash2 size={14} /></button>
+                </td></tr>)}</tbody></table>
           </div>
         </details>}
       </div>
@@ -304,15 +319,6 @@ export function FinancialGoals() {
   const [rate, setRate] = useState('4');
   const [inflation, setInflation] = useState('2');
   const [editing, setEditing] = useState<string | null>(null);
-  function goalMath(goal: z.infer<typeof goalSchema>[number]) {
-    const months = Math.round(goal.years * 12);
-    const futureTarget = goal.target * Math.pow(1 + goal.inflation / 100, goal.years);
-    const monthlyRate = Math.pow(1 + goal.rate / 100, 1 / 12) - 1;
-    const factor = Math.pow(1 + monthlyRate, months);
-    const annuity = Math.abs(monthlyRate) < 1e-10 ? months : (factor - 1) / monthlyRate;
-    const contribution = Math.max(0, (futureTarget - goal.saved * factor) / annuity);
-    return { futureTarget, contribution };
-  }
   useComposeAction('FinancialGoals', () => {
     setEditing(null); setName(''); setTarget(''); setSaved('0');
     document.getElementById('financial-goal-name')?.focus();
@@ -326,8 +332,8 @@ export function FinancialGoals() {
     rate: Number(rate),
     inflation: Number(inflation),
   };
-  const valid =
-    goalSchema.element.safeParse(preview).success && Number(years) >= 1 / 12 && Number(years) <= 60;
+  const projection = [target, saved, years, rate, inflation].every(value => value.trim()) ? projectGoal(preview) : null;
+  const valid = Boolean(projection) && goalSchema.element.safeParse(preview).success;
   return (
     <section className="terminal-chart-grid">
       <div>
@@ -344,7 +350,8 @@ export function FinancialGoals() {
           </div>
         )}
         {records.map((goal) => {
-          const math = goalMath(goal);
+          const math = projectGoal(goal);
+          if (!math) return <RecordError key={goal.id} message={'Check the saved assumptions for ' + goal.name + '.'} />;
           return (
             <article key={goal.id} className="border-b border-border py-5">
               <div className="flex items-start justify-between gap-3">
@@ -370,6 +377,7 @@ export function FinancialGoals() {
               </div>
               <progress className="goal-progress" aria-label={goal.name + ' savings progress'} max={math.futureTarget}
                 value={Math.min(goal.saved, math.futureTarget)} />
+              <div className="goal-progress-label"><span>{math.progress.toFixed(0)}% funded</span><span>{currency(math.remaining)} remaining</span></div>
               <div className="flex flex-wrap justify-between gap-3">
                 <p className="terminal-note">
                   {currency(goal.saved)} saved / {currency(math.futureTarget)} inflation-adjusted
@@ -395,9 +403,7 @@ export function FinancialGoals() {
           );
         })}
         {error && (
-          <p role="alert" className="text-rose-300">
-            {error}
-          </p>
+          <RecordError message={error} />
         )}
       </div>
       <form
@@ -448,12 +454,31 @@ export function FinancialGoals() {
             </label>
           ))}
         </div>
-        {valid && (
-          <div className="border-y border-border py-4">
+        {projection && (
+          <div className="goal-preview">
             <p className="terminal-note">Required monthly contribution</p>
-            <strong className="text-2xl text-emerald-200">
-              {currency(goalMath(preview).contribution)}
+            <strong className="goal-preview-amount">
+              {projection.contribution.toLocaleString(undefined, {style: 'currency', currency: 'EUR', maximumFractionDigits: 2})}
             </strong>
+            <dl><div><dt>Future target</dt><dd>{currency(projection.futureTarget)}</dd></div>
+              <div><dt>At 0% return</dt><dd>{currency(projection.withoutGrowth)} / month</dd></div></dl>
+            <details className="goal-projection-details"><summary>Projected path · hypothetical</summary>
+              <div className="h-48 mt-4" role="img" aria-label="Projected balance and total contributions">
+                <ResponsiveContainer width="100%" height="100%"><AreaChart data={projection.projection}>
+                  <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="2 6" />
+                  <XAxis dataKey="month" tick={{fontSize: 10, fill: 'var(--app-secondary)'}} axisLine={false} tickLine={false} minTickGap={30} />
+                  <YAxis tickFormatter={value => (value / 1000).toFixed(0) + 'k'} width={44} tick={{fontSize: 10, fill: 'var(--app-secondary)'}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<FinancialTooltip labelFormatter={value => 'Month ' + value} formatValue={value => currency(value)} />} />
+                  <Area dataKey="balance" name="Projected balance" stroke="var(--chart-color)" fill="var(--chart-color)" fillOpacity={.1} isAnimationActive={false} />
+                  <Area dataKey="contributed" name="Your contributions" stroke="var(--app-secondary)" strokeDasharray="4 4" fillOpacity={0} isAnimationActive={false} />
+                </AreaChart></ResponsiveContainer>
+              </div>
+              <p className="terminal-note">Month number · EUR. Solid: projected balance. Dashed: savings plus deposits.</p>
+              <button type="button" className="terminal-button mt-3" onClick={() => downloadCsv('goal-projection.csv', [
+                ['Month', 'Projected balance (EUR)', 'Contributed (EUR)'],
+                ...projection.projection.map(row => [row.month, row.balance, row.contributed]),
+              ])}>Export projection</button>
+            </details>
           </div>
         )}
         <button className="terminal-button primary w-full" disabled={!ready || !valid || !!error}>

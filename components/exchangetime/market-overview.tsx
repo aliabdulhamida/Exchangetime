@@ -7,10 +7,15 @@ import {
   ChevronRight,
   RotateCw,
   SlidersHorizontal,
+  Share2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
+
+import { calculateMarketPulse } from '@/lib/market-pulse';
+import { normalizeMarketView } from '@/lib/market-view';
 
 import DataFreshness from './data-freshness';
 import MarketChart, { Sparkline } from './market-chart';
@@ -57,12 +62,38 @@ const ranges = [
 ];
 
 export default function MarketOverview() {
+  const params = useSearchParams();
+  const viewQuery = params?.toString() ?? '';
+  const [viewLoaded, setViewLoaded] = useState(false);
+  const [shareMessage, setShareMessage] = useState('');
+  const [shareFallback, setShareFallback] = useState('');
   const [blocks, setBlocks] = useState(defaults);
   const [customize, setCustomize] = useState(false);
   const [notice, setNotice] = useState('');
   const [selected, setSelected] = useState('^GSPC');
   const [region, setRegion] = useState('United States');
   const [range, setRange] = useState(0);
+  useEffect(() => {
+    let saved: unknown = null;
+    try { saved = JSON.parse(localStorage.getItem('et.market-view.v1') || 'null'); } catch {}
+    const query = new URLSearchParams(viewQuery);
+    const next = normalizeMarketView(query.has('market') ? {
+      selected: query.get('market'), region: query.get('region'), range: query.get('period'),
+    } : saved, instruments);
+    setSelected(next.selected); setRegion(next.region); setRange(next.range);
+    setViewLoaded(true);
+  }, [viewQuery]);
+  useEffect(() => {
+    if (!viewLoaded) return;
+    try { localStorage.setItem('et.market-view.v1', JSON.stringify({selected, region, range})); } catch {}
+    setShareMessage(''); setShareFallback('');
+  }, [viewLoaded, selected, region, range]);
+  async function shareView() {
+    const url = new URL('/dashboard', window.location.origin);
+    url.search = new URLSearchParams({view: 'MarketOverview', market: selected, region, period: String(range)}).toString();
+    try { await navigator.clipboard.writeText(url.href); setShareMessage('Market-view link copied.'); }
+    catch { setShareFallback(url.href); setShareMessage('Copy this market-view link:'); }
+  }
   const visible = (key: string) => blocks.some((block) => block.key === key && block.visible);
   const { entries, refresh } = useMarketSeries([
     ...new Set([
@@ -114,29 +145,11 @@ export default function MarketOverview() {
       ? (chartData.at(-1)!.price / chartData[0].price - 1) * 100
       : null;
   const selectedAsset = instruments.find(({ symbol }) => symbol === selected)!;
-  const spy = entries['^GSPC']?.data;
-  const sessionDate = spy && new Date(spy.observedAt).toISOString().slice(0, 10);
-  const aligned = (symbol: string) => {
-    const data = entries[symbol]?.data;
-    return data && new Date(data.observedAt).toISOString().slice(0, 10) === sessionDate ? data : undefined;
-  };
-  const breadthValues = sectors
-    .map(([, symbol]) => seriesChange(aligned(symbol)))
-    .filter((value): value is number => value !== null);
-  const breadth =
-    breadthValues.length >= 8
-      ? (breadthValues.filter((value) => value > 0).length / breadthValues.length) * 100
-      : null;
-  const sma =
-    spy && spy.prices.length >= 50
-      ? spy.prices.slice(-50).reduce((sum, value) => sum + value, 0) / 50
-      : null;
-  const positiveTrend = !!(spy && sma && spy.prices.at(-1)! > sma);
-  const vix = aligned('^VIX')?.prices.at(-1);
-  const score =
-    breadth !== null && sma && vix !== undefined
-      ? Math.round(breadth * 0.4 + (positiveTrend ? 30 : 0) + (vix < 20 ? 30 : vix < 30 ? 15 : 0))
-      : null;
+  const pulse = calculateMarketPulse(entries['^GSPC']?.data, entries['^VIX']?.data,
+    sectors.map(([, symbol]) => entries[symbol]?.data));
+  const {breadth, sma, positiveTrend, vix, score, asOf: sessionDate} = pulse;
+  const pulseFailed = ['^GSPC', '^VIX', ...sectors.map(([, symbol]) => symbol)]
+    .some(symbol => entries[symbol]?.error);
   const regime =
     score === null
       ? 'Awaiting data'
@@ -172,6 +185,7 @@ export default function MarketOverview() {
           ))}
         </div>
         <div className="flex items-center gap-1">
+          <button type="button" className="terminal-icon" aria-label="Copy market-view link" title="Copy market-view link" onClick={shareView}><Share2 size={15} /></button>
           <button
             className="terminal-button market-customize"
             aria-label="Customize dashboard"
@@ -256,6 +270,8 @@ export default function MarketOverview() {
           </div>
         </div>
       )}
+      {shareMessage && <div className="market-share-notice"><p role="status">{shareMessage}</p>
+        {shareFallback && <input className="terminal-input" aria-label="Market-view link" readOnly value={shareFallback} onFocus={event => event.target.select()} />}</div>}
       {blocks
         .filter((block) => block.visible)
         .map((block) => {
@@ -446,6 +462,11 @@ export default function MarketOverview() {
                   </strong>
                   <span>{regime}</span>
                 </div>
+                {sessionDate && <p className="terminal-note">As of {sessionDate} · Daily observations{pulseFailed ? ' · Some feeds could not refresh' : ''}</p>}
+                {score === null && <div className="market-pulse-status" role="status">
+                  <p>{pulse.missing.join(' · ')}</p>
+                  <button type="button" className="terminal-button" onClick={refresh}>Retry market data</button>
+                </div>}
                 <div
                   className="market-score-track"
                   role="meter"
@@ -469,7 +490,7 @@ export default function MarketOverview() {
                     </dt>
                     <dd>
                       {breadth === null ? '—' : Math.round(breadth) + '%'}
-                      <span>{breadth === null ? 'Awaiting feeds' : 'advancing'} · {breadthValues.length}/{sectors.length}</span>
+                      <span>{breadth === null ? 'Awaiting feeds' : 'advancing'} · {pulse.sectorCount}/{sectors.length}</span>
                     </dd>
                   </div>
                   <div>
@@ -513,7 +534,7 @@ export default function MarketOverview() {
                   <p>
                     Sector participation contributes up to 40 points. S&P 500 above its 50-session
                     average adds 30. VIX below 20 adds 30; between 20 and 30 adds 15. At least eight
-                    sector feeds and VIX must match the S&P 500 observation date{sessionDate ? ' (' + sessionDate + ' UTC)' : ''}.
+                    sector feeds and VIX must share a date with the S&P 500. The latest common date is used{sessionDate ? ' (' + sessionDate + ' UTC)' : ''}.
                     Constructive ≥65; defensive ≤35. Intraday observations may be delayed.
                   </p>
                 </details>

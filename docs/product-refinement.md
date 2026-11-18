@@ -27,6 +27,19 @@ Market-series caching and in-flight request deduplication are retained. Visible 
 
 ## Validation
 
+Focused regression scripts also cover personal records and calculator workflows:
+
+- `check-record-conflicts.mjs`: concurrent tabs cannot silently replace saved records.
+- `check-financial-goals.mjs`: contribution preview, projected path and saved progress.
+- `check-position-sizing.mjs`: risk calculations and the optional long-entry cash cap.
+- `check-trade-journal.mjs`: filtered statistics, currency isolation and editing.
+- `check-currency-conversion.mjs`: currency precision and retained, explicitly stale results.
+- `check-net-worth-history.mjs`: confirmation before replacing snapshots and deletion without changing the current balance sheet.
+
+These scripts use isolated browser contexts; seeded examples are test-only.
+
+DCF and options auto-save share a guarded model store. Unreadable model JSON and competing-tab changes block further automatic writes. The warning can download the original saved model as an unencrypted recovery file; this is separate from the personal-data backup and is not automatically importable. The working model remains usable for the session, but errors must not be interpreted as a successful save.
+
 Comparisons keep the two submitted tickers in the URL (`symbol` and `against`). Return windows use shared observations only and rebase both series to 100. The observation table and CSV use that same window; max drawdown uses those same local-currency prices, not a total-return or FX-adjusted series. Market pulse requires the sector and VIX observations to match the S&P 500 UTC date.
 
 Loan schedules reconcile annual principal, interest and remaining balance to the repayment model. Net worth history exports only user-saved snapshots. Insider exports are scoped to the matching rows of the current provider batch, while the journal explicitly exports all trades.
@@ -38,6 +51,7 @@ pnpm typecheck
 pnpm lint:strict
 pnpm test:unit
 pnpm test:browser
+pnpm test:workflows
 node scripts/check-refined-surfaces.mjs
 ```
 

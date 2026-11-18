@@ -1,41 +1,56 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ZodType } from 'zod';
+
+import { writeRecords } from '../../lib/record-storage';
 
 export function useLocalRecords<RecordType>(key: string, schema: ZodType<RecordType[]>) {
   const [records, setRecords] = useState<RecordType[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => {
+  const snapshot = useRef<string | null>(null);
+  const readable = useRef(false);
+  const reload = useCallback(() => {
+    readable.current = false;
     try {
       const raw = localStorage.getItem(key);
-      if (raw) {
-        const parsed = schema.safeParse(JSON.parse(raw));
-        if (parsed.success) setRecords(parsed.data);
-        else
-          setError(
-            'Saved records could not be read. Export or recover browser data before replacing them.',
-          );
-      }
+      const parsed = schema.safeParse(raw === null ? [] : JSON.parse(raw));
+      if (!parsed.success) throw new Error('Invalid records');
+      setRecords(parsed.data);
+      snapshot.current = raw;
+      readable.current = true;
+      setError('');
     } catch {
-      setError('Browser storage is unavailable or saved data could not be read.');
+      setError('Saved records could not be read. Nothing was overwritten. Recover a backup in Settings.');
     }
     setReady(true);
+  }, [key, schema]);
+  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    function changed(event: StorageEvent) {
+      if (event.key === key || event.key === null) {
+        readable.current = false;
+        setError('Saved records changed in another tab. Reload saved records before continuing.');
+      }
+    }
+    window.addEventListener('storage', changed);
+    return () => window.removeEventListener('storage', changed);
   }, [key, schema]);
   const save = useCallback(
     (next: RecordType[]) => {
       try {
-        localStorage.setItem(key, JSON.stringify(next));
+        if (!readable.current) return false;
+        snapshot.current = writeRecords(localStorage, key, snapshot.current, next, schema);
         setRecords(next);
         setError('');
         return true;
-      } catch {
-        setError('Changes could not be saved. Browser storage may be full or disabled.');
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : 'Changes could not be saved.');
         return false;
       }
     },
-    [key],
+    [key, schema],
   );
-  return { records, save, ready, error };
+  return { records, save, ready, error, reload };
 }

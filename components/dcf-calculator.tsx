@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip as ReTooltip, CartesianGrid } from 'recharts';
 
+import { ModelStorageNotice, useModelStorage } from '@/components/exchangetime/use-model-storage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,8 @@ import { ToastAction } from '@/components/ui/toast';
 import { Toggle } from '@/components/ui/toggle';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from '@/components/ui/use-toast';
-import { parseDcfNumber } from '@/lib/dcf';
+import { downloadCsv } from '@/lib/csv-export';
+import { dcfSensitivityValue, parseDcfNumber, sensitivityRange } from '@/lib/dcf';
 
 function parseNumber(v: any, cur: string) {
   return parseDcfNumber(v, cur);
@@ -57,11 +59,14 @@ function decisionToneClasses(tone: 'positive' | 'neutral' | 'negative') {
 }
 
 export default function DcfCalculator() {
+  const modelStorage = useModelStorage('exchangetime_dcf_v1');
+  const {read: readModel, save: saveModel, reject: rejectModel} = modelStorage;
   const requestedTicker = useSearchParams()?.get('symbol');
   const [mobilePanel, setMobilePanel] = useState<'inputs' | 'results'>('inputs');
   const [desktopPanel, setDesktopPanel] = useState<'inputs' | 'results'>('inputs');
   const [discountRate, setDiscountRate] = useState(10);
   const [simpleMode, setSimpleMode] = useState(true);
+  const [storedModelLoaded, setStoredModelLoaded] = useState(false);
   // WACC inputs
   const [useWacc, setUseWacc] = useState(false);
   const [riskFreeRate, setRiskFreeRate] = useState(4.0);
@@ -255,10 +260,9 @@ export default function DcfCalculator() {
   }, [effectiveRatePct, fcfList, currency, useMidYearConvention]);
 
   // Persistence: save/load to localStorage
-  const STORAGE_KEY = 'exchangetime_dcf_v1';
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = readModel();
       if (raw) {
         const obj = JSON.parse(raw);
         if (obj) {
@@ -295,8 +299,9 @@ export default function DcfCalculator() {
         }
       }
     } catch (e) {
-      // ignore
+      rejectModel();
     }
+    setStoredModelLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -308,6 +313,7 @@ export default function DcfCalculator() {
   }, [requestedTicker]);
 
   useEffect(() => {
+    if (!storedModelLoaded) return;
     try {
       const obj = {
         discountRate,
@@ -338,11 +344,11 @@ export default function DcfCalculator() {
         ticker,
         marginOfSafetyPct,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+      saveModel(JSON.stringify(obj));
     } catch (e) {
       // ignore
     }
-  }, [discountRate, simpleMode, terminalGrowth, terminalMultiple, useMultiple, sharesOutstanding, cash, debt, fcfList, preset, scenarios, useWacc, riskFreeRate, beta, marketRiskPremium, costOfDebt, taxRate, debtRatio, fcfMode, fcfStart, fcfGrowthConstant, fcfGrowths, currency, displayScale, ticker, marginOfSafetyPct]);
+  }, [saveModel, storedModelLoaded, discountRate, simpleMode, terminalGrowth, terminalMultiple, useMultiple, sharesOutstanding, cash, debt, fcfList, preset, scenarios, useWacc, riskFreeRate, beta, marketRiskPremium, costOfDebt, taxRate, debtRatio, fcfMode, fcfStart, fcfGrowthConstant, fcfGrowths, currency, displayScale, ticker, marginOfSafetyPct]);
 
   async function fetchMarketPrice(symbol: string) {
     setFetchError(null);
@@ -654,45 +660,24 @@ export default function DcfCalculator() {
   // Sensitivity table calculation (per-share) for a grid of discount / growth or multiple
   const calculatePerShare = useCallback(
     (dr: number, varValue: number, useMult: boolean, fcfArr = fcfList) => {
-      const r = dr / 100;
-      if (!Number.isFinite(r) || r <= -0.99) return 0;
-      let pv = 0;
-      for (let i = 0; i < fcfArr.length; i++) {
-        const f = numeric(fcfArr[i], currency);
-        const period = useMidYearConvention ? i + 0.5 : i + 1;
-        pv += f / Math.pow(1 + r, period);
-      }
-      const lastFcf = numeric(fcfArr[fcfArr.length - 1], currency);
-      let tv = 0;
-      if (!useMult) {
-        const g = varValue / 100;
-        if (r > g) tv = (lastFcf * (1 + g)) / (r - g);
-      } else {
-        tv = lastFcf * varValue;
-      }
-      const terminalPeriod = Math.max(0.5, fcfArr.length - (useMidYearConvention ? 0.5 : 0));
-      const pvTv = tv / Math.pow(1 + r, terminalPeriod);
-      const ev = pv + pvTv;
-      const eq = ev + numeric(cash, currency) - numeric(debt, currency);
-      return sharesOutstanding > 0 ? eq / sharesOutstanding : NaN;
+      return dcfSensitivityValue({discountPct: dr, terminal: varValue, multiple: useMult,
+        cashflows: fcfArr.map(value => parseNumber(value, currency)), cash: parseNumber(cash, currency),
+        debt: parseNumber(debt, currency), shares: sharesOutstanding, midYear: useMidYearConvention});
     },
     [fcfList, cash, debt, sharesOutstanding, currency, useMidYearConvention],
   );
 
   // dynamic sensitivity ranges around current assumptions
   const sensitivityDiscounts = useMemo(() => {
-    const base = Math.round(discountRate);
-    return Array.from({ length: 5 }, (_, i) => Math.max(1, Math.min(30, base - 2 + i)));
-  }, [discountRate]);
+    return sensitivityRange(effectiveRatePct, 1, 1, 60);
+  }, [effectiveRatePct]);
 
   const sensitivityGrowths = useMemo(() => {
-    const base = Math.round(terminalGrowth);
-    return Array.from({ length: 5 }, (_, i) => Math.max(0, base - 2 + i));
+    return sensitivityRange(terminalGrowth, 1, 0, 20);
   }, [terminalGrowth]);
 
   const sensitivityMultiples = useMemo(() => {
-    const base = Math.round(terminalMultiple);
-    return Array.from({ length: 5 }, (_, i) => Math.max(1, base - 4 + i * 2));
+    return sensitivityRange(terminalMultiple, 2, 1, 100);
   }, [terminalMultiple]);
 
   const sensitivityVars = useMultiple ? sensitivityMultiples : sensitivityGrowths;
@@ -707,23 +692,23 @@ export default function DcfCalculator() {
   }
 
   const quickCases = useMemo(() => {
-    const dr = numeric(discountRate, currency);
-    const tg = numeric(terminalGrowth, currency);
+    const dr = effectiveRatePct;
+    const tg = numeric(useMultiple ? terminalMultiple : terminalGrowth, currency);
     return [
       {
         name: 'Bear',
-        perShare: calculatePerShare(Math.min(35, dr + 1.5), Math.max(0, tg - 0.8), false),
+        perShare: calculatePerShare(Math.min(60, dr + 1.5), Math.max(0, tg - (useMultiple ? 2 : .8)), useMultiple),
       },
       {
         name: 'Base',
-        perShare: calculatePerShare(dr, tg, false),
+        perShare: calculatePerShare(dr, tg, useMultiple),
       },
       {
         name: 'Bull',
-        perShare: calculatePerShare(Math.max(1, dr - 1.5), tg + 0.8, false),
+        perShare: calculatePerShare(Math.max(1, dr - 1.5), tg + (useMultiple ? 2 : .8), useMultiple),
       },
     ];
-  }, [calculatePerShare, discountRate, terminalGrowth, currency]);
+  }, [calculatePerShare, effectiveRatePct, terminalGrowth, terminalMultiple, useMultiple, currency]);
 
   const riskFlags = useMemo(() => {
     const flags: Array<{ id: string; level: 'high' | 'medium' | 'low'; title: string; detail: string }> = [];
@@ -1148,6 +1133,7 @@ export default function DcfCalculator() {
   return (
     <Card className="valuation-workspace border-0 bg-transparent shadow-none">
       <CardContent className="p-0">
+        <ModelStorageNotice storage={modelStorage} />
         <TooltipProvider delayDuration={100}>
           <p className="workspace-source">Valuation model · Load company inputs or enter cash flows and share count. Discount rates and growth rates are assumptions, not observed prices.</p>
           <div className="mb-3 md:hidden">
@@ -2127,28 +2113,28 @@ export default function DcfCalculator() {
                   <div className="mt-1 text-[10px] text-muted-foreground">{decisionBand.label}</div>
                 </div>
               </div>
-              {!simpleMode && (
                 <div className="rounded-lg border border-border bg-card p-3.5">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">Sensitivity</div>
+                    <div className="text-sm font-medium">Sensitivity · {currency} per share</div>
                     <button className="text-sm text-muted-foreground" onClick={() => setShowSensitivity((s) => !s)}>{showSensitivity ? 'Hide' : 'Show'}</button>
                   </div>
                   {showSensitivity && (
-                    <div className="mt-3 overflow-auto border rounded p-2 bg-card">
+                    <div className="mt-3 overflow-auto border rounded p-2 bg-card dcf-sensitivity" role="region" tabIndex={0} aria-label="Valuation sensitivity">
                       <table className="text-sm w-full table-auto border-collapse">
+                        <caption className="sr-only">Intrinsic value per share by discount rate and {useMultiple ? 'exit multiple' : 'terminal growth'}. Dash indicates an invalid valuation.</caption>
                         <thead>
                           <tr>
-                            <th className="pr-3">Discount \ {useMultiple ? 'Multiple' : 'Growth'}</th>
-                            {sensitivityVars.map((v) => (<th key={v} className="px-2">{v}{useMultiple ? '' : '%'}</th>))}
+                            <th scope="col" className="pr-3">Discount / {useMultiple ? 'Multiple' : 'Growth'}</th>
+                            {sensitivityVars.map((v) => (<th scope="col" key={v} className="px-2">{Number(v.toFixed(2))}{useMultiple ? '×' : '%'}</th>))}
                           </tr>
                         </thead>
                         <tbody>
                           {sensitivityDiscounts.map((d) => (
                             <tr key={d} className="border-t">
-                              <td className="pr-3 font-medium">{d}%</td>
+                              <th scope="row" className="pr-3 font-medium">{Number(d.toFixed(2))}%</th>
                               {sensitivityVars.map((v) => {
-                                const isBase = d === Math.round(discountRate) && ((useMultiple && v === Math.round(terminalMultiple)) || (!useMultiple && v === Math.round(terminalGrowth)));
-                                return (<td key={v} className={`px-2 text-right ${isBase ? 'bg-yellow-100 dark:bg-yellow-900 font-semibold' : ''}`}>{formatCurrencyWithSymbol(calculatePerShare(d, v, useMultiple))}</td>);
+                                const isBase = d === effectiveRatePct && v === (useMultiple ? terminalMultiple : terminalGrowth);
+                                return (<td key={v} title={isBase ? 'Current assumptions' : undefined} className={`px-2 text-right ${isBase ? 'dcf-base-value font-semibold' : ''}`}>{formatCurrencyWithSymbol(calculatePerShare(d, v, useMultiple))}</td>);
                               })}
                             </tr>
                           ))}
@@ -2156,7 +2142,18 @@ export default function DcfCalculator() {
                       </table>
                     </div>
                   )}
-                  <div className="mt-3">
+                  {showSensitivity && <div className="dcf-sensitivity-footer">
+                    <p className="terminal-note">Highlighted: current assumptions. —: invalid model or missing shares. {useWacc ? 'Using calculated WACC.' : 'Using manual discount rate.'}</p>
+                    <button type="button" className="terminal-button" onClick={() => downloadCsv('dcf-sensitivity.csv', [
+                      ['Discount rate (%)', useMultiple ? 'Exit multiple' : 'Terminal growth (%)', 'Intrinsic value per share', 'Currency', 'Shares outstanding', 'Cash', 'Debt'],
+                      ...sensitivityDiscounts.flatMap(discount => sensitivityVars.map(variable => {
+                        const value = calculatePerShare(discount, variable, useMultiple);
+                        return [discount, variable, Number.isFinite(value) ? value : 'Invalid model', currency, sharesOutstanding,
+                          numeric(cash, currency), numeric(debt, currency)];
+                      })),
+                    ])}>Export sensitivity</button>
+                  </div>}
+                  {!simpleMode && <div className="mt-3">
                     <div className="text-sm font-medium">Saved Scenarios</div>
                     <div className="mt-2 space-y-2">
                       {scenarios.length === 0 ? <div className="text-xs text-muted-foreground">No saved scenarios</div> : scenarios.map((s) => (
@@ -2173,9 +2170,8 @@ export default function DcfCalculator() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </div>}
                 </div>
-              )}
             </div>
           </div>
         </TooltipProvider>

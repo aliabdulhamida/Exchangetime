@@ -25,7 +25,9 @@ import {
   YAxis,
 } from 'recharts';
 
+import { ModelStorageNotice, useModelStorage } from '@/components/exchangetime/use-model-storage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { downloadCsv } from '@/lib/csv-export';
 import { blackScholes } from '@/lib/options/blackScholes';
 import {
   calculateTradingCosts,
@@ -200,6 +202,8 @@ function applyModelDefaultsToPresetLegs(
 }
 
 export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () => void }) {
+  const modelStorage = useModelStorage(SETTINGS_STORAGE_KEY);
+  const {read: readModel, save: saveModel, reject: rejectModel} = modelStorage;
   const requestedSymbol=useSearchParams()?.get('symbol');
   const [spotMessage,setSpotMessage]=useState('');
   const [loadingSpot,setLoadingSpot]=useState(false);
@@ -252,7 +256,7 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
     if (typeof window === 'undefined') return;
 
     try {
-      const rawState = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+      const rawState = readModel();
       if (rawState) {
         const parsed = JSON.parse(rawState) as Partial<PersistedLabState>;
 
@@ -328,11 +332,11 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
       }
 
     } catch {
-      // Ignore localStorage parsing issues to keep module resilient.
+      rejectModel();
     } finally {
       setHydrated(true);
     }
-  }, []);
+  }, [readModel, rejectModel]);
 
   useEffect(() => {
     if (!hydrated || typeof window === 'undefined') return;
@@ -363,8 +367,9 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
       includePremiumCreditInCashNeeded,
     };
 
-    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(stateToPersist));
+    saveModel(JSON.stringify(stateToPersist));
   }, [
+    saveModel,
     asOfDateTime,
     displayMode,
     dividendYieldPct,
@@ -949,13 +954,14 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
     }
 
     if (notes.length === 0) {
-      notes.push('No structural red flags detected. Validate implied volatility and liquidity before execution.');
+      notes.push('These limited model checks do not establish that a position is safe. Liquidity, broker margin, gaps and assignment can create additional risks.');
     }
 
     return notes;
   }, [dte, earlyExerciseRisks.length, normalizedLegs, payoffEnvelope.unboundedLoss, payoffEnvelope.unboundedProfit, spot]);
 
   const applyPreset = (nextPreset: Exclude<StrategyPresetKey, 'custom'>): void => {
+    if (!window.confirm('Replace the current legs with ' + STRATEGY_PRESET_LABEL[nextPreset] + '? Entered premiums and custom legs will be replaced.')) return;
     setPresetKey(nextPreset);
     const presetLegs = applyModelDefaultsToPresetLegs(nextPreset, spot, {
       spot,
@@ -1056,6 +1062,7 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
 
   return (
     <div className="options-workspace w-full max-w-full" id="options-payoff-lab-container">
+      <ModelStorageNotice storage={modelStorage} />
       {requestedSymbol && <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-border pb-4"><button className="terminal-button" disabled={loadingSpot} onClick={loadUnderlying}>{loadingSpot?'Loading quote…':'Load '+requestedSymbol+' spot'}</button><p role="status" className="terminal-note">{spotMessage||'Load the underlying quote, then review the strategy inputs.'}</p></div>}
 
       <div className="space-y-4 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
@@ -1131,6 +1138,7 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Strategy Preset</span>
                 <select
+                  aria-label="Options strategy preset"
                   value={presetKey}
                   onChange={(event) => {
                     const nextPreset = event.target.value as StrategyPresetKey;
@@ -1695,6 +1703,26 @@ export default function OptionsPayoffLab({ onClose: _onClose }: { onClose?: () =
             desktopPanel === 'results' ? 'md:block md:space-y-4' : 'md:hidden'
           }`}
         >
+          <div className="options-model-toolbar">
+            <p className="terminal-note">Hypothetical USD model · Entered premiums, not live option quotes</p>
+            <button type="button" className="terminal-button" onClick={() => downloadCsv('option-scenarios.csv', [
+              ['Underlying price (USD)', 'Move (%)', 'Total position P/L (USD)', 'Displayed P/L (USD)', 'Display basis',
+                'Valuation view', 'Spot input (USD)', 'IV (%)', 'Risk-free rate (%)', 'Dividend yield (%)', 'As of', 'Expiry',
+                'Valuation horizon (days)', 'Fee per contract', 'Fee per share', 'Slippage (%)'],
+              ...scenarioRows.map(row => [row.price, row.movePct, row.pnl, row.pnlDisplay, displayMode, valuationView,
+                spot, volatilityPct, riskFreeRatePct, dividendYieldPct, asOfDateTime, expiryDate,
+                valuationHorizonDays, feePerContract, feePerShare, slippagePct]),
+            ])}>Export scenarios</button>
+            <button type="button" className="terminal-button" onClick={() => downloadCsv('option-legs.csv', [
+              ['Type', 'Side', 'Quantity', 'Multiplier', 'Strike (USD)', 'Entered premium (USD/share)', 'Stock entry price (USD)'],
+              ...normalizedLegs.map(leg => [leg.type, leg.side, leg.qty, leg.multiplier, leg.strike ?? '',
+                leg.premium, leg.entryPrice ?? '']),
+            ])}>Export legs</button>
+          </div>
+          {payoffEnvelope.unboundedLoss && <div className="options-risk-alert" role="alert">
+            <AlertTriangle size={18} aria-hidden /><div><strong>Unlimited loss potential</strong>
+              <p>Expiry losses are unbounded as the underlying rises. A finite chart range does not cap the loss. Broker margin and assignment are not guaranteed by this model.</p></div>
+          </div>}
           <Tabs
             value={valuationView}
             onValueChange={(value) => setValuationView(value as ValuationView)}

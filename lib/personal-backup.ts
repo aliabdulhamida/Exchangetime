@@ -50,8 +50,29 @@ export function exportBackup(storage: Store) {
   return content;
 }
 
-export function restoreBackup(storage: Store, content: string) {
-  const changes = readBackup(content).map(entry => ({ ...entry, previous: storage.getItem(entry.key) }));
+export function exportRecoveryCopy(storage: Store) {
+  const records: Record<string, string> = {};
+  const unreadable: string[] = [];
+  for (const key of Object.keys(groups)) {
+    const raw = storage.getItem(key);
+    if (raw === null) continue;
+    records[key] = raw;
+    try {
+      readBackup(JSON.stringify({format: 'exchange-time/personal', version: 1, records: {[key]: raw}}));
+    } catch { unreadable.push(key); }
+  }
+  if (!Object.keys(records).length) throw new Error('No saved records');
+  return JSON.stringify({format: 'exchange-time/recovery', version: 1, records, unreadable});
+}
+
+export function restoreBackup(storage: Store, content: string, selected?: string[], expected?: Record<string, string | null>) {
+  const entries = readBackup(content);
+  if (selected && (!selected.length || selected.some(key => !entries.some(entry => entry.key === key))))
+    throw new Error('Choose at least one supported data group.');
+  const changes = entries.filter(entry => !selected || selected.includes(entry.key))
+    .map(entry => ({ ...entry, previous: storage.getItem(entry.key) }));
+  if (expected && changes.some(entry => !Object.hasOwn(expected, entry.key) || expected[entry.key] !== entry.previous))
+    throw new Error('Saved data changed since this preview. Preview the backup again before restoring.');
   let written = 0;
   try {
     for (const { key, raw } of changes) {

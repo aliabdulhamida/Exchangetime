@@ -21,6 +21,7 @@
     "start": "next start",
     "test": "pnpm test:unit",
     "test:unit": "vitest run",
+    "test:workflows": "node scripts/check-record-conflicts.mjs && node scripts/check-financial-goals.mjs && node scripts/check-position-sizing.mjs && node scripts/check-trade-journal.mjs && node scripts/check-currency-conversion.mjs && node scripts/check-net-worth-history.mjs && node scripts/check-backup-restore.mjs && node scripts/check-compound-projection.mjs && node scripts/check-backtest-export.mjs && node scripts/check-dcf-sensitivity.mjs && node scripts/check-budget-storage.mjs && node scripts/check-options-risk.mjs && node scripts/check-model-storage.mjs",
     "test:browser": "node scripts/check-analysis-workflows.mjs && node scripts/check-number-entry.mjs && node scripts/check-portfolio-recovery.mjs && node scripts/check-product-design.mjs && node scripts/check-workspace-title.mjs && node scripts/check-mobile-navigation.mjs && node scripts/check-tool-design.mjs && node scripts/check-research-flow.mjs"
   },
   "dependencies": {

@@ -1,8 +1,9 @@
 'use client';
 
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import RecordError from '@/components/exchangetime/record-error';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -23,6 +24,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useIsMobile } from '@/components/ui/use-mobile';
+import { downloadCsv } from '@/lib/csv-export';
+import { readBackup } from '@/lib/personal-backup';
 import { cn } from '@/lib/utils';
 
 type BudgetStep = 'income' | 'costs' | 'plan';
@@ -231,6 +234,9 @@ export default function PersonalBudgetCalculator() {
   const isMobile = useIsMobile();
 
   const [hydrated, setHydrated] = useState(false);
+  const [storageError, setStorageError] = useState('');
+  const storedBudget = useRef<string | null>(null);
+  const storageBlocked = useRef(false);
   const [step, setStep] = useState<BudgetStep>('income');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [incomeBasis, setIncomeBasis] = useState<IncomeBasis>('monthly');
@@ -248,7 +254,10 @@ export default function PersonalBudgetCalculator() {
     if (typeof window === 'undefined') return;
 
     let sourceKey: string | null = null;
-    let rawState = window.localStorage.getItem(STORAGE_KEY);
+    let rawState: string | null = null;
+    try {
+    rawState = window.localStorage.getItem(STORAGE_KEY);
+    storedBudget.current = rawState;
     if (rawState) sourceKey = STORAGE_KEY;
 
     if (!rawState) {
@@ -261,6 +270,12 @@ export default function PersonalBudgetCalculator() {
         }
       }
     }
+    } catch {
+      storageBlocked.current = true;
+      setStorageError('Browser storage could not be read. Your saved budget was not replaced.');
+      setHydrated(true);
+      return;
+    }
 
     if (!rawState) {
       setHydrated(true);
@@ -268,6 +283,9 @@ export default function PersonalBudgetCalculator() {
     }
 
     try {
+      if (sourceKey === STORAGE_KEY) readBackup(JSON.stringify({
+        format: 'exchange-time/personal', version: 1, records: {[STORAGE_KEY]: rawState},
+      }));
       const parsed = JSON.parse(rawState) as Partial<PersistedBudgetState>;
       const isLegacyState = sourceKey !== STORAGE_KEY;
 
@@ -307,7 +325,8 @@ export default function PersonalBudgetCalculator() {
       setReserveTargetMonths(sanitizeMonths(Number(parsed.reserveTargetMonths)));
       setTargetInvestmentPct(sanitizePercent(Number(parsed.targetInvestmentPct)));
     } catch (error) {
-      console.error('Failed to restore personal budget state', error);
+      storageBlocked.current = true;
+      setStorageError('Saved budget could not be read. Nothing was overwritten. Download a recovery copy in Settings.');
     } finally {
       setHydrated(true);
     }
@@ -318,7 +337,7 @@ export default function PersonalBudgetCalculator() {
     fixedCostMode === 'breakdown' ? breakdownFixedCostsTotal : sanitizeAmount(fixedCostTotal);
 
   useEffect(() => {
-    if (!hydrated || typeof window === 'undefined') return;
+    if (!hydrated || typeof window === 'undefined' || storageBlocked.current) return;
 
     const payload: PersistedBudgetState = {
       currency,
@@ -334,9 +353,17 @@ export default function PersonalBudgetCalculator() {
     };
 
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      if (window.localStorage.getItem(STORAGE_KEY) !== storedBudget.current) {
+        storageBlocked.current = true;
+        setStorageError('The saved budget changed in another tab. Reload saved records before continuing.');
+        return;
+      }
+      const next = JSON.stringify(payload);
+      window.localStorage.setItem(STORAGE_KEY, next);
+      storedBudget.current = next;
     } catch (error) {
-      console.error('Failed to persist personal budget state', error);
+      storageBlocked.current = true;
+      setStorageError('Budget changes could not be saved. Browser storage may be full or disabled. Unsaved changes remain in this tab.');
     }
   }, [
     currency,
@@ -351,6 +378,16 @@ export default function PersonalBudgetCalculator() {
     targetInvestmentPct,
     totalFixedCosts,
   ]);
+  useEffect(() => {
+    function changed(event: StorageEvent) {
+      if (event.key === STORAGE_KEY || event.key === null) {
+        storageBlocked.current = true;
+        setStorageError('The saved budget changed in another tab. Reload saved records before continuing.');
+      }
+    }
+    window.addEventListener('storage', changed);
+    return () => window.removeEventListener('storage', changed);
+  }, []);
 
   const currencyFormatter = useMemo(
     () =>
@@ -413,7 +450,7 @@ export default function PersonalBudgetCalculator() {
         ? reserveTimelineMonths
           ? `At the current split, the reserve target should be funded in about ${reserveTimelineMonths} month${reserveTimelineMonths === 1 ? '' : 's'}.`
           : `The reserve target is short ${currencyFormatter.format(reserveGap)} and no cash is currently left to build it.`
-        : `${currencyFormatter.format(portfolioContribution)} per month is available for the portfolio after reserve funding.`;
+        : `${currencyFormatter.format(portfolioContribution)} per month is allocated to investments; ${currencyFormatter.format(reserveBuildCash)} stays in cash.`;
 
   const summaryToneClass =
     monthlyFreeCash < 0
@@ -605,6 +642,15 @@ export default function PersonalBudgetCalculator() {
 
   return (
     <div className="budget-workspace flex h-full min-h-0 flex-col">
+      {storageError && <RecordError message={storageError} />}
+      <div className="budget-export-bar"><span className="terminal-note">{storageError ? 'Unsaved budget · Check storage warning' : hydrated ? 'Saved on this device' : 'Loading saved budget…'}</span>
+        <button type="button" className="terminal-button" disabled={!hydrated} onClick={() => downloadCsv('monthly-budget.csv', [
+          ['Monthly budget', 'Amount', 'Currency', 'Status'],
+          ...[['Income', monthlyIncome], ['Fixed costs', totalFixedCosts], ['Variable spending', variableCosts],
+            ['Free cash before allocation', monthlyFreeCash], ['Investment allocation', portfolioContribution],
+            ['Cash allocation', reserveBuildCash], ['Emergency reserve balance', reserveCash], ['Emergency reserve target', reserveTarget]]
+            .map(([label, amount]) => [label, amount, currency, storageError ? 'Unsaved working values' : 'Saved on this device']),
+        ])}>Export monthly plan</button></div>
       <div className="budget-health mb-5 flex flex-wrap items-center justify-between gap-4">
         <div><p className="terminal-note">Cash-flow health</p><strong className="text-2xl">{cashflowHealth===null?'—':cashflowHealth+' / 100'}</strong></div>
         <details className="terminal-note max-w-xl"><summary>Score methodology</summary><p>Up to 40 points for a 20% savings rate, 40 for fully funding your chosen emergency reserve, and 20 for keeping spending at or below 50% of income. Based on the income and spending entered here.</p></details>

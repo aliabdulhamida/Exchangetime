@@ -20,6 +20,8 @@ import { ChartContainer } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { runBacktestCalculation, computeXirrPercent } from '@/lib/backtest';
+import { backtestExportRows, type BacktestExportContext } from '@/lib/backtest-export';
+import { downloadCsv } from '@/lib/csv-export';
 import { portfolioReturnIndex, portfolioRisk } from '@/lib/portfolio-risk';
 
 interface BacktestResult {
@@ -263,6 +265,8 @@ export default function BacktestTool() {
   const [reinvestDividends, setReinvestDividends] = useState(true);
   const [activeSymbols, setActiveSymbols] = useState<string[]>([]);
   const [result, setResult] = useState<BacktestResult | null>(null);
+  const [runContext, setRunContext] = useState<BacktestExportContext | null>(null);
+  const [historyLimit, setHistoryLimit] = useState(50);
   const [portfolioHistory, setPortfolioHistory] = useState<PortfolioPoint[] | null>(null);
   const [dividendHistory, setDividendHistory] = useState<DividendHistoryPoint[] | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -695,6 +699,12 @@ export default function BacktestTool() {
       const annualizedReturn=computeXirrPercent(cashflows);
       const flowAdjustedIndex=portfolioReturnIndex(combinedPortfolioHistory,cashflows.filter(flow=>flow.type==='initial_investment'||flow.type==='monthly_contribution').map(flow=>({date:flow.date,amount:-flow.amount})));
       const risk=portfolioRisk(flowAdjustedIndex);
+      setRunContext({symbols: symbols.join(', '), allocation: symbols.map((symbol, index) =>
+        symbol + ' ' + (allocationWeights[index] * 100).toFixed(4) + '%').join('; '),
+        currency, start: startDate, end: endDate, initialAmount: normalizedInitial, monthlyAmount: normalizedMonthly,
+        feePct: Number(transactionFeePct), slippagePct: Number(slippagePct), dividendTaxPct: Number(dividendTaxPct),
+        reinvest: reinvestDividends, calculatedAt: new Date().toISOString()});
+      setHistoryLimit(50);
       setResult({
         initialValue: totalInvested,
         finalValue,
@@ -721,10 +731,10 @@ export default function BacktestTool() {
 
   return (
     <div className={shellClass}>
-      <p className="terminal-note mb-4">Buy-and-hold / DCA simulation · No rebalancing · Monthly purchases on the next available price observation · Dividends use provider event dates · Purchase costs and dividend withholding apply to each asset · All assets must use the selected quote currency.</p>
+      <details className="data-details mb-4"><summary>Buy-and-hold / DCA assumptions</summary><p>No rebalancing. Monthly purchases on the next available price observation. Dividends use provider event dates. Purchase costs and dividend withholding apply to each asset. All assets must use the selected quote currency. Historical simulation, not a prediction.</p></details>
       {!result&&<label className="terminal-label mb-4 max-w-48">Simulation currency<select className="terminal-input" value={currency} onChange={event=>setCurrency(event.target.value)}>{['USD','EUR','GBP','CHF','JPY'].map(code=><option key={code}>{code}</option>)}</select></label>}
       {coverage.length>0&&<details className="terminal-note mb-4"><summary>Data coverage · Yahoo Finance · Daily bars</summary>{coverage.map(item=><p className="mt-2" key={item}>{item}</p>)}</details>}
-      {result && <div className="flex flex-wrap gap-6 border-y border-border py-3 text-xs"><span>Flow-adjusted maximum drawdown <strong>{formatPercent(result.maxDrawdown ?? 0)}</strong></span><span>Sharpe (0% risk-free) <strong>{result.sharpeRatio?.toFixed(2) ?? '—'}</strong></span><span>Dividends held in cash remain in final value.</span></div>}
+      {result && <div className="flex flex-wrap gap-6 border-y border-border py-3 text-xs"><span>Flow-adjusted maximum drawdown <strong>{formatPercent(result.maxDrawdown)}</strong></span><span>Sharpe (0% risk-free) <strong>{result.sharpeRatio?.toFixed(2) ?? '—'}</strong></span><span>Dividends held in cash remain in final value.</span></div>}
 
       {error && (
         <Alert
@@ -971,6 +981,19 @@ export default function BacktestTool() {
             </>
           )}
 
+          {portfolioHistory && runContext && <details className="instrument-observations backtest-observations">
+            <summary>Simulation observations · {portfolioHistory.length} dates</summary>
+            <p className="terminal-note">Calculated {new Date(runContext.calculatedAt).toLocaleString()} · {runContext.currency} · Not live portfolio values.</p>
+            <button type="button" className="terminal-button" onClick={() => downloadCsv('backtest-observations.csv',
+              backtestExportRows(portfolioHistory, runContext))}>Export simulation & assumptions</button>
+            <div className="tool-table-scroll" tabIndex={0} role="region" aria-label="Backtest observations">
+              <table><thead><tr><th>Date (UTC)</th><th>Simulated value</th></tr></thead>
+                <tbody>{[...portfolioHistory].reverse().slice(0, historyLimit).map(point => <tr key={point.date}>
+                  <td>{point.date}</td><td>{formatCurrency(point.value)}</td></tr>)}</tbody></table>
+            </div>
+            {portfolioHistory.length > historyLimit && <button type="button" className="terminal-button"
+              onClick={() => setHistoryLimit(value => value + 50)}>Show 50 older observations</button>}
+          </details>}
           <Button
             onClick={() => {
               setResult(null);

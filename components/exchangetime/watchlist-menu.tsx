@@ -10,9 +10,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { isPriceSymbol } from '@/lib/asset-directory';
+import { readBackup } from '@/lib/personal-backup';
 import { formatQuote } from '@/lib/research-history';
 
 import { workspaceUrl } from './product-model';
+import RecordError from './record-error';
 
 
 
@@ -337,6 +339,11 @@ export default function WatchlistMenu({
   const [sort, setSort] = useState('saved');
   const [unavailable, setUnavailable] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [storageError, setStorageError] = useState('');
+  const [storageReady, setStorageReady] = useState(false);
+  const storedLists = useRef<string | null>(null);
+  const writable = useRef(false);
+  const [removed, setRemoved] = useState<{list: string; ticker: string; index: number} | null>(null);
   const open = controlledOpen ?? internalOpen;
   const activeWatchlist =
     watchlists.find((watchlistItem) => watchlistItem.id === activeWatchlistId) ?? watchlists[0];
@@ -390,6 +397,32 @@ export default function WatchlistMenu({
   },[watchlist]);
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem(WATCHLISTS_STORAGE_KEY);
+      storedLists.current = raw;
+      if (raw !== null) {
+        readBackup(JSON.stringify({format: 'exchange-time/personal', version: 1, records: {[WATCHLISTS_STORAGE_KEY]: raw}}));
+        const original = JSON.parse(raw) as WatchlistRecord[];
+        const normalized = sanitizeWatchlists(original);
+        if (normalized.length !== original.length || original.some((list, index) => list.items.length !== normalized[index].items.length))
+          throw new Error('Unreadable items');
+      }
+      writable.current = true;
+    } catch {
+      setStorageError('Saved watchlists could not be read. Original data was not overwritten. Use Backup & recovery to preserve it.');
+    }
+    setStorageReady(true);
+    function changed(event: StorageEvent) {
+      if (event.key === WATCHLISTS_STORAGE_KEY || event.key === null) {
+        writable.current = false;
+        setStorageError('Watchlists changed in another tab. Reload saved records before continuing.');
+      }
+    }
+    window.addEventListener('storage', changed);
+    return () => window.removeEventListener('storage', changed);
+  }, []);
+
+  useEffect(() => {
     if (watchlists.length === 0) return;
     if (!watchlists.some((watchlistItem) => watchlistItem.id === activeWatchlistId)) {
       setActiveWatchlistId(watchlists[0].id);
@@ -397,32 +430,42 @@ export default function WatchlistMenu({
   }, [watchlists, activeWatchlistId]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!storageReady || !writable.current) return;
     try {
-      window.localStorage.setItem(WATCHLISTS_STORAGE_KEY, JSON.stringify(watchlists));
-    } catch {}
-  }, [watchlists]);
+      if (localStorage.getItem(WATCHLISTS_STORAGE_KEY) !== storedLists.current) {
+        writable.current = false;
+        setStorageError('Watchlists changed in another tab. Reload saved records before continuing.');
+        return;
+      }
+      const raw = JSON.stringify(watchlists);
+      window.localStorage.setItem(WATCHLISTS_STORAGE_KEY, raw);
+      storedLists.current = raw;
+    } catch {
+      writable.current = false;
+      setStorageError('Watchlist changes could not be saved. Browser storage may be full or disabled.');
+    }
+  }, [watchlists, storageReady]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!storageReady || !writable.current) return;
     try {
       window.localStorage.setItem(ACTIVE_WATCHLIST_STORAGE_KEY, activeWatchlistId);
     } catch {}
-  }, [activeWatchlistId]);
+  }, [activeWatchlistId, storageReady]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!storageReady || !writable.current) return;
     try {
       window.localStorage.setItem(LEGACY_WATCHLIST_STORAGE_KEY, JSON.stringify(watchlist));
     } catch {}
-  }, [watchlist]);
+  }, [watchlist, storageReady]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!storageReady || !writable.current) return;
     try {
       window.localStorage.setItem(LEGACY_WATCHLIST_TITLE_STORAGE_KEY, activeWatchlistTitle);
     } catch {}
-  }, [activeWatchlistTitle]);
+  }, [activeWatchlistTitle, storageReady]);
 
   useEffect(() => {
     setShowAdd(isPriceSymbol(suggestedTicker));
@@ -480,6 +523,7 @@ export default function WatchlistMenu({
 
   const handleDeleteActiveWatchlist = () => {
     if (watchlists.length <= 1 || !activeWatchlist) return;
+    if (!window.confirm('Delete the watchlist “' + activeWatchlist.title + '” and its saved tickers?')) return;
 
     const currentIndex = watchlists.findIndex((watchlistItem) => watchlistItem.id === activeWatchlist.id);
     const fallbackId =
@@ -536,6 +580,17 @@ export default function WatchlistMenu({
         className={`watchlist-panel ${contentClassName || ''}`}
       >
         <div className="overflow-hidden rounded-[inherit]">
+          {storageError && <RecordError message={storageError} />}
+          {removed && <div className="watchlist-undo" role="status"><span>{removed.ticker} removed</span>
+            <button type="button" disabled={!watchlists.some(list => list.id === removed.list)} onClick={() => {
+              setWatchlists(lists => lists.map(list => {
+                if (list.id !== removed.list || list.items.some(item => item.ticker === removed.ticker)) return list;
+                const items = [...list.items];
+                items.splice(removed.index, 0, {ticker: removed.ticker});
+                return {...list, items};
+              }));
+              setRemoved(null);
+            }}>Undo</button></div>}
           <p className="border-b border-border px-3 py-2 text-[10px] text-muted-foreground">Yahoo Finance · Refresh 60s · Quotes may be delayed</p>
           <div className="border-b border-border/70 bg-card/70 px-3.5 py-3">
             <div className="flex items-center justify-between gap-2">
@@ -677,6 +732,7 @@ export default function WatchlistMenu({
                           title={`Delete ${stock.ticker}`}
                           aria-label={`Delete ${stock.ticker}`}
                           onClick={() => {
+                            setRemoved({list: activeWatchlistId, ticker: stock.ticker, index: watchlist.findIndex(item => item.ticker === stock.ticker)});
                             setWatchlists((currentWatchlists) =>
                               currentWatchlists.map((watchlistItem) =>
                                 watchlistItem.id === activeWatchlistId

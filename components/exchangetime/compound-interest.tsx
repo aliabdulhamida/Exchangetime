@@ -18,6 +18,9 @@ import {
   normalizeCompoundInterestInput,
   type ContributionTiming,
 } from '@/lib/compound-interest';
+import { downloadCsv } from '@/lib/csv-export';
+
+import FinancialTooltip from './financial-tooltip';
 
 const COMPOUNDING_OPTIONS = [
   { value: 12, label: 'Monthly' },
@@ -297,6 +300,7 @@ export default function CompoundInterestCalculator() {
               <label className="inline-flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
+                  aria-label="Adjust for inflation"
                   checked={adjustForInflation}
                   onChange={(e) => setAdjustForInflation(e.target.checked)}
                   className="peer sr-only"
@@ -331,6 +335,7 @@ export default function CompoundInterestCalculator() {
                   <button
                     key={preset}
                     type="button"
+                    aria-pressed={Math.abs(normalizedInflationRatePct - preset) < 0.005}
                     onClick={() => setInflationRatePct(preset)}
                     className={`rounded-md border px-2.5 py-1 text-xs transition ${
                       Math.abs(normalizedInflationRatePct - preset) < 0.005
@@ -384,7 +389,7 @@ export default function CompoundInterestCalculator() {
           </div>
           <div className="rounded-xl border border-border bg-card px-4 py-3">
             <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-              Interest Earned
+              Modeled gain / loss
             </p>
             <p
               className={`mt-1 break-words text-base font-semibold leading-tight sm:text-lg ${gainColorClass}`}
@@ -416,47 +421,27 @@ export default function CompoundInterestCalculator() {
               <AreaChart data={displayChartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="compoundInvestedFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#71717a" stopOpacity={0.22} />
-                    <stop offset="95%" stopColor="#71717a" stopOpacity={0} />
+                    <stop offset="5%" stopColor="var(--app-secondary)" stopOpacity={0.12} />
+                    <stop offset="95%" stopColor="var(--app-secondary)" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="compoundCapitalFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e5e5e5" stopOpacity={0.45} />
-                    <stop offset="95%" stopColor="#e5e5e5" stopOpacity={0.05} />
+                    <stop offset="5%" stopColor="var(--chart-color)" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="var(--chart-color)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="year" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
+                <CartesianGrid vertical={false} strokeDasharray="2 6" stroke="var(--chart-grid)" />
+                <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fill: 'var(--app-secondary)', fontSize: 11 }} />
                 <YAxis
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
+                  axisLine={false} tickLine={false}
+                  tick={{ fill: 'var(--app-secondary)', fontSize: 11 }}
                   tickFormatter={(value) => axisCurrencyLabel(value as number)}
                 />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload || payload.length === 0) return null;
-
-                    const point = payload[0]?.payload as
-                      | { year: number; capital: number; invested: number; gain: number }
-                      | undefined;
-                    if (!point) return null;
-
-                    return (
-                      <div className="min-w-[170px] rounded-lg border border-border bg-black/95 px-3 py-2 text-xs text-white shadow-lg">
-                        <div className="mb-1 font-semibold">Year {point.year}</div>
-                        <div className="space-y-0.5">
-                          <div>Capital: {formatCurrency(point.capital)}</div>
-                          <div>Invested: {formatCurrency(point.invested)}</div>
-                          <div className={point.gain >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
-                            Gain: {formatCurrency(point.gain)}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
+                <Tooltip content={<FinancialTooltip labelFormatter={year => 'Year ' + year} formatValue={value => formatCurrency(value)} />} />
                 <Area
                   type="monotone"
                   dataKey="invested"
-                  stroke="#71717a"
+                  name="Deposits"
+                  stroke="var(--app-secondary)"
                   strokeWidth={1.5}
                   fillOpacity={1}
                   fill="url(#compoundInvestedFill)"
@@ -464,7 +449,8 @@ export default function CompoundInterestCalculator() {
                 <Area
                   type="monotone"
                   dataKey="capital"
-                  stroke="#e5e7eb"
+                  name="Balance"
+                  stroke="var(--chart-color)"
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#compoundCapitalFill)"
@@ -472,7 +458,8 @@ export default function CompoundInterestCalculator() {
                 <Line
                   type="monotone"
                   dataKey="gain"
-                  stroke="#34d399"
+                  name="Gain / loss"
+                  stroke="var(--app-text)"
                   strokeWidth={1.5}
                   dot={false}
                   strokeDasharray="5 4"
@@ -481,6 +468,27 @@ export default function CompoundInterestCalculator() {
             </ResponsiveContainer>
           </div>
         </div>
+        <details className="instrument-observations compound-yearly">
+          <summary>Year-by-year projection · {adjustForInflation ? 'Today’s EUR' : 'Nominal EUR'}</summary>
+          <button type="button" className="terminal-button" onClick={() => downloadCsv('compound-interest-projection.csv', [
+            ['Year', 'Nominal balance (EUR)', 'Nominal deposits (EUR)', 'Nominal gain (EUR)', 'Balance in today’s EUR',
+              'Assumed annual rate (%)', 'Inflation (%)', 'Compounding periods/year', 'Deposit periods/year', 'Deposit timing'],
+            ...calculation.chartData.map(row => [row.year, row.capital, row.invested, row.gain,
+              row.capital / Math.pow(1 + inflationRate, row.year), normalizedInput.annualRatePct, normalizedInflationRatePct,
+              normalizedInput.compoundingPerYear, normalizedInput.contributionPerYear, normalizedInput.contributionTiming]),
+          ])}>Export annual projection</button>
+          <div className="tool-table-scroll" role="region" tabIndex={0} aria-label="Annual compound interest projection">
+            <table><thead><tr><th scope="col">Year</th><th scope="col">Balance</th><th scope="col">Deposits</th><th scope="col">Gain / loss</th></tr></thead>
+              <tbody>{displayChartData.map(row => <tr key={row.year}><th scope="row">{row.year}</th>
+                <td>{formatCurrency(row.capital)}</td><td>{formatCurrency(row.invested)}</td><td>{formatCurrency(row.gain)}</td></tr>)}</tbody></table>
+          </div>
+        </details>
+        <details className="data-details"><summary>Projection assumptions</summary>
+          <p>Hypothetical constant return, not a market forecast. Taxes and fees are excluded. Amounts use EUR.
+            In inflation-adjusted mode, each year’s totals are divided by that year’s inflation factor.
+            Deposits are shown in the same year’s purchasing-power units; they are not individually discounted cash flows.
+            The CSV includes nominal values and inflation-adjusted balances with the selected assumptions.</p>
+        </details>
       </div>
     </div>
   );
