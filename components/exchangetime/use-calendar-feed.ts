@@ -16,6 +16,9 @@ export function useCalendarFeed<Row>(endpoint: string) {
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
+    let active = true;
+    let timedOut = false;
+    const timer = window.setTimeout(() => {timedOut = true; controller.abort();}, 20000);
     const key = 'et.feed.v1:' + endpoint;
     if (!revision) {
       try {
@@ -38,12 +41,13 @@ export function useCalendarFeed<Row>(endpoint: string) {
         setNotice(response.headers.get('X-Provider-Stale') === '1' ? 'Latest refresh failed. Showing a saved snapshot.' : '');
         try { localStorage.setItem(key, JSON.stringify({ data: payload, retrieved })); } catch {}
       } catch {
-        if (!controller.signal.aborted) setNotice('Source unavailable. Any displayed events are from a saved snapshot.');
+        if (active) setNotice(timedOut ? 'Calendar request timed out. Any displayed events are from a saved snapshot.' : 'Source unavailable. Any displayed events are from a saved snapshot.');
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        window.clearTimeout(timer);
+        if (active) setLoading(false);
       }
     })();
-    return () => controller.abort();
+    return () => {active = false; window.clearTimeout(timer); controller.abort();};
   }, [endpoint, revision]);
   return { data, loading, notice, retrieved, refresh: () => setRevision(value => value + 1) };
 }

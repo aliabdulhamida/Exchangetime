@@ -1,5 +1,15 @@
 import React, { type ReactNode } from 'react';
 
+import { localCalendarKey, parseCalendarDate } from '../../lib/calendar-view';
+
+export function CalendarDateJump({date, onSelect}: {date: Date; onSelect: (date: Date) => void}) {
+  return <div className="calendar-date-jump">
+    <input type="date" className="terminal-input" aria-label="Go to calendar date" value={localCalendarKey(date)}
+      onChange={event => {const next = parseCalendarDate(event.target.value); if (next) onSelect(next);}} />
+    <button type="button" className="terminal-button" onClick={() => onSelect(new Date())}>Today</button>
+  </div>;
+}
+
 export function ToolSegmented({ value, onChange, options, fullWidth = false, label = 'Options' }: {
   value: string;
   onChange: (value: string) => void;

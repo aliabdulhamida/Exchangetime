@@ -12,6 +12,13 @@ function storage(initial: Record<string, string>) {
 }
 const records = { portfolioBaseCurrency: 'EUR', 'et.goals.v1': '[]' };
 describe('personal backup', () => {
+  it('backs up and restores saved screens, including recovery of unreadable screens', () => {
+    const screens = JSON.stringify([{name: 'Growth', tab: 'gainers', query: '', volume: '0', relative: '0', order: 'provider'}]);
+    const target = storage({});
+    restoreBackup(target, exportBackup(storage({'et.screens.v1': screens})));
+    expect(target.getItem('et.screens.v1')).toBe(screens);
+    expect(JSON.parse(exportRecoveryCopy(storage({'et.screens.v1': '{broken'}))).unreadable).toEqual(['et.screens.v1']);
+  });
   it('preserves unreadable raw values in a separate recovery file, without unrelated keys', () => {
     const recovery = exportRecoveryCopy(storage({'et.goals.v1': '{broken', secret: 'private'}));
     expect(JSON.parse(recovery).records['et.goals.v1']).toBe('{broken');

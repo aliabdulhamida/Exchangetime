@@ -1,15 +1,17 @@
 'use client';
 
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, X } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { researchUrl, workspaceUrl } from '@/components/exchangetime/product-model';
+import RecordError from '@/components/exchangetime/record-error';
+import { useLocalRecords } from '@/components/exchangetime/use-local-records';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { downloadCsv } from '@/lib/csv-export';
-import { matchesValuationTrend, valuationMeasures, type Measure, type ScreenerRow, type Trend } from '@/lib/market-screen';
+import { filterMarketRows, savedScreensSchema, valuationMeasures, type Measure, type SavedScreen, type ScreenerRow, type Trend } from '@/lib/market-screen';
 import { formatQuote } from '@/lib/research-history';
 
 type ScreenerKey = 'gainers' | 'losers' | 'movers' | 'mostActive';
@@ -103,74 +105,42 @@ function isPayload(value: any): value is ScreenerPayload {
     typeof value === 'object' &&
     value.lists &&
     typeof value.lists === 'object' &&
-    value.lists.gainers &&
-    value.lists.losers &&
-    value.lists.movers &&
-    value.lists.mostActive
+    typeof value.fetchedAt === 'string' && Number.isFinite(Date.parse(value.fetchedAt)) &&
+    (value.unavailable === undefined || (Array.isArray(value.unavailable) && value.unavailable.every((key: ScreenerKey) => TAB_ORDER.includes(key)))) &&
+    TAB_ORDER.every(key => {
+      const list = value.lists[key];
+      return list && typeof list.title === 'string' && Array.isArray(list.rows) &&
+        list.rows.every((row: any) => row && typeof row.symbol === 'string' && typeof row.name === 'string' &&
+          ['price', 'change', 'changePercent', 'volume', 'averageVolume', 'marketCap', 'regularMarketTime', 'twoHundredDayAverage', ...Object.keys(valuationMeasures)]
+            .every(field => row[field] == null || (typeof row[field] === 'number' && Number.isFinite(row[field]))));
+    })
   );
 }
 
-type Screen = {
-  name: string;
-  tab: ScreenerKey;
-  query: string;
-  volume: string;
-  relative: string;
-  order: string;
-  measure?: Measure;
-  ceiling?: string;
-  trend?: Trend;
-};
-function validScreen(value: unknown): value is Screen {
-  if (!value || typeof value !== 'object') return false;
-  const screen = value as Partial<Screen>;
-  return (
-    typeof screen.name === 'string' &&
-    typeof screen.query === 'string' &&
-    TAB_ORDER.includes(screen.tab as ScreenerKey) &&
-    ['0', '1000000', '10000000'].includes(screen.volume ?? '') &&
-    ['0', '1', '2', '3'].includes(screen.relative ?? '') &&
-    (screen.measure === undefined || Object.hasOwn(valuationMeasures, screen.measure)) &&
-    (screen.ceiling === undefined || typeof screen.ceiling === 'string') &&
-    (screen.trend === undefined || ['any', 'above', 'below'].includes(screen.trend)) &&
-    ['provider', 'volume', 'move'].includes(screen.order ?? '')
-  );
-}
 export default function MarketScreener() {
   const [payload, setPayload] = useState<ScreenerPayload | null>(null);
   const [activeTab, setActiveTab] = useState<ScreenerKey>('gainers');
   const [query, setQuery] = useState('');
-  const [minVolume, setMinVolume] = useState('0');
-  const [minRelative, setMinRelative] = useState('0');
-  const [order, setOrder] = useState('provider');
+  const [minVolume, setMinVolume] = useState<SavedScreen['volume']>('0');
+  const [minRelative, setMinRelative] = useState<SavedScreen['relative']>('0');
+  const [order, setOrder] = useState<SavedScreen['order']>('provider');
   const [measure, setMeasure] = useState<Measure>('trailingPE');
   const [ceiling, setCeiling] = useState('');
   const [trend, setTrend] = useState<Trend>('any');
-  const [saved, setSaved] = useState<Screen[]>([]);
+  const {records: saved, save, error: storageError, ready} = useLocalRecords('et.screens.v1', savedScreensSchema);
   const [name, setName] = useState('');
   const [notice, setNotice] = useState('');
-  useEffect(() => {
-    try {
-      const entries: unknown = JSON.parse(localStorage.getItem('et.screens.v1') || '[]');
-      if (Array.isArray(entries)) setSaved(entries.filter(validScreen));
-    } catch {
-      setNotice('Saved screens could not be loaded.');
-    }
-  }, []);
-  function persist(entries: Screen[]) {
-    try {
-      localStorage.setItem('et.screens.v1', JSON.stringify(entries));
-      setSaved(entries);
-      setNotice('Saved screens updated.');
-    } catch {
-      setNotice('Unable to save on this device.');
-    }
-  }
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const request = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async (silent = false) => {
+    if (request.current) return;
+    const controller = new AbortController();
+    request.current = controller;
+    let timedOut = false;
+    const timer = window.setTimeout(() => {timedOut = true; controller.abort();}, 20000);
     if (silent) {
       setRefreshing(true);
     } else {
@@ -178,7 +148,7 @@ export default function MarketScreener() {
     }
 
     try {
-      const response = await fetch('/api/market-screener?count=25', { cache: 'no-store' });
+      const response = await fetch('/api/market-screener?count=25', { cache: 'no-store', signal: controller.signal });
       const data = await response.json();
 
       if (!response.ok) {
@@ -189,11 +159,15 @@ export default function MarketScreener() {
         throw new Error('Invalid market screener response payload.');
       }
 
+      if (controller.signal.aborted) return;
       setPayload(data);
       setError(null);
     } catch (err: any) {
-      setError(String(err?.message || err || 'Failed to load market screener data.'));
+      if (request.current === controller) setError(timedOut ? 'The request timed out. Try refreshing.' : String(err?.message || err || 'Failed to load market screener data.'));
     } finally {
+      window.clearTimeout(timer);
+      if (request.current !== controller) return;
+      request.current = null;
       if (silent) {
         setRefreshing(false);
       } else {
@@ -207,7 +181,7 @@ export default function MarketScreener() {
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') void fetchData(true);
     }, REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(interval);
+    return () => {window.clearInterval(interval); request.current?.abort(); request.current = null;};
   }, [fetchData]);
 
   const activeList = useMemo(() => {
@@ -217,29 +191,20 @@ export default function MarketScreener() {
 
   const filteredRows = useMemo(() => {
     if (!activeList) return [];
-    const needle = query.trim().toLowerCase();
-    const matches = activeList.rows.filter((row) => {
-      const relative =
-        row.averageVolume && row.volume !== null ? row.volume / row.averageVolume : 0;
-      return (
-        matchesValuationTrend(row, measure, ceiling, trend) &&
-        (row.symbol.toLowerCase().includes(needle) || row.name.toLowerCase().includes(needle)) &&
-        (row.volume ?? 0) >= Number(minVolume) &&
-        (relative ?? 0) >= Number(minRelative)
-      );
-    });
-    if (order === 'volume')
-      matches.sort((left, right) => (right.volume ?? -1) - (left.volume ?? -1));
-    if (order === 'move')
-      matches.sort(
-        (left, right) => Math.abs(right.changePercent ?? 0) - Math.abs(left.changePercent ?? 0),
-      );
-    return matches;
+    return filterMarketRows(activeList.rows, {query, volume: minVolume, relative: minRelative, order, measure, ceiling, trend});
   }, [activeList, query, minVolume, minRelative, order, measure, ceiling, trend]);
 
   const fetchedAtText = formatFetchedAt(payload?.fetchedAt || null);
   const asOfText = formatAsOf(activeList?.asOf || null);
-  const criteria = [minVolume !== '0', minRelative !== '0', ceiling !== '', trend !== 'any'].filter(Boolean).length;
+  const chips = [
+    ...(query.trim() ? [{label: 'Search: ' + query.trim(), clear: () => setQuery('')}] : []),
+    ...(minVolume !== '0' ? [{label: 'Volume ≥ ' + formatCompactNumber(Number(minVolume), 0), clear: () => setMinVolume('0')}] : []),
+    ...(minRelative !== '0' ? [{label: 'Relative volume ≥ ' + minRelative + '×', clear: () => setMinRelative('0')}] : []),
+    ...(ceiling !== '' ? [{label: valuationMeasures[measure] + ' ≤ ' + ceiling, clear: () => setCeiling('')}] : []),
+    ...(trend !== 'any' ? [{label: (trend === 'above' ? 'Above' : 'Below') + ' 200-day average', clear: () => setTrend('any')}] : []),
+  ];
+  const criteria = chips.length;
+  const invalidCeiling = ceiling !== '' && (!Number.isFinite(Number(ceiling)) || Number(ceiling) <= 0);
   function resetFilters() {
     setQuery(''); setMinVolume('0'); setMinRelative('0'); setCeiling(''); setTrend('any');
     setOrder('provider'); setMeasure('trailingPE'); setName(''); setNotice('');
@@ -305,7 +270,7 @@ export default function MarketScreener() {
           <select
             className="et-tool-select"
             value={minVolume}
-            onChange={(event) => setMinVolume(event.target.value)}
+            onChange={(event) => setMinVolume(event.target.value as SavedScreen['volume'])}
           >
             <option value="0">Any volume</option>
             <option value="1000000">1M shares</option>
@@ -317,7 +282,7 @@ export default function MarketScreener() {
           <select
             className="et-tool-select"
             value={minRelative}
-            onChange={(event) => setMinRelative(event.target.value)}
+            onChange={(event) => setMinRelative(event.target.value as SavedScreen['relative'])}
           >
             {['0', '1', '2', '3'].map((value) => (
               <option key={value} value={value}>
@@ -331,7 +296,7 @@ export default function MarketScreener() {
           <select
             className="et-tool-select"
             value={order}
-            onChange={(event) => setOrder(event.target.value)}
+            onChange={(event) => setOrder(event.target.value as SavedScreen['order'])}
           >
             <option value="provider">Provider rank</option>
             <option value="volume">Highest volume</option>
@@ -344,7 +309,7 @@ export default function MarketScreener() {
           </select>
         </label>
         <label>Maximum multiple
-          <input className="terminal-input" type="number" min="0" step="any" placeholder="No limit" value={ceiling} onChange={event => setCeiling(event.target.value)} />
+          <input className="terminal-input" type="number" min="0" step="any" placeholder="No limit" value={ceiling} aria-invalid={invalidCeiling} aria-describedby={invalidCeiling ? 'screen-ceiling-error' : undefined} onChange={event => setCeiling(event.target.value)} />
         </label>
         <label>Price vs. 200-day average
           <select className="et-tool-select" value={trend} onChange={event => setTrend(event.target.value as Trend)}>
@@ -354,7 +319,14 @@ export default function MarketScreener() {
         </div>
         <button className="terminal-button" type="button" onClick={resetFilters}>Reset filters & order</button>
       </details>
-      <details className="mb-3 text-sm">
+      {chips.length > 0 && <div className="screen-active-filters" aria-label="Active screener filters">
+        {chips.map(chip => <button type="button" key={chip.label} onClick={chip.clear} aria-label={'Remove filter: ' + chip.label}>
+          {chip.label}<X size={13} aria-hidden="true" />
+        </button>)}
+        <button type="button" className="screen-clear" onClick={resetFilters}>Clear all</button>
+      </div>}
+      {invalidCeiling && <p id="screen-ceiling-error" role="alert" className="mb-3 text-sm text-destructive">Enter a maximum multiple greater than zero.</p>}
+      <details className="screen-saved mb-3 text-sm">
         <summary className="cursor-pointer">Saved screens ({saved.length})</summary>
         <form
           className="my-3 flex gap-2"
@@ -362,7 +334,8 @@ export default function MarketScreener() {
             event.preventDefault();
             const title = name.trim();
             if (!title) return;
-            persist([
+            if (saved.some(item => item.name === title) && !window.confirm('Replace the saved screen “' + title + '”?')) return;
+            if (save([
               ...saved.filter((item) => item.name !== title),
               {
                 name: title,
@@ -373,7 +346,7 @@ export default function MarketScreener() {
                 order,
                 measure, ceiling, trend,
               },
-            ]);
+            ])) setNotice('Saved ' + title + '.');
           }}
         >
           <Input
@@ -384,7 +357,7 @@ export default function MarketScreener() {
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          <Button type="submit" disabled={!name.trim()}>
+          <Button type="submit" disabled={!ready || !!storageError || invalidCeiling || !name.trim()}>
             {saved.some((item) => item.name === name.trim()) ? 'Update' : 'Save'}
           </Button>
         </form>
@@ -408,7 +381,11 @@ export default function MarketScreener() {
             </button>
             <button
               aria-label={'Remove ' + item.name}
-              onClick={() => persist(saved.filter((entry) => entry.name !== item.name))}
+              disabled={!!storageError}
+              onClick={() => {
+                if (window.confirm('Delete the saved screen “' + item.name + '”?') && save(saved.filter(entry => entry.name !== item.name)))
+                  setNotice('Removed ' + item.name + '.');
+              }}
             >
               Remove
             </button>
@@ -416,6 +393,7 @@ export default function MarketScreener() {
         ))}
         <p role="status">{notice}</p>
       </details>
+      {storageError && <RecordError message={storageError} />}
       {!!payload?.unavailable?.length && (
         <p role="status" className="mb-3 text-sm text-amber-300">
           Unavailable feeds: {payload.unavailable.map((key) => payload.lists[key].title).join(', ')}

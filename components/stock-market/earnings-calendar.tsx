@@ -14,8 +14,9 @@ import {
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { CalendarWeekStrip, ToolEmptyState } from '@/components/exchangetime/tool-ui';
+import { CalendarDateJump, CalendarWeekStrip, ToolEmptyState } from '@/components/exchangetime/tool-ui';
 import { useCalendarFeed } from '@/components/exchangetime/use-calendar-feed';
+import { calendarEmptyMessage, localCalendarKey as toLocalDateKey } from '@/lib/calendar-view';
 
 type EarningsCalendarItem = {
   symbol: string;
@@ -83,13 +84,6 @@ export default function EarningsCalendar() {
     if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
     return num.toString();
   }
-  function toLocalDateKey(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
   function toWeekStart(date: Date): Date {
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
@@ -176,7 +170,7 @@ export default function EarningsCalendar() {
   }
 
   const filteredItems = items.filter((item) => {
-    if (filters.ticker && !item.symbol.toLowerCase().includes(filters.ticker.toLowerCase()))
+    if (filters.ticker && !item.symbol.toLowerCase().includes(filters.ticker.trim().toLowerCase()))
       return false;
     if (filters.session && item.hour !== filters.session) return false;
     if (filters.epsForecast && !epsForecastMatches(item.epsEstimate, filters.epsForecast))
@@ -196,6 +190,7 @@ export default function EarningsCalendar() {
     return weekNo;
   }
 
+  const empty = calendarEmptyMessage(loadingEarnings, notice, Object.hasOwn(earningsData, selectedKey), items.length);
   return (
     <div className="calendar-workspace flex h-full min-h-0 flex-col">
       <div className="mb-3 flex items-center justify-between pr-16 sm:mb-4 sm:pr-20">
@@ -224,7 +219,7 @@ export default function EarningsCalendar() {
           <ChevronLeft className="h-4 w-4" />
         </button>
         <h3 className="text-base font-semibold text-foreground sm:text-lg">
-          Calendar Week {getISOWeek(selectedDate)}
+          Week {getISOWeek(selectedDate)} · {selectedDate.toLocaleDateString('en-GB', {month: 'short', year: 'numeric'})}
         </h3>
         <button
           type="button"
@@ -242,6 +237,7 @@ export default function EarningsCalendar() {
         </button>
       </div>
 
+      <CalendarDateJump date={selectedDate} onSelect={date => {setWeekStart(toWeekStart(date)); setSelectedDayIdx((date.getDay() + 6) % 7);}} />
       <CalendarWeekStrip dates={weekDates} selected={selectedDayIdx} onSelect={setSelectedDayIdx} />
 
       <div className="flex min-h-0 flex-1 flex-col space-y-3">
@@ -425,7 +421,7 @@ export default function EarningsCalendar() {
             className="rounded-full px-2 py-0.5 text-xs font-semibold text-foreground"
             title="Number of companies reporting"
           >
-            {filteredItems.length} reporting
+            {filteredItems.length} of {items.length} reporting
           </span>
         </div>
 
@@ -448,16 +444,11 @@ export default function EarningsCalendar() {
         {filteredItems.length === 0 ? (
           <ToolEmptyState
             icon={<CalendarX size={25} strokeWidth={1.5} />}
-            title="Your calendar, at a glance"
-            description={
-              loadingEarnings
-                ? 'Checking calendar…'
-                : notice
-                  ? 'No confirmed entries available for this selection.'
-                  : !Object.hasOwn(earningsData, selectedKey)
-                    ? 'No provider coverage for this date.'
-                    : 'No matching events on this date.'
-            }
+            title={empty.title}
+            description={empty.description}
+            action={items.length ? <button type="button" className="terminal-button" onClick={() =>
+              setFilters({ticker: '', session: '', epsForecast: '', market: '', exchange: '', instrumentType: '', reportState: ''})}>Clear filters</button>
+              : notice && !loadingEarnings ? <button type="button" className="terminal-button" onClick={refresh}>Retry calendar</button> : undefined}
           />
         ) : (
           <div className="et-scrollbar min-h-[260px] flex-1 space-y-3 overflow-y-auto pr-1 sm:min-h-[360px] sm:pr-2 lg:min-h-0">

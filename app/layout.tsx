@@ -11,6 +11,7 @@ import '@/styles/toggle-button.css';
 import NumericKeypad from '@/components/numeric-keypad';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { SITE_URL } from '@/lib/seo-assets';
 
 const geistSans = localFont({
   src: '../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2',
@@ -23,6 +24,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'Exchange Time',
   description: 'Global Market Intelligence Dashboard',
   icons: {

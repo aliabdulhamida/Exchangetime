@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
+import { savedScreensSchema } from './market-screen';
 import { balanceSchema, historySchema, goalSchema, tradeSchema } from './record-schemas';
 
 const amount = z.number().finite().nonnegative();
 const currencies = z.enum(['EUR', 'GBP', 'USD']);
 const budgetRows = z.array(z.object({ id: z.string(), name: z.string(), amount }));
 const groups = {
+  'et.screens.v1': ['Saved screens', savedScreensSchema],
   portfolioTransactions: ['Transactions', z.array(z.object({
     id: z.string(), symbol: z.string().min(1), shares: amount.positive(), date: z.string(),
     side: z.enum(['BUY', 'SELL']), price: amount, fees: amount, taxes: amount, currency: z.string().regex(/^[A-Z]{3}$/),

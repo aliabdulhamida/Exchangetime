@@ -47,7 +47,7 @@ export default function PersonalBackup() {
   }
   return <section className="space-y-3 border-t pt-4" aria-label="Personal data backup">
     <h3 className="text-sm font-semibold">Personal data backup</h3>
-    <p className="text-xs text-muted-foreground">Save transactions, watchlists, budget, net worth, goals and journal entries. The file is not encrypted. Quotes and display preferences are not included.</p>
+    <p className="text-xs text-muted-foreground">Save transactions, watchlists, screens, budget, net worth, goals and journal entries. The file is not encrypted. Quotes and display preferences are not included.</p>
     <div className="backup-download-actions"><button type="button" className="terminal-button" onClick={() => download()}>Download backup</button>
       <button type="button" className="terminal-button" onClick={() => download(true)}>Download recovery copy</button></div>
     <details className="terminal-note"><summary>When to use a recovery copy</summary><p>Preserves the original stored values, including unreadable entries. It is not an importable backup and needs manual repair. Neither file is encrypted. Unrelated browser data is excluded.</p></details>

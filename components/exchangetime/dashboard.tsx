@@ -3,7 +3,9 @@
 import { ArrowRight, Maximize2, Minimize2, Pin } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+
+import AdSlot from '@/components/advertising/ad-slot';
 
 import Content from './content';
 import Layout from './layout';
@@ -11,7 +13,7 @@ import { workflows, workspaces, workspaceUrl } from './product-model';
 import { usePinnedWorkspaces } from './use-pinned-workspaces';
 import WorkspaceTitle from './workspace-title';
 
-export default function Dashboard({ view }: { view?: string }) {
+export default function Dashboard({ view, children }: { view?: string; children?: ReactNode }) {
   const router = useRouter();
   const current = workspaces.find((item) => item.key === view) ?? workspaces[0];
   const { pins, toggle, notice } = usePinnedWorkspaces();
@@ -74,9 +76,11 @@ export default function Dashboard({ view }: { view?: string }) {
         </nav>
       </div>
       {notice && <p role="alert">{notice}</p>}
+      {current.key === 'MarketOverview' && <AdSlot placement="overview" />}
       <div className="workspace-content" data-workspace={current.key}>
         <Content key={current.key} workspace={current.key} />
       </div>
+      {current.key === 'MarketOverview' && children}
       {nextSteps.length > 0 && <footer className="workspace-continuation" aria-label="Related workspaces">
         <span>Continue with</span>
         {nextSteps.map((key) => (
