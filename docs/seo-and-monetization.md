@@ -1,5 +1,8 @@
 # SEO and monetization implementation
 
+## Current activation status
+At the operator's subsequent explicit request, the supplied asynchronous AdSense Auto Ads script is now installed in the global document head. Manual AdSlot units remain disabled. Earlier disabled-state audit and network-test results below describe the pre-activation version, not the current Auto Ads configuration. Google Privacy & messaging must be published and tested in the actual AdSense account, including withdrawal controls. Do not enable the manual SDK loader alongside the global loader without consolidating script ownership first.
+
 ## Audit
 - Next.js 15 App Router, TypeScript, React, Tailwind and shared terminal/product/tool CSS.
 - Dashboard metadata renders on the server; most tool data loads after hydration.

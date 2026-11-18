@@ -82,10 +82,14 @@ export default function PrivacyPolicyPage() {
         </p>
         <h2>5. Advertising and analytics</h2>
         <p>
-          The previously global Google AdSense, Vercel Analytics and Speed Insights scripts are
-          disabled in this version. Re-enabling them requires a separate assessment and, where
-          required, prior consent, withdrawal controls and updated disclosures. Disabling these
-          scripts alone does not establish compliance for other external integrations.
+          This site loads Google AdSense globally to display automatically placed advertisements.
+          Google may process connection information, device identifiers and advertising-related
+          data, including through cookies or local storage, depending on your choices and the
+          applicable configuration. The operator uses Google Privacy &amp; messaging to manage
+          advertising consent. The message, available choices and withdrawal controls depend on
+          the published configuration in the AdSense account. Vercel Analytics and Speed Insights
+          remain disabled. The presence of a consent message alone does not establish compliance
+          for all processing or external integrations.
         </p>
         <h2>6. Contact enquiries</h2>
         <p>
