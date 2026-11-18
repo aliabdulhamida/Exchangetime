@@ -60,6 +60,49 @@
 .watchlist-undo button { font-weight: 550; min-height: 40px; text-decoration: underline; text-underline-offset: 3px; }
 .market-pulse-status { padding-block: 12px; font-size: 12px; color: var(--app-secondary); line-height: 1.6; }
 .market-pulse-status button { margin-top: 8px; }
+.journal-mobile-label { display: none; }
+.journal-trades td { padding-inline-end: 12px; }
+.journal-trades td:last-child { padding-inline-end: 0; }
+.journal-trades :is(strong,p,details,td) { overflow-wrap: anywhere; }
+.journal-trade-pnl { font-variant-numeric: tabular-nums; font-weight: 550; }
+.journal-trade-actions { white-space: nowrap; }
+.journal-trade-actions :is(button.terminal-icon,button.terminal-button) { min-width: 44px; min-height: 44px; }
+.journal-editor-preview { border-radius: 14px; padding: 16px; background: var(--app-canvas); }
+.journal-editor-preview p, .journal-editor-preview > span { font-size: 12px; color: var(--app-secondary); }
+.journal-editor-preview strong { display: block; font-size: 28px; font-weight: 500; letter-spacing: -.035em; font-variant-numeric: tabular-nums; margin-block: 6px; }
+@media (max-width: 700px) {
+  .journal-trades, .journal-trades tbody { display: block; width: 100%; }
+  .journal-trades thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .journal-trades tbody tr { display: grid; grid-template-columns: minmax(0,1fr) minmax(100px,.75fr); gap: 8px 12px; padding-block: 18px; }
+  .journal-trades td { display: block; padding: 0; }
+  .journal-trade-identity { grid-column: 1; grid-row: 1; }
+  .journal-trade-identity > strong { font-size: 17px; font-weight: 550; letter-spacing: -.025em; }
+  .journal-trades .journal-trade-pnl { grid-column: 2; grid-row: 1; font-size: 16px; }
+  .journal-trade-setup { grid-column: 1; grid-row: 2; color: var(--app-secondary); }
+  .journal-trade-actions { grid-column: 2; grid-row: 2; align-self: end; }
+  .journal-mobile-label { display: block; font-size: 10px; font-weight: 400; color: var(--app-secondary); margin-bottom: 4px; }
+}
+.macro-controls { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap: 12px; align-items: end; margin-top: 20px; }
+.macro-controls label { min-width: 0; }
+.macro-country-mobile { margin-top: 20px; }
+.macro-country-mobile dl { margin-top: 16px; }
+.macro-country-mobile dl > div { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; padding-block: 14px; border-bottom: 1px solid var(--app-separator); }
+.macro-country-mobile dt { font-size: 13px; }
+.macro-country-mobile dd { font-size: 17px; font-weight: 550; font-variant-numeric: tabular-nums; }
+.macro-country-mobile details { grid-column: 1 / -1; font-size: 11px; color: var(--app-secondary); }
+.macro-country-mobile details summary { cursor: pointer; }
+.macro-country-mobile details a { display: block; margin-top: 8px; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 700px) { .macro-controls { grid-template-columns: minmax(0,1fr); } .macro-controls button { justify-self: start; } }
+.tools-popover-header-actions { display: flex; gap: 6px; }
+.tools-popover-header-actions button[aria-pressed=true] { color: var(--app-text); outline: 1px solid var(--app-control-border); }
+.tools-tool-row { display: flex; align-items: stretch; gap: 2px; }
+.tools-tool-row a { flex: 1; min-width: 0; }
+.tools-tool-row > button { flex: 0 0 44px; min-height: 44px; border-radius: 10px; display: grid; place-items: center; color: var(--app-secondary); }
+.tools-tool-row > button[aria-pressed=true] { color: var(--app-text); }
+.tools-tool-row > button[aria-pressed=true] svg { fill: currentColor; fill-opacity: .15; }
+.tools-tool-row > button:hover { background: var(--app-inset); }
+.tools-empty-pins { padding: 16px 10px; color: var(--app-secondary); font-size: 12px; }
+@media (pointer: coarse) { .tools-popover-header-actions button { width: 44px; height: 44px; } }
 .workspace-actions {
   display: flex;
   gap: 6px;
@@ -763,6 +806,47 @@
   }
   .planner-layout > section {
     padding: 24px 20px;
+  }
+}
+
+[data-density='compact'] .terminal :is(.tool-surface, .calendar-workspace, .compound-input-surface, .planner-result, .terminal-panel.p-5, .screener-workspace) {
+  padding: 16px;
+  border-radius: 18px;
+}
+[data-density='compact'] .terminal :is(.terminal-chart-grid, .planner-layout) {
+  gap: 12px;
+}
+[data-density='compact'] .terminal .terminal-metrics:not(.net-worth-summary) .terminal-metric {
+  padding: 14px;
+  border-radius: 16px;
+}
+[data-density='compact'] .terminal .net-worth-summary .terminal-metric:not(:first-child) {
+  padding: 10px;
+}
+[data-density='compact'] .terminal .planner-fields {
+  gap: 12px;
+  margin-top: 14px;
+}
+[data-density='compact'] .terminal .terminal-heading {
+  margin-bottom: 16px;
+}
+[data-density='compact'] .terminal :is(.record-transactions article, .exchange-ledger li) {
+  padding-block: 10px;
+}
+[data-density='compact'] .terminal .macro-country-mobile dl > div {
+  padding-block: 10px;
+}
+[data-density='compact'] .terminal .journal-trades tbody tr {
+  padding-block: 12px;
+}
+@media (pointer: fine) {
+  [data-density='compact'] .terminal .workspace-content :is(th,td) {
+    padding-block: 8px;
+  }
+}
+@media (pointer: coarse) {
+  [data-density='compact'] .terminal .workspace-content :is(.terminal-button, .tool-segmented-control button) {
+    min-height: 44px;
   }
 }
 

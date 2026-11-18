@@ -186,6 +186,12 @@ export function TradeJournal() {
   });
   const visible = filterJournal(records, {currency, query, side: direction, from, to});
   const stats = journalStats(visible);
+  const draftNumbers = [entry, exit, quantity, fees].map(Number);
+  const draftValid = [entry, exit, quantity, fees].every(value => value.trim()) &&
+    draftNumbers.every(Number.isFinite) && draftNumbers[0] > 0 && draftNumbers[1] >= 0 &&
+    draftNumbers[2] > 0 && draftNumbers[3] >= 0;
+  const draftPnl = draftValid ? profit({symbol, setup, currency, date, side,
+    entry: draftNumbers[0], exit: draftNumbers[1], quantity: draftNumbers[2], fees: draftNumbers[3]}) : null;
   const invalidRange = Boolean(from && to && from > to);
   function exportJournal(selected = records) {
     const header = [
@@ -279,19 +285,20 @@ export function TradeJournal() {
           {!visible.length ? (
             <p className="terminal-empty">{records.length ? 'No trades match this currency and filter selection.' : 'Record a closed trade to start reviewing results.'}</p>
           ) : (
-            <table className="w-full text-left text-xs">
+            <table className="journal-trades w-full text-left text-xs">
+              <caption className="sr-only">Closed trades matching the selected filters. Net profit or loss includes entered fees.</caption>
               <thead>
                 <tr className="border-b">
-                  <th className="py-3">Trade</th>
-                  <th>Setup</th>
-                  <th className="text-right">Net P/L</th>
-                  <th className="text-right">Actions</th>
+                  <th scope="col" className="py-3">Trade</th>
+                  <th scope="col">Setup</th>
+                  <th scope="col" className="text-right">Net P/L</th>
+                  <th scope="col" className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {visible.map((trade) => (
                   <tr className="border-b" key={trade.id}>
-                    <td className="py-4">
+                    <td className="journal-trade-identity py-4">
                       <strong>{trade.symbol}</strong>
                       <p className="terminal-note">
                         {trade.date} · {trade.side} · {trade.quantity} units
@@ -300,19 +307,20 @@ export function TradeJournal() {
                         <details className="mt-2"><summary>Trade notes</summary><p className="mt-1 max-w-xs whitespace-pre-wrap text-muted-foreground">{trade.notes}</p></details>
                       )}
                     </td>
-                    <td>{trade.setup}</td>
+                    <td className="journal-trade-setup"><span className="journal-mobile-label">Setup</span>{trade.setup || 'Not specified'}</td>
                     <td
                       className={
-                        'text-right font-mono ' +
+                        'journal-trade-pnl text-right ' +
                         (profit(trade) >= 0 ? 'text-emerald-300' : 'text-rose-300')
                       }
                     >
-                      {money(profit(trade), currency)}
+                      <span className="journal-mobile-label">Net P/L</span>
+                      <span aria-hidden>{profit(trade) > 0 ? '↗ ' : profit(trade) < 0 ? '↘ ' : '→ '}</span>{money(profit(trade), currency)}
                     </td>
-                    <td className="text-right">
+                    <td className="journal-trade-actions text-right">
                       <button
                         aria-label={'Edit ' + trade.symbol + ' trade'}
-                        className="text-cyan-200"
+                        className="terminal-button"
                         onClick={() => {
                           setEditing(trade.id);
                           setSymbol(trade.symbol);
@@ -464,6 +472,10 @@ export function TradeJournal() {
               onChange={(event) => setNotes(event.target.value)}
             />
           </label>
+          {draftPnl !== null && Number.isFinite(draftPnl) && <div className="journal-editor-preview" aria-live="polite">
+            <p>P/L after entered fees</p><strong>{money(draftPnl, currency)}</strong>
+            <span>{draftNumbers[2].toLocaleString()} units · {side === 'long' ? 'Long' : 'Short'} · Fees {money(draftNumbers[3], currency)}</span>
+          </div>}
           <button className="terminal-button primary w-full" disabled={!ready || !!error}>
             {editing ? 'Update trade' : 'Save trade'}
           </button>

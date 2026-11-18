@@ -91,21 +91,24 @@ const HIGHER_WORSE_METRICS = new Set<keyof CountryMetrics>([
 ]);
 
 function formatDate(value: string): string {
+  if (!value) return 'Not reported';
   const parsed = new Date(`${value}T00:00:00.000Z`);
   if (Number.isNaN(parsed.getTime())) return value;
   return new Intl.DateTimeFormat(undefined, {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
+    timeZone: 'UTC',
   }).format(parsed);
 }
 
 function toFiniteNumber(value: unknown): number | null {
-  const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+  const numeric = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
   return Number.isFinite(numeric) ? numeric : null;
 }
 
 function formatMetricValue(metric: MetricValue): string {
+  if (!Number.isFinite(metric.value)) return '—';
   const absFormatter = new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -134,6 +137,7 @@ function heatToneForMetric(
   min: number,
   max: number,
 ): { backgroundColor: string; valueClass: string } {
+  if (!Number.isFinite(value)) return {backgroundColor: 'transparent', valueClass: 'text-muted-foreground'};
   const span = max - min;
   const t = span === 0 ? 0.5 : clamp01((value - min) / span);
 
@@ -172,34 +176,21 @@ function normalizePayload(payload: unknown): EconomicIndicatorsPayload | null {
 
   const maybeModern = payload as EconomicIndicatorsPayload;
   if (Array.isArray(maybeModern.countries) && maybeModern.countries.length > 0) {
-    const allHaveGdp = maybeModern.countries.every((country: any) =>
-      Number.isFinite(
-        typeof country?.metrics?.gdp?.value === 'number'
-          ? country.metrics.gdp.value
-          : Number(country?.metrics?.gdp?.value),
-      ),
-    );
-    if (allHaveGdp) return maybeModern;
-
     return {
       ...maybeModern,
-      countries: maybeModern.countries.map((country: any) => {
-        const fallbackDate =
-          country?.metrics?.interestRate?.date ??
-          country?.metrics?.inflationYoY?.date ??
-          new Date().toISOString().slice(0, 10);
+      countries: maybeModern.countries.filter(country => country && typeof country.code === 'string' && typeof country.name === 'string').map((country) => {
         return {
           ...country,
-          metrics: {
-            ...country.metrics,
-            gdp: {
-              label: 'GDP (Current US$)',
-              value: 0,
-              unit: 'usdT',
-              date: fallbackDate,
-              series: [],
-            },
-          },
+          metrics: Object.fromEntries(METRIC_COLUMNS.map(column => {
+            const metric = country.metrics?.[column.key];
+            return [column.key, {
+              label: typeof metric?.label === 'string' ? metric.label : column.shortLabel,
+              value: toFiniteNumber(metric?.value) ?? NaN,
+              unit: ['%', 'pp', 'index', 'usdT'].includes(metric?.unit) ? metric.unit : column.key === 'gdp' ? 'usdT' : '%',
+              date: typeof metric?.date === 'string' ? metric.date : '',
+              series: Array.isArray(metric?.series) ? metric.series.filter(value => typeof value === 'string') : [],
+            }];
+          })) as CountryMetrics,
         };
       }),
     };
@@ -223,7 +214,7 @@ function normalizePayload(payload: unknown): EconomicIndicatorsPayload | null {
 
   const gdpRawValue = toFiniteNumber(gdpMetric?.value);
   const gdpValue =
-    gdpRawValue === null ? 0 : gdpRawValue > 1_000_000 ? gdpRawValue / 1_000_000_000_000 : gdpRawValue;
+    gdpRawValue === null ? NaN : gdpRawValue > 1_000_000 ? gdpRawValue / 1_000_000_000_000 : gdpRawValue;
   const interestValue = toFiniteNumber(interestRate.value);
   const inflationValue = toFiniteNumber(inflationYoY.value);
   const unemploymentValue = toFiniteNumber(unemploymentRate.value);
@@ -247,7 +238,7 @@ function normalizePayload(payload: unknown): EconomicIndicatorsPayload | null {
   }
 
   return {
-    fetchedAt: legacy.fetchedAt ?? new Date().toISOString(),
+    fetchedAt: legacy.fetchedAt ?? '',
     source: 'FRED',
     stale: legacy.stale,
     error: legacy.error,
@@ -314,7 +305,7 @@ function normalizePayload(payload: unknown): EconomicIndicatorsPayload | null {
           },
           unemploymentChange12m: {
             label: 'Unemployment Change (12M)',
-            value: 0,
+            value: NaN,
             unit: 'pp',
             date: unemploymentRate.date,
             series: [],
@@ -337,6 +328,10 @@ export default function EconomicIndicators() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [countryCode, setCountryCode] = useState('');
+  const [sortBy, setSortBy] = useState<keyof CountryMetrics>('gdp');
+  const [ascending, setAscending] = useState(false);
 
   const fetchIndicators = useCallback(async (options?: { silent?: boolean }) => {
     const silent = Boolean(options?.silent);
@@ -352,7 +347,7 @@ export default function EconomicIndicators() {
 
       for (const endpoint of [LIVE_ENDPOINT, SNAPSHOT_ENDPOINT]) {
         try {
-          const response = await fetch(endpoint, { cache: 'no-store' });
+          const response = await fetch(endpoint, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
           if (!response.ok) {
             throw new Error(`Failed to load macro data (${response.status})`);
           }
@@ -394,19 +389,25 @@ export default function EconomicIndicators() {
   useEffect(() => {
     fetchIndicators();
     const timer = window.setInterval(() => {
-      fetchIndicators({ silent: true });
+      if (document.visibilityState === 'visible') fetchIndicators({ silent: true });
     }, REFRESH_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [fetchIndicators]);
 
   const matrixRows = useMemo(() => {
     if (!data) return [];
-    return [...data.countries].sort((a, b) => {
-      const byGdp = b.metrics.gdp.value - a.metrics.gdp.value;
-      if (byGdp !== 0) return byGdp;
+    const term = query.trim().toLowerCase();
+    return data.countries.filter(country => (country.name + ' ' + country.code).toLowerCase().includes(term)).sort((a, b) => {
+      const left = a.metrics[sortBy].value;
+      const right = b.metrics[sortBy].value;
+      if (!Number.isFinite(left)) return Number.isFinite(right) ? 1 : a.name.localeCompare(b.name);
+      if (!Number.isFinite(right)) return -1;
+      const difference = ascending ? left - right : right - left;
+      if (difference !== 0) return difference;
       return a.name.localeCompare(b.name);
     });
-  }, [data]);
+  }, [data, query, sortBy, ascending]);
+  const country = matrixRows.find(row => row.code === countryCode) ?? matrixRows[0];
 
   const metricRanges = useMemo(() => {
     const ranges: Record<keyof CountryMetrics, { min: number; max: number }> = {
@@ -423,7 +424,7 @@ export default function EconomicIndicators() {
     };
 
     METRIC_COLUMNS.forEach(({ key }) => {
-      const values = matrixRows
+      const values = (data?.countries ?? [])
         .map((row) => row.metrics[key].value)
         .filter((value) => Number.isFinite(value));
       if (values.length === 0) return;
@@ -431,7 +432,7 @@ export default function EconomicIndicators() {
     });
 
     return ranges;
-  }, [matrixRows]);
+  }, [data]);
 
   const columnLabels = useMemo(() => {
     if (!data || data.countries.length === 0) return null;
@@ -468,16 +469,41 @@ export default function EconomicIndicators() {
             </div>
           ) : null}
 
-          <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
+          <div className="macro-controls">
+            <label className="terminal-label">Find country<input type="search" className="terminal-input" value={query} placeholder="Country or code"
+              onChange={event => setQuery(event.target.value)} /></label>
+            <label className="terminal-label">Compare by<select className="terminal-input" value={sortBy} onChange={event => setSortBy(event.target.value as keyof CountryMetrics)}>
+              {columnLabels.map(column => <option key={column.key} value={column.key}>{column.fullLabel}</option>)}</select></label>
+            <button type="button" className="terminal-button" onClick={() => setAscending(value => !value)}
+              aria-label={ascending ? 'Sort descending' : 'Sort ascending'}>{ascending ? '↑ Lowest first' : '↓ Highest first'}</button>
+          </div>
+          <p className="terminal-note mt-3" role="status">{matrixRows.length} countries{!matrixRows.length && ' · No matches'}</p>
+          {country && <section className="macro-country-mobile md:hidden" aria-label="Country indicators">
+            <label className="terminal-label">Country<select className="terminal-input" value={country.code}
+              onChange={event => setCountryCode(event.target.value)}>
+              {matrixRows.map(row => <option key={row.code} value={row.code}>{row.name}</option>)}
+            </select></label>
+            <dl>{columnLabels.map(column => {
+              const metric = country.metrics[column.key];
+              return <div key={column.key}><dt>{metric.label}</dt><dd>{formatMetricValue(metric)}</dd>
+                <details><summary>{Number.isFinite(metric.value) ? 'As of ' + formatDate(metric.date) : 'Data unavailable'}</summary>
+                  {metric.series.length ? metric.series.map(series => <a href={'https://fred.stlouisfed.org/series/' + encodeURIComponent(series)}
+                    key={series} target="_blank" rel="noopener noreferrer">{series} ↗</a>) : <p>Source series not provided.</p>}
+                </details></div>;
+            })}</dl>
+          </section>}
+          <div className="macro-matrix hidden md:block mt-4 overflow-x-auto rounded-xl border border-border bg-card">
             <table className="min-w-[980px] w-full border-collapse text-xs">
+              <caption className="sr-only">Economic indicators by country. Observation dates vary by metric; missing values are shown as a dash.</caption>
               <thead>
                 <tr className="border-b border-border/80 bg-muted/25">
-                  <th className="sticky left-0 z-10 w-[104px] min-w-[104px] max-w-[104px] sm:w-[128px] sm:min-w-[128px] sm:max-w-[128px] border-r border-border/80 bg-card px-2 py-2 text-left font-semibold text-foreground">
+                  <th scope="col" className="sticky left-0 z-10 w-[104px] min-w-[104px] max-w-[104px] sm:w-[128px] sm:min-w-[128px] sm:max-w-[128px] border-r border-border/80 bg-card px-2 py-2 text-left font-semibold text-foreground">
                     Country
                   </th>
                   {columnLabels.map((column) => (
                     <th
                       key={column.key}
+                      scope="col"
                       className="min-w-[90px] border-r border-border/60 px-2 py-2 text-center font-semibold text-foreground"
                       title={column.fullLabel}
                     >
@@ -531,13 +557,13 @@ export default function EconomicIndicators() {
           <div className="mt-3 flex items-start justify-between gap-3 text-[11px] text-muted-foreground">
             <p>
               Source: Federal Reserve Economic Data (FRED). Last fetched{' '}
-              {new Intl.DateTimeFormat(undefined, {
+              {Number.isFinite(Date.parse(data.fetchedAt)) ? new Intl.DateTimeFormat(undefined, {
                 year: 'numeric',
                 month: 'short',
                 day: '2-digit',
                 hour: '2-digit',
                 minute: '2-digit',
-              }).format(new Date(data.fetchedAt))}
+              }).format(new Date(data.fetchedAt)) : 'Unavailable'}
               .
             </p>
             <div className="hidden items-center gap-2 sm:flex">

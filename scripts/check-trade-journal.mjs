@@ -3,7 +3,7 @@ import puppeteer from 'puppeteer';
 
 const browser = await puppeteer.launch();
 try {
-  for (const width of [390, 1440]) {
+  for (const width of [320, 390, 1440]) {
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
     await page.setViewport({width, height: 900});
@@ -23,8 +23,15 @@ try {
     assert.match(await page.$eval('.terminal-metrics', node => node.textContent), /18/);
     await page.click('[aria-label="Edit AAA trade"]');
     assert.equal(await page.$eval('#journal-symbol', node => node.value), 'AAA');
+    await page.waitForSelector('.journal-editor-preview');
+    assert.match(await page.$eval('.journal-editor-preview', node => node.textContent), /18/);
+    if (width < 700) {
+      assert.equal(await page.$eval('.journal-trades tbody tr', node => getComputedStyle(node).display), 'grid');
+      assert.equal(await page.$eval('.journal-trades', node => node.scrollWidth > node.clientWidth + 1), false);
+    }
     await page.click('.journal-selection button');
     await page.waitForFunction(() => document.querySelector('.journal-selection')?.textContent.includes('2 matching'));
+    await (await page.$('.journal-trades')).screenshot({path: '/tmp/journal-list-' + width + '.png'});
     assert.equal(await page.$eval('main', node => node.scrollWidth > node.clientWidth + 1), false);
     await context.close();
     console.log(width + 'px: journal selection, currency isolation, metrics and editing passed');

@@ -6,6 +6,7 @@
 - `styles/tools.css` owns reusable tool surfaces, forms, results and responsive tool styling. It loads after product.css, preserving the original cascade.
 - `ToolSegmented` provides one accessible selection primitive for tax inputs and preferences. Use named groups and `aria-pressed` rather than styling-only active states.
 - `DataFreshness` displays the full observation date and time. Source, frequency and delay details are expandable. Stale and estimated states remain visible.
+- Compact density reduces tool padding, grid gaps and row spacing rather than shrinking financial typography. Touch controls keep a 44px minimum height. `check-display-density.mjs` verifies geometry and saved preference restoration.
 
 ## Portfolio data failures
 
