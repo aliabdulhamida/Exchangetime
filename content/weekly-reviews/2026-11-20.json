@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "language": "en",
+  "weekStarting": "2026-11-16",
+  "weekEnding": "2026-11-20",
+  "publishedAt": "2026-11-21T13:11:48Z",
+  "title": "Market Week, November 16–20: US Indices End Sharply Lower",
+  "cover": {
+    "src": "/images/weekly/2026-11-20.png",
+    "alt": "Symbolic illustration of a red descending market line over a dark blue grid with silver columns",
+    "credit": "AI-generated symbolic illustration created for Exchange Time. It depicts market volatility conceptually and is not a photograph or a record of an actual event."
+  },
+  "summary": "US equity benchmarks finished sharply lower in the week ended November 20. This review records the reported index closes, October retail-sales estimate and NVIDIA’s quarterly results, then notes the Thanksgiving-shortened US trading week ahead.",
+  "sourceIds": ["ap-markets", "census-retail", "nvidia-q3", "nyse-hours"],
+  "markets": [
+    {
+      "name": "S&P 500",
+      "symbol": "^GSPC",
+      "previousClose": 7561.67,
+      "previousDate": "2026-11-13",
+      "close": 6910.39,
+      "closeDate": "2026-11-20",
+      "sourceId": "ap-markets"
+    },
+    {
+      "name": "Dow Jones Industrial Average",
+      "symbol": "^DJI",
+      "previousClose": 52347.55,
+      "previousDate": "2026-11-13",
+      "close": 48147.33,
+      "closeDate": "2026-11-20",
+      "sourceId": "ap-markets"
+    },
+    {
+      "name": "Nasdaq Composite",
+      "symbol": "^IXIC",
+      "previousClose": 25136.27,
+      "previousDate": "2026-11-13",
+      "close": 22617.73,
+      "closeDate": "2026-11-20",
+      "sourceId": "ap-markets"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "Week-end index comparison",
+      "paragraphs": [
+        {
+          "text": "The S&P 500 closed at 6,910.39 on November 20, down 651.28 points for the week; the Dow closed at 48,147.33, down 4,200.22 points; and the Nasdaq Composite closed at 22,617.73, down 2,518.54 points. The November 13 comparison levels in the market table are calculated by subtracting those reported weekly point changes from the November 20 closes. This is a price-index comparison and does not include dividends, currency conversion or total return.",
+          "sourceIds": ["ap-markets"]
+        },
+        {
+          "text": "AP described the Friday decline as a sell-off in artificial-intelligence stocks and reported that the S&P 500 fell 3.7% that day, the Nasdaq Composite 5.3%, and the Dow 1.9%. The source’s explanation is reported attribution, not proof that any single theme caused the whole week’s result.",
+          "sourceIds": ["ap-markets"]
+        }
+      ]
+    },
+    {
+      "heading": "Retail sales and company reporting",
+      "paragraphs": [
+        {
+          "text": "The Census Bureau’s advance estimate put October US retail and food-services sales at $748.2 billion, up 0.2% from September and 6.8% from October 2025, after seasonal, holiday and trading-day adjustment but not adjustment for price changes. The agency noted that the 90% confidence interval for the monthly change includes zero, so it said there was insufficient statistical evidence that the actual monthly change differed from zero.",
+          "sourceIds": ["census-retail"]
+        },
+        {
+          "text": "NVIDIA reported fiscal third-quarter revenue of $115.8 billion for the quarter ended October 25, up 20% from the prior quarter and 103% from a year earlier. It reported Data Center revenue of $107.6 billion and forecast fiscal fourth-quarter revenue of $130.0 billion plus or minus 3%; the forecast is the company’s forward-looking estimate, not a reported result.",
+          "sourceIds": ["nvidia-q3"]
+        }
+      ]
+    },
+    {
+      "heading": "The Thanksgiving-shortened week ahead",
+      "paragraphs": [
+        {
+          "text": "NYSE lists Thursday, November 26, as a Thanksgiving Day market closure in 2026. It also states that its markets will close early at 1:00 p.m. Eastern Time on Friday, November 27, with eligible options closing at 1:15 p.m. Eastern Time. These are confirmed trading-calendar arrangements rather than forecasts or investment signals.",
+          "sourceIds": ["nyse-hours"]
+        }
+      ]
+    },
+    {
+      "heading": "Scope and interpretation",
+      "paragraphs": [
+        {
+          "text": "This review covers three US price indices and selected US macroeconomic and company releases that occurred during November 16–20. It does not claim that the listed releases caused the index moves, does not provide personal investment advice, and does not treat the following week’s calendar as a prediction of market direction.",
+          "sourceIds": ["ap-markets", "census-retail", "nvidia-q3", "nyse-hours"]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "ap-markets",
+      "title": "Associated Press: How major US stock indexes fared Friday, November 20, 2026",
+      "url": "https://apnews.com/article/wall-street-stocks-dow-nasdaq-c10b797a17c2acf37924d834efebe135",
+      "accessedAt": "2026-11-21T13:11:48Z"
+    },
+    {
+      "id": "census-retail",
+      "title": "US Census Bureau: Advance Monthly Sales for Retail and Food Services, October 2026",
+      "url": "https://www.census.gov/retail/sales.html",
+      "accessedAt": "2026-11-21T13:11:48Z"
+    },
+    {
+      "id": "nvidia-q3",
+      "title": "NVIDIA: Financial results for third quarter fiscal 2027",
+      "url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-Third-Quarter-Fiscal-2027/",
+      "accessedAt": "2026-11-21T13:11:48Z"
+    },
+    {
+      "id": "nyse-hours",
+      "title": "NYSE: Holidays and trading hours for 2026",
+      "url": "https://www.nyse.com/trade/hours-calendars",
+      "accessedAt": "2026-11-21T13:11:48Z"
+    }
+  ]
+}
