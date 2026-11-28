@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "language": "en",
+  "weekStarting": "2026-11-23",
+  "weekEnding": "2026-11-27",
+  "publishedAt": "2026-11-28T13:30:00Z",
+  "title": "Market Week, November 23–27: US Benchmarks Rebound After a Volatile Start",
+  "cover": {
+    "src": "/images/weekly/2026-11-27.png",
+    "alt": "Symbolic illustration of a globe surrounded by rising and falling market lines on a dark blue grid",
+    "credit": "AI-generated symbolic illustration created for Exchange Time. It depicts global market volatility conceptually and is not a photograph or a record of an actual event."
+  },
+  "summary": "US equity benchmarks ended higher in the Thanksgiving-shortened week, following sharp moves earlier in the period. This review records verified week-end index comparisons, selected US macroeconomic and company developments, and confirmed US labour-market releases scheduled for the following week.",
+  "sourceIds": ["ap-nov-27", "fed-beige-book", "bea-october", "nvidia-board", "bls-calendar"],
+  "markets": [
+    {
+      "name": "S&P 500",
+      "symbol": "^GSPC",
+      "previousClose": 6910.39,
+      "previousDate": "2026-11-20",
+      "close": 7297.49,
+      "closeDate": "2026-11-27",
+      "sourceId": "ap-nov-27"
+    },
+    {
+      "name": "Dow Jones Industrial Average",
+      "symbol": "^DJI",
+      "previousClose": 48147.33,
+      "previousDate": "2026-11-20",
+      "close": 50774.94,
+      "closeDate": "2026-11-27",
+      "sourceId": "ap-nov-27"
+    },
+    {
+      "name": "Nasdaq Composite",
+      "symbol": "^IXIC",
+      "previousClose": 22617.73,
+      "previousDate": "2026-11-20",
+      "close": 24129.5,
+      "closeDate": "2026-11-27",
+      "sourceId": "ap-nov-27"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "Week-end index comparison",
+      "paragraphs": [
+        {
+          "text": "The S&P 500 closed at 7,297.49 on November 27, 387.10 points above its November 20 close of 6,910.39. The Dow Jones Industrial Average closed at 50,774.94, 2,627.61 points above its prior Friday close, while the Nasdaq Composite finished at 24,129.50, 1,511.77 points above its November 20 level. These are price-index comparisons; they do not represent total returns, dividends or currency conversion.",
+          "sourceIds": ["ap-nov-27"]
+        },
+        {
+          "text": "Associated Press reported that the US market was closed for Thanksgiving on Thursday and that trading was shorter on Friday. It described a strong Monday rally followed by sharp swings on Tuesday and Wednesday. That chronology is factual reporting; this review does not assign a single cause to the week’s index changes.",
+          "sourceIds": ["ap-nov-27"]
+        }
+      ]
+    },
+    {
+      "heading": "Macroeconomic and company developments",
+      "paragraphs": [
+        {
+          "text": "The Federal Reserve’s November Beige Book, released on November 25, said eight of its twelve Districts reported slight-to-moderate growth and four reported no change. Its national summary also said consumer spending was little changed, employment ticked up, and prices rose modestly. The report is qualitative contact-based evidence, not a national statistical estimate or a forecast.",
+          "sourceIds": ["fed-beige-book"]
+        },
+        {
+          "text": "The Bureau of Economic Analysis reported on November 25 that real US GDP increased at a 4.3% annual rate in its second estimate for the third quarter of 2026, revised up 0.9 percentage point from the advance estimate. The same release attributed the revision primarily to upward revisions to investment and consumer spending; it is a revision to a historical quarterly estimate.",
+          "sourceIds": ["bea-october"]
+        },
+        {
+          "text": "NVIDIA announced on November 23 that its board reinstated Jensen Huang as president, chief executive officer and board director. This is an issuer-confirmed governance announcement. It is included as a material company development and does not establish a causal explanation for any individual security or index move.",
+          "sourceIds": ["nvidia-board"]
+        }
+      ]
+    },
+    {
+      "heading": "Confirmed releases for the following week",
+      "paragraphs": [
+        {
+          "text": "The Bureau of Labor Statistics calendar lists the October Job Openings and Labor Turnover Survey for Tuesday, December 1 at 10:00 a.m. Eastern Time, and the Employment Situation for November for Friday, December 4 at 8:30 a.m. Eastern Time. These are scheduled publication times, not forecasts of their contents or market effects.",
+          "sourceIds": ["bls-calendar"]
+        }
+      ]
+    },
+    {
+      "heading": "Scope and interpretation",
+      "paragraphs": [
+        {
+          "text": "This review records three US index closing comparisons and selected official releases published during November 23–27. It does not offer personalised investment advice, predict market direction, or claim that the releases listed here caused the week’s price movements.",
+          "sourceIds": ["ap-nov-27", "fed-beige-book", "bea-october", "nvidia-board", "bls-calendar"]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "ap-nov-27",
+      "title": "Associated Press: How major US stock indexes fared Friday, November 27, 2026",
+      "url": "https://apnews.com/article/wall-street-stocks-dow-nasdaq-04dab6079cf7f3dfe7285a3cc1f240a2",
+      "accessedAt": "2026-11-28T13:30:00Z"
+    },
+    {
+      "id": "fed-beige-book",
+      "title": "Federal Reserve: Beige Book, November 2026 national summary",
+      "url": "https://www.federalreserve.gov/monetarypolicy/beigebook202611-summary.htm",
+      "accessedAt": "2026-11-28T13:30:00Z"
+    },
+    {
+      "id": "bea-october",
+      "title": "US Bureau of Economic Analysis: GDP (Second Estimate) and Corporate Profits, Third Quarter 2026",
+      "url": "https://www.bea.gov/sites/default/files/2026-11/gdp3q26-2nd.pdf",
+      "accessedAt": "2026-11-28T13:30:00Z"
+    },
+    {
+      "id": "nvidia-board",
+      "title": "NVIDIA: Board reinstates Jensen Huang as president, CEO and board director",
+      "url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Board-Reinstates-Jensen-Huang-as-President-CEO-and-Board-Director/",
+      "accessedAt": "2026-11-28T13:30:00Z"
+    },
+    {
+      "id": "bls-calendar",
+      "title": "US Bureau of Labor Statistics: Schedule of selected releases, December 2026",
+      "url": "https://www.bls.gov/schedule/2026/",
+      "accessedAt": "2026-11-28T13:30:00Z"
+    }
+  ]
+}

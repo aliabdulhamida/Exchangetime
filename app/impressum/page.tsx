@@ -4,12 +4,10 @@ import Link from 'next/link';
 import Layout from '@/components/exchangetime/layout';
 import { siteOperator } from '@/lib/site-operator';
 
-export function generateMetadata(): Metadata {
-  return {
-    title: 'Legal notice / Impressum · Exchange Time',
-    robots: { index: siteOperator().complete, follow: true },
-  };
-}
+export const metadata: Metadata = {
+  title: 'Legal notice / Impressum · Exchange Time',
+  robots: { index: true, follow: true },
+};
 export default function Imprint() {
   const operator = siteOperator();
   return (

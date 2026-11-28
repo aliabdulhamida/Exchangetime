@@ -6,7 +6,7 @@ import { siteOperator } from '@/lib/site-operator';
 
 export const metadata: Metadata = {
   title: 'Privacy policy · Exchange Time',
-  robots: { index: false, follow: true },
+  robots: { index: true, follow: true },
 };
 export default function PrivacyPolicyPage() {
   const operator = siteOperator();
